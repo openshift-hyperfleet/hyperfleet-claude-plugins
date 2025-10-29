@@ -1,0 +1,9 @@
+{
+  "name": "hyperfleet-architecture",
+  "version": "0.1.0",
+  "description": "Provides HyperFleet architecture knowledge for answering questions about design patterns, versioning strategies, and core principles",
+  "author": {
+    "name": "Alex Vulaj",
+    "email": "avulaj@redhat.com"
+  }
+}
