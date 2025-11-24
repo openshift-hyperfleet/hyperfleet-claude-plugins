@@ -1,0 +1,14 @@
+{
+  "name": "hyperfleet-jira",
+  "version": "0.1.0",
+  "description": "JIRA integration for HyperFleet team - sprint management, task tracking, ticket hygiene, and story point estimation",
+  "author": {
+    "name": "HyperFleet Team",
+    "email": "hyperfleet@redhat.com"
+  },
+  "keywords": ["jira", "sprint", "agile", "story-points", "project-management"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openshift-hyperfleet/hyperfleet-claude-plugins"
+  }
+}

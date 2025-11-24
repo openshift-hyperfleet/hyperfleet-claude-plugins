@@ -9,6 +9,11 @@
       "name": "hyperfleet-architecture",
       "source": "./hyperfleet-architecture",
       "description": "Provides HyperFleet architecture knowledge for answering questions about design patterns, versioning strategies, and core principles"
+    },
+    {
+      "name": "hyperfleet-jira",
+      "source": "./hyperfleet-jira",
+      "description": "JIRA integration for sprint management, task tracking, ticket hygiene audits, and story point estimation using jira-cli"
     }
   ]
 }
