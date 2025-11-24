@@ -11,12 +11,12 @@ Find JIRA tickets with recent comments that the user should be aware of.
 
 1. **Find tickets you're involved with that have recent comments:**
    ```bash
-   jira issue list -q"(assignee = currentUser() OR reporter = currentUser() OR watcher = currentUser()) AND updated >= -1d AND comment ~ '*'" --order-by updated --reverse --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND (assignee = currentUser() OR reporter = currentUser() OR watcher = currentUser()) AND updated >= -1d" --order-by updated --reverse --plain 2>/dev/null
    ```
 
 2. **Alternative - find recently updated tickets you're assigned to:**
    ```bash
-   jira issue list -a$(jira me) --updated-after "-1d" --order-by updated --reverse --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND assignee = currentUser()" --updated-after "-1d" --order-by updated --reverse --plain 2>/dev/null
    ```
 
 3. **View specific ticket to see comments (for each relevant ticket):**

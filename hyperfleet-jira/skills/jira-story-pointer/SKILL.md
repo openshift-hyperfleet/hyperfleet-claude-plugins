@@ -63,11 +63,11 @@ jira issue view TICKET-KEY --plain 2>/dev/null
 Search for comparable completed tickets:
 
 ```bash
-jira issue list -s"Done" -t"Story" --plain 2>/dev/null | head -20
+jira issue list -q"project = HYPERFLEET AND status = Done AND type = Story" --plain 2>/dev/null | head -20
 ```
 
 ```bash
-jira issue list -q"status = Done AND 'Story Points' is not EMPTY AND type = Story" --plain 2>/dev/null | head -20
+jira issue list -q"project = HYPERFLEET AND status = Done AND 'Story Points' is not EMPTY AND type = Story" --plain 2>/dev/null | head -20
 ```
 
 ### Step 4: Provide Estimation

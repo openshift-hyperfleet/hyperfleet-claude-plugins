@@ -11,17 +11,17 @@ Show the current sprint information and the user's assigned tickets.
 
 1. **Get current sprint overview:**
    ```bash
-   jira sprint list --current --plain 2>/dev/null || echo "Error: Could not fetch sprint. Is jira-cli configured?"
+   jira sprint list --current -p HYPERFLEET --plain 2>/dev/null || echo "Error: Could not fetch sprint. Is jira-cli configured?"
    ```
 
 2. **Get user's assigned tickets in current sprint:**
    ```bash
-   jira sprint list --current -a$(jira me) --plain 2>/dev/null
+   jira sprint list --current -p HYPERFLEET -a$(jira me) --plain 2>/dev/null
    ```
 
 3. **Get ticket status breakdown:**
    ```bash
-   jira issue list -a$(jira me) --created-after "-30d" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND assignee = currentUser()" --created-after "-30d" --plain 2>/dev/null
    ```
 
 ## Output Format

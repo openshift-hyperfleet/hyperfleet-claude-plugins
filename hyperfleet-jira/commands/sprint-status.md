@@ -9,44 +9,44 @@ argument-hint: [project-key]
 Comprehensive sprint health report for team leads and scrum masters.
 
 ## Arguments
-- `$1` (optional): Project key (e.g., HF, HYPER). If not provided, uses default project.
+- `$1` (optional): Project key (e.g., HYPERFLEET). If not provided, uses HYPERFLEET as default.
 
 ## Instructions
 
 1. **Get current sprint info:**
    ```bash
-   jira sprint list --current --plain 2>/dev/null
+   jira sprint list --current -p HYPERFLEET --plain 2>/dev/null
    ```
 
 2. **Get all tickets in current sprint:**
    ```bash
-   jira sprint list --current --plain 2>/dev/null
+   jira sprint list --current -p HYPERFLEET --plain 2>/dev/null
    ```
 
 3. **Get tickets by status - To Do:**
    ```bash
-   jira issue list -s"To Do" --created-after "-30d" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND status = 'To Do'" --created-after "-30d" --plain 2>/dev/null
    ```
 
 4. **Get tickets by status - In Progress:**
    ```bash
-   jira issue list -s"In Progress" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND status = 'In Progress'" --plain 2>/dev/null
    ```
 
 5. **Get tickets by status - Done (this sprint):**
    ```bash
-   jira issue list -s"Done" --updated-after "-14d" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND status = Done" --updated-after "-14d" --plain 2>/dev/null
    ```
 
 6. **Find blockers (high priority not done):**
    ```bash
-   jira issue list -yHighest -s~Done --plain 2>/dev/null
-   jira issue list -yHigh -s~Done --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND priority = Highest AND status != Done" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND priority = High AND status != Done" --plain 2>/dev/null
    ```
 
 7. **Find unassigned tickets:**
    ```bash
-   jira issue list -q"assignee is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND assignee is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
    ```
 
 ## Output Format

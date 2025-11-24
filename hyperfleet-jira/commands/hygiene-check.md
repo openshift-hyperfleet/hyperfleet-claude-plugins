@@ -18,37 +18,37 @@ Audit JIRA tickets for missing required fields and quality issues.
 
 1. **Get tickets to audit (current sprint by default):**
    ```bash
-   jira sprint list --current --json 2>/dev/null
+   jira sprint list --current -p HYPERFLEET --json 2>/dev/null
    ```
 
 2. **Find tickets without story points:**
    ```bash
-   jira issue list -q"'Story Points' is EMPTY AND sprint in openSprints() AND issuetype in (Story, Task, Bug)" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND 'Story Points' is EMPTY AND sprint in openSprints() AND issuetype in (Story, Task, Bug)" --plain 2>/dev/null
    ```
 
 3. **Find tickets with minimal description:**
    ```bash
-   jira issue list -q"sprint in openSprints() AND description is EMPTY" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND sprint in openSprints() AND description is EMPTY" --plain 2>/dev/null
    ```
 
 4. **Find unassigned tickets in sprint:**
    ```bash
-   jira issue list -q"assignee is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND assignee is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
    ```
 
 5. **Find tickets without components:**
    ```bash
-   jira issue list -q"component is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND component is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
    ```
 
 6. **Find stale tickets (no updates in 7+ days):**
    ```bash
-   jira issue list -q"sprint in openSprints() AND status != Done AND updated < -7d" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND sprint in openSprints() AND status != Done AND updated < -7d" --plain 2>/dev/null
    ```
 
 7. **Find tickets without labels:**
    ```bash
-   jira issue list -q"labels is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND labels is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
    ```
 
 8. **For detailed ticket inspection, view individual tickets:**

@@ -11,12 +11,12 @@ Show all JIRA tickets currently assigned to the user.
 
 1. **Get all assigned tickets (recent, sorted by updated):**
    ```bash
-   jira issue list -a$(jira me) --order-by updated --reverse --plain 2>/dev/null
+   jira issue list -q"project = HYPERFLEET AND assignee = currentUser()" --order-by updated --reverse --plain 2>/dev/null
    ```
 
 2. **For more detail with JSON output:**
    ```bash
-   jira issue list -a$(jira me) --order-by updated --reverse --json 2>/dev/null | head -100
+   jira issue list -q"project = HYPERFLEET AND assignee = currentUser()" --order-by updated --reverse --json 2>/dev/null | head -100
    ```
 
 ## Output Format
