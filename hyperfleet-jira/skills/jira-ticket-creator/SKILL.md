@@ -5,6 +5,26 @@ description: Creates well-structured JIRA tickets in the HYPERFLEET project with
 
 # JIRA Ticket Creator Skill
 
+## ⚠️ CRITICAL: JIRA Uses Wiki Markup, NOT Markdown!
+
+**YOU MUST USE JIRA WIKI MARKUP SYNTAX - NEVER USE MARKDOWN!**
+
+| Element | ❌ WRONG | ✅ CORRECT |
+|---------|----------|------------|
+| **Header** | `### What` | `h3. What` (space required!) |
+| **Bullets** | `- Item` or `• Item` | `* Item` |
+| **Nested** | `  - Nested` | `** Nested` |
+| **Inline Code** | `` `code` `` | `{{code}}` |
+| **Bold** | `**text**` | `*text*` |
+| **Path Params** | `/api/{id}` | `/api/:id` or `/api/ID` |
+| **Placeholders** | `{customer-id}` | `CUSTOMER_ID` or `:customer_id` |
+
+**If you use Markdown syntax, the ticket will render incorrectly in JIRA!**
+
+See "CRITICAL: JIRA Wiki Markup Formatting" section below for complete reference.
+
+---
+
 ## When to Use This Skill
 
 Activate this skill when the user:
@@ -71,7 +91,22 @@ h3. Why               ✅ Correct
 * Item 1              ✅ Correct
 ** Nested item        ✅ Correct (two asterisks)
 - Item 1              ❌ Wrong (Markdown syntax)
-  - Nested            ❌ Wrong
+• Item 1              ❌ Wrong (Unicode bullet)
+  - Nested            ❌ Wrong (indentation + dash)
+```
+
+**Real Example - HYPERFLEET-255 (WRONG):**
+```
+### Summary        ❌ Markdown header - won't render!
+
+• POST /api/...    ❌ Unicode bullet - won't render!
+```
+
+**Should Have Been:**
+```
+h3. Summary        ✅ JIRA wiki header
+
+* POST /api/...    ✅ JIRA wiki bullet
 ```
 
 ### Inline Code
@@ -104,9 +139,29 @@ package main
 
 ### API Endpoints
 ```
-*POST* /api/v1/clusters/{id}                  ✅ Correct (bold HTTP method)
+*POST* /api/v1/clusters/:id                   ✅ Correct (bold HTTP method, colon notation)
+*GET* /api/v1/clusters/CLUSTER_ID             ✅ Correct (placeholder text)
+*POST* /api/v1/clusters/{id}                  ❌ Wrong - curly braces break rendering!
 {{POST /api/v1/clusters/{id}}}                ❌ Wrong (nested braces break rendering)
 ```
+
+### Curly Braces Warning
+**NEVER use curly braces `{}` in ticket descriptions - they break JIRA rendering!**
+
+```
+wif-{customer-id}-key                         ❌ Wrong - curly braces break rendering!
+{{wif-{customer-id}-key}}                     ❌ Wrong - nested braces also break!
+wif-CUSTOMER_ID-key                           ✅ Correct - use CAPS or other notation
+/api/v1/clusters/{id}                         ❌ Wrong - path parameter braces break!
+/api/v1/clusters/:id                          ✅ Correct - use colon notation
+/api/v1/clusters/CLUSTER_ID                   ✅ Correct - use placeholder text
+```
+
+**Alternatives to curly braces:**
+* Use SCREAMING_CASE: `wif-CUSTOMER_ID-key`
+* Use colon notation: `/api/v1/clusters/:id`
+* Use angle brackets: `wif-<customer-id>-key`
+* Use square brackets: `wif-[customer-id]-key`
 
 ### YAML in Code Blocks
 **NEVER include YAML comments in code blocks!** The `#` character is interpreted as `h1.` header.
@@ -148,9 +203,21 @@ Ask the user clarifying questions if needed:
 
 ### Step 2: Create Description File
 
-**Always create a temporary file with JIRA wiki markup:**
+**⚠️ CRITICAL: Always create a temporary file with JIRA wiki markup (NOT Markdown!):**
 
-**Template for Stories/Tasks:**
+**DO NOT USE:**
+- `### Headers` (Markdown)
+- `- bullets` or `• bullets` (Markdown/Unicode)
+- `` `inline code` `` (Markdown)
+- `**bold**` (Markdown)
+
+**USE ONLY:**
+- `h3. Headers` (JIRA wiki - space required!)
+- `* bullets` (JIRA wiki)
+- `{{inline code}}` (JIRA wiki)
+- `*bold*` (JIRA wiki)
+
+**Template for Stories/Tasks (JIRA Wiki Markup):**
 ```
 h3. What
 
@@ -471,14 +538,30 @@ Please complete these steps in the JIRA web interface:
 ## Common Pitfalls to Avoid
 
 ### ❌ DON'T:
-1. Use Markdown syntax (`**bold**`, `` `code` ``, `- bullets`)
-2. Include code blocks with `{code}...{/code}` via CLI
-3. Put YAML comments (`#`) in code blocks
-4. Forget space after headers: `h3.What` → `h3. What`
-5. Use `--custom` fields via CLI (unreliable for story points, activity type)
-6. Wrap API endpoints with path parameters in `{{}}` (nested braces break)
-7. Use `--body-file` flag (doesn't exist!)
-8. Mix Markdown and JIRA wiki markup
+
+**FORMATTING (Most Common Mistakes!):**
+1. ❌ Use Markdown headers: `### What`, `## Summary`
+2. ❌ Use Markdown/Unicode bullets: `- Item`, `• Item`
+3. ❌ Use Markdown inline code: `` `code` ``
+4. ❌ Use Markdown bold: `**text**`
+5. ❌ Forget space after JIRA headers: `h3.What` (needs `h3. What`)
+
+**TICKET EXAMPLES OF WRONG FORMATTING:**
+- HYPERFLEET-255: Used `### Summary` and `• bullets` - headers didn't render!
+
+**CURLY BRACES (Break JIRA Rendering!):**
+6. ❌ Use curly braces `{}` anywhere - e.g., `{customer-id}`, `/api/{id}` - breaks rendering!
+7. ❌ Use `{{}}` around content with braces - doubly broken!
+
+**OTHER MISTAKES:**
+8. ❌ Include code blocks with `{code}...{/code}` via CLI (renders as empty boxes)
+9. ❌ Put YAML comments (`#`) in code blocks (breaks rendering)
+10. ❌ Use `--custom` fields via CLI (unreliable for story points, activity type)
+11. ❌ Use `--body-file` flag (doesn't exist!)
+12. ❌ Mix Markdown and JIRA wiki markup in same ticket
+
+**TICKET EXAMPLES OF CURLY BRACE ISSUES:**
+- HYPERFLEET-258: Used `{customer-id}` - broke rendering! Fixed with CUSTOMER_ID
 
 ### ✅ DO:
 1. Use JIRA wiki markup consistently
