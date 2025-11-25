@@ -14,6 +14,7 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 - **`/hygiene-check`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
+- **JIRA Ticket Creator** - Creates well-structured tickets with What/Why/Acceptance Criteria
 - **JIRA Hygiene Checker** - Validates ticket quality when you ask about readiness
 - **Story Point Estimator** - Helps estimate tickets using complexity analysis
 
@@ -129,6 +130,18 @@ Checks for:
 - Stale tickets (no updates in 7+ days)
 
 ### Skills (Automatic)
+
+#### Ticket Creation
+Just ask naturally to create tickets:
+- "Create a ticket for [feature/bug/task]"
+- "I need a story for implementing X"
+- "Can you create a JIRA ticket for this work?"
+
+The creator ensures:
+- **What/Why/Acceptance Criteria** structure
+- Story points assignment
+- Activity type categorization
+- All required fields populated
 
 #### Ticket Hygiene
 Just ask naturally:

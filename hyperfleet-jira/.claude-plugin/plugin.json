@@ -1,7 +1,7 @@
 {
   "name": "hyperfleet-jira",
-  "version": "0.1.0",
-  "description": "JIRA integration for HyperFleet team - sprint management, task tracking, ticket hygiene, and story point estimation",
+  "version": "0.3.0",
+  "description": "JIRA integration for HyperFleet team - sprint management, task tracking, ticket creation with proper JIRA wiki markup, hygiene validation, and story point estimation",
   "author": {
     "name": "Ciaran Roche",
     "email": "croche@redhat.com"
