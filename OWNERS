@@ -1,2 +1,33 @@
 approvers:
-  - AlexVulaj
+- "86254860"
+- AlexVulaj
+- aredenba-rh
+- ciaranRoche
+- crizzo71
+- jsell-rh
+- mbrudnoy
+- Mischulee
+- rafabene
+- rh-amarin
+- tirthct
+- vkareh
+- xueli181114
+- yasun1
+- yingzhanredhat
+
+reviewers:
+- "86254860"
+- AlexVulaj
+- aredenba-rh
+- ciaranRoche
+- crizzo71
+- jsell-rh
+- mbrudnoy
+- Mischulee
+- rafabene
+- rh-amarin
+- tirthct
+- vkareh
+- xueli181114
+- yasun1
+- yingzhanredhat
