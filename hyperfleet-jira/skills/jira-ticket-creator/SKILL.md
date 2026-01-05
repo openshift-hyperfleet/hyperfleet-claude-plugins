@@ -59,16 +59,24 @@ All Stories, Tasks, and Bugs must have story points:
 - Use scale: 0, 1, 3, 5, 8, 13
 - Follow the team's estimation guide (see Story Points section)
 
-### 5. **Activity Type** (Required for Stories/Tasks/Bugs)
-Must set activity type for capacity planning. Valid types:
-- `Associate Wellness & Development`
-- `Incidents & Support`
-- `Security & Compliance`
-- `Quality / Stability / Reliability`
-- `Future Sustainability`
-- `Product / Portfolio Work`
+### 5. **Priority** (Required)
+Set priority via CLI using `-y` or `--priority`:
+- `Blocker` - Blocks development/testing, must be fixed immediately
+- `Critical` - Crashes, data loss, severe memory leak
+- `Major` - Major loss of function
+- `Normal` - Default priority for most work
+- `Minor` - Minor loss of function, easy workaround
 
-### 6. Optional Context
+### 6. **Activity Type** (Required for Stories/Tasks/Bugs)
+Set activity type via CLI using `--custom activity-type="<value>"`. Valid types:
+- `Associate Wellness & Development` - Training, onboarding, team growth
+- `Incidents & Support` - Customer escalations, production issues
+- `Security & Compliance` - CVEs, security patches, compliance
+- `Quality / Stability / Reliability` - Bugs, tech debt, toil reduction, SLOs
+- `Future Sustainability` - Tooling, automation, architecture improvements
+- `Product / Portfolio Work` - New features, strategic product work
+
+### 7. Optional Context
 Additional sections can be added as needed:
 - **Technical Notes**: High-level implementation plan
 - **Dependencies**: Linked tickets or external dependencies
@@ -291,16 +299,16 @@ h3. Success Criteria
 
 ### Step 3: Determine Story Points
 
-Use the estimation scale:
+Use the estimation scale (from jira-story-pointer):
 
-| Points | Meaning | Typical Scope |
-|--------|---------|---------------|
-| **0** | Tracking Only | Quick/easy task, negligible effort |
-| **1** | Trivial | One-line change, extremely simple |
-| **3** | Straightforward | Time consuming but straightforward |
-| **5** | Medium | Requires investigation, design, collaboration |
-| **8** | Large | Big task, investigation & design required, needs design doc |
-| **13** | Too Large | MUST be broken down into smaller stories |
+| Points | Meaning | Typical Scope | Notes |
+|--------|---------|---------------|-------|
+| **0** | Tracking Only | Quick/easy task with stakeholder value | Rarely used. For tasks worth tracking but with negligible effort compared to a 1-pointer |
+| **1** | Trivial | One-line change, extremely simple task | The smallest issue possible - everything scales from here. No risk, very low effort, very low complexity |
+| **3** | Straightforward | Time consuming but fairly straightforward work | Doesn't have to be complex, but usually time consuming. Minor risks possible |
+| **5** | Medium | Requires investigation, design, collaboration | Probably needs discussion with others. Can be quite time consuming or complex. Risks involved |
+| **8** | Large | Big task requiring investigation and design | Requires collaboration with others. Solution can be quite challenging. Risks are expected. **Design doc required** |
+| **13** | Too Large | Should be split into smaller stories | Ideally, this shouldn't be used. If you see an issue this big, it must be broken down |
 
 Consider:
 - Scope (lines of code, files affected, integration points)
@@ -354,15 +362,16 @@ h3. Technical Notes:
 * Configuration in {{/path/to/config}}
 EOF
 
-# 2. Create story (NOTE: Do NOT use --custom for story points via CLI - set via web UI)
+# 2. Create story with story points, priority, and activity type
 jira issue create --project HYPERFLEET --type Story \
   --summary "Story Title (< 100 chars)" \
+  --custom story-points=5 \
+  --custom activity-type="Product / Portfolio Work" \
+  --priority Normal \
   --no-input \
   -b "$(cat /tmp/story-description.txt)"
 
 # 3. Note the ticket number from output (e.g., HYPERFLEET-123)
-
-# 4. Set story points via web UI (jira-cli custom fields can be unreliable)
 ```
 
 #### Creating a Task
@@ -386,6 +395,9 @@ EOF
 
 jira issue create --project HYPERFLEET --type Task \
   --summary "Task Title" \
+  --custom story-points=3 \
+  --custom activity-type="Future Sustainability" \
+  --priority Normal \
   --no-input \
   -b "$(cat /tmp/task-description.txt)"
 ```
@@ -450,33 +462,30 @@ EOF
 
 jira issue create --project HYPERFLEET --type Bug \
   --summary "Bug: Brief Description" \
+  --custom story-points=5 \
+  --custom activity-type="Quality / Stability / Reliability" \
+  --priority Major \
   --no-input \
   -b "$(cat /tmp/bug-description.txt)"
 ```
 
 ### Step 6: Post-Creation Manual Steps
 
-After creating a ticket via CLI, these must be done manually via web UI:
+After creating a ticket via CLI, these may need to be done manually via web UI:
 
-1. **Set Story Points**
-   - Edit ticket → Story Points field
-   - Custom fields via CLI are unreliable
-
-2. **Set Activity Type**
-   - Edit ticket → Activity Type field
-   - Select from dropdown
-
-3. **Link to Epic** (for Stories)
+1. **Link to Epic** (for Stories)
    - Edit ticket → Link → "is child of" → Epic ticket
 
-4. **Add Labels**
+2. **Add Labels**
    - Edit ticket → Labels field
    - Add relevant tags
 
-5. **Add Code Examples** (if needed)
+3. **Add Code Examples** (if needed)
    - Edit description via web UI
    - Add `{code:language}...{/code}` blocks
    - Code blocks don't render properly via CLI
+
+Note: Story points, priority, and activity type can all be set via CLI.
 
 ### Step 7: Verify and Return Details
 
@@ -520,19 +529,21 @@ When creating a ticket, provide this output to the user:
 * Criterion 2
 * Criterion 3
 
+**Story Points:** [X points - set via CLI]
+**Priority:** [Priority - set via CLI]
+**Activity Type:** [Activity type - set via CLI]
+
 ---
 
 #### Manual Steps Required (⚠️ Must be done via Web UI)
 
 Please complete these steps in the JIRA web interface:
 
-1. **Set Story Points**: [Recommended: X points based on complexity]
-2. **Set Activity Type**: [Recommended: {activity type}]
-3. **Link to Epic**: [If applicable: Link to HYPERFLEET-XXX]
-4. **Add Labels**: [Suggested: label1, label2]
-5. **Add Code Examples**: [If needed: Add via web UI description editor]
+1. **Link to Epic**: [If applicable: Link to HYPERFLEET-XXX]
+2. **Add Labels**: [Suggested: label1, label2]
+3. **Add Code Examples**: [If needed: Add via web UI description editor]
 
-**Why manual?** Custom fields and code blocks don't render reliably via jira-cli.
+**Why manual?** Epic links and code blocks don't render reliably via jira-cli.
 ```
 
 ## Common Pitfalls to Avoid
@@ -556,9 +567,8 @@ Please complete these steps in the JIRA web interface:
 **OTHER MISTAKES:**
 8. ❌ Include code blocks with `{code}...{/code}` via CLI (renders as empty boxes)
 9. ❌ Put YAML comments (`#`) in code blocks (breaks rendering)
-10. ❌ Use `--custom` fields via CLI (unreliable for story points, activity type)
-11. ❌ Use `--body-file` flag (doesn't exist!)
-12. ❌ Mix Markdown and JIRA wiki markup in same ticket
+10. ❌ Use `--body-file` flag (doesn't exist!)
+11. ❌ Mix Markdown and JIRA wiki markup in same ticket
 
 **TICKET EXAMPLES OF CURLY BRACE ISSUES:**
 - HYPERFLEET-258: Used `{customer-id}` - broke rendering! Fixed with CUSTOMER_ID
@@ -568,10 +578,12 @@ Please complete these steps in the JIRA web interface:
 2. Save descriptions to temporary files: `-b "$(cat /tmp/file.txt)"`
 3. Test with ONE ticket before creating multiple
 4. Use `--no-input` for non-interactive creation
-5. Set custom fields via web UI after creation
-6. Add code examples via web UI
-7. Use bold for HTTP methods: `*POST* /api/path`
-8. Use inline code for paths: `{{/path/to/file}}`
+5. Set story points via CLI: `--custom story-points=X`
+6. Set priority via CLI: `--priority Normal`
+7. Set activity type via CLI: `--custom activity-type="Product / Portfolio Work"`
+8. Add code examples via web UI
+9. Use bold for HTTP methods: `*POST* /api/path`
+10. Use inline code for paths: `{{/path/to/file}}`
 
 ## Troubleshooting
 
@@ -599,9 +611,16 @@ Error: customfield_12311141: Epic Name is required.
 
 **Solution:** Use `*` not `-`, and `**` for nested (not indentation)
 
-### Issue: Custom Fields Won't Set
+### Issue: Story Points Not Setting
 
-**Solution:** Set story points and activity type via web UI. The jira-cli custom field handling is unreliable.
+**Solution:** Use the exact syntax `--custom story-points=X` where X is 0, 1, 3, 5, 8, or 13. Example:
+```bash
+jira issue create --project HYPERFLEET --type Story \
+  --summary "Title" --custom story-points=5 --no-input \
+  -b "$(cat /tmp/desc.txt)"
+```
+
+Note: Activity type must still be set via web UI.
 
 ## Best Practices
 
@@ -668,7 +687,11 @@ h3. Acceptance Criteria:
 EOF
 
 jira issue create --project HYPERFLEET --type Story \
-  --summary "Title" --no-input \
+  --summary "Title" \
+  --custom story-points=5 \
+  --custom activity-type="Product / Portfolio Work" \
+  --priority Normal \
+  --no-input \
   -b "$(cat /tmp/desc.txt)"
 ```
 
@@ -681,16 +704,43 @@ jira issue create --project HYPERFLEET --type Epic \
   --no-input
 ```
 
+**Story Points via CLI:**
+| Points | When to Use |
+|--------|-------------|
+| `--custom story-points=0` | Tracking only, negligible effort |
+| `--custom story-points=1` | Trivial, one-line change |
+| `--custom story-points=3` | Straightforward, time consuming |
+| `--custom story-points=5` | Medium, needs investigation/collaboration |
+| `--custom story-points=8` | Large, design doc required |
+| `--custom story-points=13` | Too large - break it down! |
+
+**Priority via CLI:**
+| Priority | When to Use |
+|----------|-------------|
+| `--priority Blocker` | Blocks development/testing, fix immediately |
+| `--priority Critical` | Crashes, data loss, severe memory leak |
+| `--priority Major` | Major loss of function |
+| `--priority Normal` | Default for most work |
+| `--priority Minor` | Minor loss of function, easy workaround |
+
+**Activity Type via CLI:**
+| Activity Type | When to Use |
+|---------------|-------------|
+| `--custom activity-type="Associate Wellness & Development"` | Training, onboarding, team growth |
+| `--custom activity-type="Incidents & Support"` | Customer escalations, production issues |
+| `--custom activity-type="Security & Compliance"` | CVEs, security patches, compliance |
+| `--custom activity-type="Quality / Stability / Reliability"` | Bugs, tech debt, toil reduction |
+| `--custom activity-type="Future Sustainability"` | Tooling, automation, architecture |
+| `--custom activity-type="Product / Portfolio Work"` | New features, strategic product work |
+
 **Manual Steps (Web UI):**
-1. Story Points
-2. Activity Type
-3. Link to Epic
-4. Labels
-5. Code examples
+1. Link to Epic
+2. Labels
+3. Code examples
 
 **Formatting:**
 - Headers: `h3. Text` (space!)
 - Bullets: `*` and `**`
 - Inline code: `{{code}}`
 - Bold: `*text*`
-- API endpoints: `*POST* /api/path/{id}`
+- API endpoints: `*POST* /api/path/:id`
