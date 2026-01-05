@@ -1,0 +1,9 @@
+{
+  "name": "hyperfleet-standards",
+  "version": "0.1.0",
+  "description": "Audits HyperFleet repositories against team architecture standards dynamically fetched from the architecture repo",
+  "author": {
+    "name": "Ciaran Roche",
+    "email": "croche@redhat.com"
+  }
+}

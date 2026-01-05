@@ -14,6 +14,11 @@
       "name": "hyperfleet-jira",
       "source": "./hyperfleet-jira",
       "description": "JIRA integration for sprint management, task tracking, ticket hygiene audits, and story point estimation using jira-cli"
+    },
+    {
+      "name": "hyperfleet-standards",
+      "source": "./hyperfleet-standards",
+      "description": "Audits HyperFleet repositories against team architecture standards dynamically fetched from the architecture repo, producing JIRA-ready gap specifications"
     }
   ]
 }
