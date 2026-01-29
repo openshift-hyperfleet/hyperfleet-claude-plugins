@@ -1,0 +1,9 @@
+{
+  "name": "hyperfleet-operational-readiness",
+  "version": "0.1.0",
+  "description": "Audits HyperFleet repositories for operational readiness including health probes, dead man's switch metrics, retry logic, PDB, resource limits, and reliability documentation",
+  "author": {
+    "name": "Ciaran Roche",
+    "email": "croche@redhat.com"
+  }
+}

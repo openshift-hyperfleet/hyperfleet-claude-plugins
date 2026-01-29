@@ -19,6 +19,11 @@
       "name": "hyperfleet-standards",
       "source": "./hyperfleet-standards",
       "description": "Audits HyperFleet repositories against team architecture standards dynamically fetched from the architecture repo, producing JIRA-ready gap specifications"
+    },
+    {
+      "name": "hyperfleet-operational-readiness",
+      "source": "./hyperfleet-operational-readiness",
+      "description": "Audits HyperFleet repositories for operational readiness including health probes, dead man's switch metrics, retry logic, PDB, resource limits, and reliability documentation"
     }
   ]
 }
