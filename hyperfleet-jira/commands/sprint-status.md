@@ -15,12 +15,12 @@ Comprehensive sprint health report for team leads and scrum masters.
 
 1. **Get current sprint info:**
    ```bash
-   jira sprint list --current -p HYPERFLEET --plain 2>/dev/null
+   jira sprint list --current -b 23064 -p HYPERFLEET --plain 2>/dev/null
    ```
 
 2. **Get all tickets in current sprint:**
    ```bash
-   jira sprint list --current -p HYPERFLEET --plain 2>/dev/null
+   jira sprint list --current -b 23064 -p HYPERFLEET --plain 2>/dev/null
    ```
 
 3. **Get tickets by status - To Do:**

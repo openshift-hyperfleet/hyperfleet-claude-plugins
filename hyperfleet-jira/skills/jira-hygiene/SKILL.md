@@ -49,7 +49,7 @@ jira issue view TICKET-KEY --plain 2>/dev/null
 
 For JSON output with all fields:
 ```bash
-jira issue view TICKET-KEY --json 2>/dev/null
+jira issue view TICKET-KEY --raw 2>/dev/null
 ```
 
 ## Output Format
