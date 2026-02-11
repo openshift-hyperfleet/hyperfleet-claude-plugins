@@ -18,7 +18,7 @@ Audit JIRA tickets for missing required fields and quality issues.
 
 1. **Get tickets to audit (current sprint by default):**
    ```bash
-   jira sprint list --current -b 23064 -p HYPERFLEET --raw 2>/dev/null
+   jira sprint list --current -p HYPERFLEET --raw 2>/dev/null
    ```
 
 2. **Find tickets without story points:**
