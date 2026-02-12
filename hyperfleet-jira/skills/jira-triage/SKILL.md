@@ -1,43 +1,52 @@
 ---
-name: JIRA Ticket Hygiene Checker
-description: Validates JIRA tickets have required fields and sufficient information for development. Activates when users ask about ticket quality, readiness, or completeness, or when reviewing tickets before sprint planning.
+name: JIRA Ticket Triage
+description: Validates JIRA tickets have required fields and quality standards for sprint planning.
 ---
 
-# JIRA Ticket Hygiene Skill
+# JIRA Ticket Triage Skill
 
 ## When to Use This Skill
 
-Activate this skill when the user:
-- Asks if a ticket is "ready", "complete", or "well-defined"
-- Asks about ticket quality or completeness
-- Wants to review a ticket before sprint planning
-- Asks "does this ticket have enough information?"
-- Wants to validate tickets meet team standards
-- Asks about missing fields or requirements
+Activate when the user:
+- Asks to "triage" a ticket
+- Asks if a ticket is "ready for sprint"
+- Wants to validate ticket completeness
+- Asks "does this ticket have everything we need?"
 
-## Hygiene Checklist
+## Triage Checklist
 
 ### Required Fields (Must Have)
-- [ ] **Title**: Clear, actionable, under 100 characters
-- [ ] **Description**: Detailed context (recommend > 100 characters)
-- [ ] **Acceptance Criteria**: At least 2 clear, testable criteria
-- [ ] **Story Points**: Set for Stories, Tasks, and Bugs (use scale: 0, 1, 3, 5, 8, 13)
-- [ ] **Assignee**: Someone owns the ticket
-- [ ] **Component**: Assigned to track by area
-- [ ] **Activity Type**: Must be set for capacity planning (see Activity Types below)
+| Field | Requirement |
+|-------|-------------|
+| Title | Clear, actionable, under 100 characters |
+| Description | Detailed context (recommend > 100 characters) |
+| Acceptance Criteria | At least 2 clear, testable criteria |
+| Story Points | Set (scale: 0, 1, 3, 5, 8, 13) |
+| Component | One of: Adapter, API, Architecture, Sentinel |
+| Activity Type | Set for capacity planning |
 
 ### Recommended Fields
-- [ ] **Labels**: At least 1 relevant label
-- [ ] **Epic Link**: Connected to parent epic (for Stories)
-- [ ] **Fix Version**: Target release identified
-- [ ] **Priority**: Explicitly set (not just default)
+| Field | Requirement |
+|-------|-------------|
+| Labels | At least 1 relevant label |
+| Epic Link | Connected to parent epic (for Stories) |
+| Fix Version | Target release identified |
+| Priority | Explicitly set (not just default) |
 
 ### Quality Checks
-- [ ] No ambiguous language ("maybe", "probably", "TBD", "possibly")
-- [ ] Technical approach outlined or referenced
-- [ ] Dependencies identified and linked
-- [ ] Not a duplicate of existing ticket
-- [ ] Scope is achievable in one sprint
+- **CRITICAL: Not a duplicate** - Search for similar titles/descriptions in backlog before adding
+- No ambiguous language ("maybe", "probably", "TBD", "possibly")
+- Technical approach outlined or referenced
+- Dependencies identified and linked
+- Scope is achievable in one sprint
+
+## Components
+
+Valid components for HYPERFLEET project:
+- **Adapter** - Integration adapters
+- **API** - API services
+- **Architecture** - Architecture decisions and documentation
+- **Sentinel** - Background processing services
 
 ## How to Check a Ticket
 
@@ -60,7 +69,7 @@ When analyzing a ticket, provide:
 
 **Summary:** [Ticket title]
 
-#### Hygiene Assessment
+#### Triage Assessment
 
 | Check | Status | Notes |
 |-------|--------|-------|
@@ -68,11 +77,10 @@ When analyzing a ticket, provide:
 | Description | PASS/FAIL | [Length: X chars] |
 | Acceptance Criteria | PASS/FAIL | [Count: X criteria] |
 | Story Points | PASS/FAIL | [Value or "Missing"] |
-| Assignee | PASS/FAIL | [Name or "Unassigned"] |
-| Component | PASS/FAIL | [Component or "None"] |
+| Component | PASS/FAIL | [Must be: Adapter, API, Architecture, or Sentinel] |
 | Activity Type | PASS/FAIL | [Type or "Uncategorized"] |
 
-#### Overall Score: X/7 Required Checks Passed
+#### Overall Score: X/6 Required Checks Passed
 
 #### Verdict
 - **READY FOR SPRINT** - All required fields present, good quality
@@ -119,9 +127,10 @@ Activity Type is **required** for sprint/kanban capacity planning. Tickets witho
 - Vague titles like "Fix bug" or "Update feature"
 - Tickets open > 30 days without progress
 - **Missing Activity Type** (appears as Uncategorized in capacity planning)
+- **Invalid Component** (must be Adapter, API, Architecture, or Sentinel)
 
 ## Integration with Commands
 
-This skill complements the `/hygiene-check` command:
+This skill complements the `/triage` command:
 - Command: Bulk audit of sprint tickets
 - Skill: Deep-dive on individual ticket quality
