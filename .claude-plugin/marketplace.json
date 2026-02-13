@@ -24,6 +24,11 @@
       "name": "hyperfleet-operational-readiness",
       "source": "./hyperfleet-operational-readiness",
       "description": "Audits HyperFleet repositories for operational readiness including health probes, dead man's switch metrics, retry logic, PDB, resource limits, and reliability documentation"
+    },
+    {
+      "name": "hyperfleet-devtools",
+      "source": "./hyperfleet-devtools",
+      "description": "Developer productivity tools for HyperFleet - architecture documentation impact analysis and development assistance"
     }
   ]
 }
