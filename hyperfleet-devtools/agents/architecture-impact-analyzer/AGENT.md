@@ -83,7 +83,9 @@ What you should NOT do:
 - **Use Grep tool** (NOT bash grep command) for searching document content
 - **Use Glob tool** (NOT bash find command) for finding files by pattern
 - **Use Read tool** (NOT bash cat/head/tail) for reading files
-- Only use Bash for git commands (git diff, git status, git log)
+- Use Bash for:
+  - Git commands (git diff, git status, git log)
+  - **Phase 2 file discovery** (combined component detection + find commands for efficiency)
 
 ### Phase 1: Detect Code Changes
 
@@ -125,272 +127,251 @@ What you should NOT do:
    fi
    ```
 
-### Phase 2: Extract Search Keywords
+### Phase 2: Discover All Files (Single Command)
 
-**Goal**: Use LLM analysis to extract meaningful keywords for searching architecture documents.
+**Goal**: In ONE command, identify component and find all relevant documents and spec files.
 
-**Important**: This is where you use your LLM capabilities to understand the semantic meaning of code changes and extract appropriate search terms.
+**CRITICAL - Single Bash Command Approach**:
+- ONE combined bash command to eliminate multiple interactions
+- Outputs clearly separated sections for parsing
+- No exploratory commands (ls, test) needed
 
-**Steps**:
+**Execute this single command**:
 
-1. **Analyze the code changes and extract keywords**:
+```bash
+Use Bash tool:
+  command: |
+    # Step 1: Identify component
+    REPO_URL=$(git remote get-url origin)
+    COMPONENT=$(echo "$REPO_URL" | grep -oE "hyperfleet-(api|sentinel|adapter|broker)")
 
-   For each changed file, analyze:
-   - **Specific identifiers**: Type names, field names, function names, struct names
-   - **Conceptual terms**: "breaking change", "field removal", "API change", "config change"
-   - **Synonyms and variations**: "ClusterResponse" → "cluster response", "cluster status"
-   - **Domain terms**: Component-specific terminology
+    case $COMPONENT in
+      hyperfleet-api)      COMPONENT_DIR="api-service" ;;
+      hyperfleet-sentinel) COMPONENT_DIR="sentinel" ;;
+      hyperfleet-adapter)  COMPONENT_DIR="adapter" ;;
+      hyperfleet-broker)   COMPONENT_DIR="broker" ;;
+    esac
 
-   **Example**:
-   ```
-   Code change:
-   - Removed field "LegacyStatus" from struct "ClusterResponse"
-   - File: pkg/api/cluster_types.go
+    ARCH_REPO="$HOME/.claude/plugins/cache/hyperfleet-devtools/architecture/hyperfleet"
 
-   Extracted keywords:
-   [
-     "ClusterResponse",
-     "cluster response",
-     "LegacyStatus",
-     "legacy status",
-     "breaking change",
-     "field removal",
-     "schema change",
-     "API versioning"
-   ]
-   ```
+    # Output component info
+    echo "=== COMPONENT ==="
+    echo "$COMPONENT"
+    echo ""
 
-2. **Categorize keywords by specificity**:
-   - **High specificity** (exact identifiers): ClusterResponse, LegacyStatus
-   - **Medium specificity** (concepts): breaking change, field removal
-   - **Low specificity** (domain terms): cluster, status, API
+    # Step 2: Find architecture documents
+    echo "=== ARCHITECTURE_DOCS ==="
+    find "$ARCH_REPO/components/$COMPONENT_DIR" \
+         "$ARCH_REPO/architecture" \
+         "$ARCH_REPO/docs" \
+         -name "*.md" -type f 2>/dev/null | sort
+    echo ""
 
-   Start with high and medium specificity terms for searching.
+    # Step 3: Find spec files in current repository
+    echo "=== SPEC_FILES ==="
+    find . -maxdepth 3 -type f \( \
+      -path "*/openapi/*.yaml" -o \
+      -path "*/openapi/*.json" -o \
+      -path "*/configs/*template*.yaml" -o \
+      -path "*/configs/*example*.yaml" -o \
+      -path "*/example/*example*.yaml" \
+    \) ! -path "*/test/*" ! -path "*/testdata/*" ! \
+       -path "*/charts/*" ! -path "*/.git/*" ! \
+       -path "*/node_modules/*" 2>/dev/null | sort
 
-### Phase 3: Search Architecture Documents (Stage 1 - Broad Search)
-
-**Goal**: Use grep to find **ALL documents** in the architecture repository that mention the extracted keywords. This is a high-recall search that may include false positives - we'll filter them in Phase 4.
-
-**CRITICAL - Scope Limitation**:
-- Only search documents under `$ARCH_REPO/hyperfleet/`
-- DO NOT search code repository files (e.g., hyperfleet-api/openapi/, hyperfleet-api/docs/)
-
-**Why?** Component repository documentation (openapi.yaml, docs/*.md) is the developer's responsibility to update when committing code. This skill focuses exclusively on high-level architecture documentation.
-
-**Steps**:
-
-1. **Build search pattern from keywords**:
-   ```
-   # Combine keywords with OR (case-insensitive)
-   # Example: "ClusterResponse|LegacyStatus|breaking change|field removal"
-   PATTERN="<keyword1>|<keyword2>|<keyword3>"
-   ```
-
-2. **Search ONLY architecture repository documents** (use Grep tool):
-   ```
-   Use Grep tool:
-   - pattern: "<keyword1>|<keyword2>|<keyword3>"
-   - path: "$HOME/.claude/plugins/cache/hyperfleet-devtools/architecture/hyperfleet"
-   - output_mode: "files_with_matches"
-   - -i: true (case insensitive)
-
-   # Then for each matched file, count matches:
-   Use Grep tool:
-   - pattern: "<same pattern>"
-   - path: "<matched_file_path>"
-   - output_mode: "count"
-   - -i: true
-   ```
-
-3. **Rank results** by match count (highest first):
-   ```
-   Example results (sorted by match count):
-   - ~/.claude/plugins/cache/hyperfleet-devtools/architecture/hyperfleet/docs/status-guide.md: 17 matches
-   - ~/.claude/plugins/cache/hyperfleet-devtools/architecture/hyperfleet/components/api-service/api-versioning.md: 3 matches
-   - ~/.claude/plugins/cache/hyperfleet-devtools/architecture/hyperfleet/standards/api-design.md: 2 matches
-   ```
-
-**Expected output**: List of 5-20 candidate documents (may include false positives)
-
-### Phase 4: Relevance Filtering (Stage 2a - Lightweight Filter)
-
-**Goal**: Quickly filter candidate documents to identify which ones are **truly relevant** to the code change. This reduces cost by avoiding deep analysis of irrelevant documents.
-
-**CRITICAL - Cost Optimization**:
-- Only read the **first 200 lines** of each document (title, summary, table of contents)
-- Use lightweight LLM judgment (fast classification, not deep analysis)
-- Target: Filter 15 candidates → 5-7 relevant documents
-
-**Steps**:
-
-1. **For each candidate document from Phase 3** (in match count order):
-   ```
-   Use Read tool:
-   - file_path: "<candidate_document_path>"
-   - offset: 0
-   - limit: 200  # Only read first 200 lines
-   ```
-
-2. **Quick relevance judgment** (for each document):
-
-   Ask yourself:
-   - Does this document **define or describe** the resource/feature that changed?
-   - Would a user **consulting this document** expect to find information about the changed code?
-   - Is the document **authoritative** for this area (not just mentions it in passing)?
-
-   **Classification**:
-   - ✅ **RELEVANT** - Document directly describes/defines the changed code area
-     - Example: "architecture-summary.md" describes Cluster schema
-   - ❌ **NOT_RELEVANT** - Document only mentions keywords tangentially
-     - Example: "release-notes.md" mentions "cluster" but doesn't define schema
-   - ⚠️ **UNCERTAIN** - Treat as RELEVANT (err on the side of inclusion)
-
-3. **Record relevance judgment**:
-   ```
-   RELEVANT documents (5-7 expected):
-   - architecture-summary.md ✅ (defines Cluster schema)
-   - components/api-service/api-versioning.md ✅ (governs API changes)
-   - generated-code-policy.md ⚠️ (has Cluster example code)
-
-   NOT_RELEVANT documents (skipped):
-   - release-notes.md ❌ (only mentions cluster in passing)
-   - deployment-guide.md ❌ (operational guide, not schema definition)
-   ```
-
-4. **Output**: List of RELEVANT documents for deep analysis in Phase 6
-
-### Phase 5: Adaptive Optimization (Optional)
-
-**Goal**: Adjust search keywords if results are too broad or too narrow.
-
-**When to optimize**:
-- **Too few results** (< 2 documents): Keywords too specific, add broader terms
-- **Too many results** (> 15 documents): Keywords too generic, use more specific terms
-
-**Steps**:
-
-1. **If too few results, expand keywords**:
-   ```
-   Original: ["ClusterResponse", "LegacyStatus"]
-   Expanded: ["ClusterResponse", "LegacyStatus", "cluster", "status",
-              "response schema", "API model"]
-   ```
-
-2. **If too many results, refine keywords**:
-   ```
-   Original: ["status", "cluster", "API"]  # Too generic
-   Refined: ["ClusterResponse", "LegacyStatus"]  # More specific
-   ```
-
-3. **Re-run grep search** with adjusted keywords.
-
-### Phase 6: Gap Analysis (Stage 2b - Deep Analysis)
-
-**Goal**: For each **RELEVANT document from Phase 4**, perform a systematic gap analysis between what the code implements and what the documentation describes.
-
-**CRITICAL - Only Analyze RELEVANT Documents**:
-- ONLY analyze documents marked as RELEVANT in Phase 4 (typically 5-7 documents)
-- SKIP documents marked as NOT_RELEVANT (already filtered out)
-- This ensures we focus on high-quality analysis of documents that truly matter
-
-**Why this approach?**
-Deep gap analysis is expensive (time + cost). By filtering first (Phase 4), we avoid wasting effort on documents that only mention keywords tangentially.
-
-**Steps**:
-
-1. **For each RELEVANT document from Phase 4** (in priority order):
-   ```
-   # Read the FULL document (not just first 200 lines)
-   Use Read tool:
-   - file_path: "<relevant_document_path>"
-   # No limit - read entire document for thorough analysis
-
-   # Example:
-   # file_path: "/Users/ymsun/.claude/plugins/cache/hyperfleet-devtools/architecture/hyperfleet/docs/status-guide.md"
-   ```
-
-2. **Understand the code change** (from Phase 1):
-   - What functionality does the new code implement?
-   - What are the key changes (new fields, removed fields, behavior changes)?
-   - What is the intent/purpose of this change?
-
-3. **Understand what the document describes**:
-   - What design/architecture does this document define?
-   - What are the documented specifications, schemas, or behaviors?
-   - What sections are relevant to the code area that changed?
-
-4. **Perform gap analysis - Identify 3 types of gaps**:
-
-   **Gap Type 1: Implementation Added**
-   - What does the new code implement that the document doesn't mention?
-   - Example: Code adds `Description` field, but doc doesn't describe it
-
-   **Gap Type 2: Documentation Outdated**
-   - What does the document describe that no longer matches the implementation?
-   - Example: Doc shows old schema with removed fields
-
-   **Gap Type 3: Inconsistency**
-   - Where does the implementation contradict the documented design?
-   - Example: Doc says field is required, code makes it optional
-
-5. **Extract specific sections** that need updating:
-   - Quote exact lines from the document that are affected
-   - Note the section headers (## headings)
-   - Identify whether it needs: addition, modification, or removal
-
-6. **Classify impact level**:
-   - **HIGH**: Critical gap - implementation fundamentally differs from documented design
-   - **MEDIUM**: Moderate gap - document missing new features or has minor inconsistencies
-   - **LOW**: Minor gap - implementation details not reflected in high-level design doc
-
-**Example gap analysis**:
-```
-Document: architecture/hyperfleet/components/api-service/data-model.md
-Section: "Cluster Resource Schema"
-
-Code Implementation (from git diff):
-- Added: `Description string` field (optional, max 500 chars)
-- Change: New optional field in Cluster struct
-
-Document Content (current):
-- Line 34-52: Defines Cluster schema with fields: id, kind, name, spec, labels, href
-- Does NOT mention: Description field
-
-Gap Analysis:
-✗ Gap Type 1 (Implementation Added):
-  - Code implements Description field
-  - Document schema definition doesn't include it
-  - Impact: Users reading docs won't know this field exists
-
-✗ Gap Type 2 (Documentation Outdated):
-  - N/A (no removed fields)
-
-✗ Gap Type 3 (Inconsistency):
-  - N/A (no contradictions)
-
-Recommendation:
-- Add Description field to schema table at line 35
-- Include: field name, type (string), max length (500), optional status
-- Add example showing Description usage
-
-Impact: MEDIUM - Document is incomplete but not incorrect
-Priority: MEDIUM - Should be updated before next release
+  description: "Find component, architecture docs, and spec files"
 ```
 
-6. **Classify impact level and priority** (for each document gap):
-   - **Impact Level**:
-     - **HIGH**: Critical gap - implementation fundamentally differs from documented design
-     - **MEDIUM**: Moderate gap - document missing new features or has minor inconsistencies
-     - **LOW**: Minor gap - implementation details not reflected in high-level design doc
-   - **Priority**:
-     - **MUST**: Document must be updated (HIGH impact, core documentation)
-     - **SHOULD**: Document should be updated (MEDIUM impact, important but not critical)
-     - **COULD**: Document could be updated (LOW impact, nice-to-have)
-     - **WON'T**: Document doesn't need update (no real gap, keyword match only)
+**Parse the output**:
+- Extract component name from `=== COMPONENT ===` section
+- Extract architecture document list from `=== ARCHITECTURE_DOCS ===` section
+- Extract spec file list from `=== SPEC_FILES ===` section
 
-**Expected output**: Detailed gap analysis for 5-7 RELEVANT documents with impact/priority classification
+**Key Principle**:
+- One command = one user approval
+- No verification commands needed (ls, test)
+- Trust the find output - if path doesn't exist, find returns empty (not an error)
 
-### Phase 7: Generate Report
+**CRITICAL - Excluded Documents**:
+- `standards/*.md` are NOT included (find only searches components/, architecture/, docs/)
+
+### Phase 3: Read All Discovered Files
+
+**Goal**: Read complete content of all files found in Phase 2.
+
+**CRITICAL - Only Read Files from Phase 2 Output**:
+- ONLY read files listed in Phase 2 output
+- DO NOT discover additional files
+- DO NOT read files not in the lists
+
+**Steps**:
+
+1. **Read all architecture documents**:
+   ```text
+   For each file path in ARCHITECTURE_DOCS list:
+     Use Read tool:
+       file_path: {full_path_from_phase2}
+       # NO offset, NO limit - read entire file
+   ```
+
+2. **Read all specification files**:
+   ```text
+   For each file path in SPEC_FILES list:
+     Use Read tool:
+       file_path: {full_path_from_phase2}
+       # Read complete file
+
+   Note: Reading spec files helps distinguish:
+   - Bug fixes enforcing existing contracts (no doc update needed)
+   - New features adding new contracts (doc update needed)
+   ```
+
+3. **Prepare context** (already have from Phase 1):
+   - Complete git diff output
+   - Commit messages
+
+**Output**: Complete context package ready for LLM analysis:
+```python
+context = {
+  'code_changes': git_diff_output,
+  'commit_messages': commit_messages,
+  'repo_spec_files': {
+    'openapi/openapi.yaml': full_content,
+    'pkg/config/config.go': full_content,
+    ...
+  },
+  'architecture_docs': {
+    'components/api-service/api-versioning.md': full_content,
+    'architecture/architecture-summary.md': full_content,
+    'docs/status-guide.md': full_content,
+    ...
+  }
+}
+```
+
+**Key principle**: Provide complete, unfiltered context. Let LLM do the analysis.
+
+### Phase 4: Comprehensive Analysis
+
+**Goal**: Single LLM call to analyze all code changes against all architecture documents.
+
+**CRITICAL**: This is a complete replacement of the multi-phase filtering approach. One comprehensive analysis.
+
+**Prompt to LLM**:
+
+```markdown
+You are analyzing code changes in a HyperFleet component repository to determine
+if architecture documentation needs updates.
+
+## Context Provided:
+
+### Code Changes
+{complete git diff output}
+
+### Commit Messages
+{git log output with full messages}
+
+### Repository Files
+{complete content of any spec/schema/contract files found in the repository:
+ - openapi.yaml (if exists)
+ - config schemas (if exists)
+ - template files (if exists)
+}
+
+### Architecture Documents
+{complete content of ALL relevant architecture documents - typically 12-25 documents}
+
+## Your Task:
+
+Analyze whether these code changes require architecture documentation updates.
+
+### Analysis Approach:
+
+1. **Understand the code changes**:
+   - What functionality is being added/modified/removed?
+   - What is the developer's intent? (look at commit messages, code context)
+   - Classify the change type: bug fix / new feature / refactoring / breaking change
+
+2. **Check for specification/contract changes**:
+   - If the repository has specification files (openapi.yaml, config schemas, etc.),
+     did those files also change in this commit?
+   - If code adds validation or constraints, are they already defined in the specs?
+   - Is the code enforcing an existing contract, or creating a new one?
+
+3. **Understand each architecture document**:
+   - What is the document's explicitly stated purpose and scope?
+   - What level of detail does it provide? (overview / detailed specification / guide)
+   - Does it say "refer to [another document] for details"? If so, what does it defer?
+   - What specific topics/features/components does it currently describe?
+
+4. **Identify documentation gaps**:
+   - Is the code change within this document's stated scope?
+   - Does the document already accurately describe what the code now implements?
+   - Is there a mismatch between what the document says and what the code does?
+
+5. **Make evidence-based decisions**:
+   For each document, decide if it needs updating.
+   Base your decision on concrete facts, not assumptions.
+
+### Key Questions to Answer:
+
+For each document:
+1. What is this document's scope and responsibility?
+2. Does the code change fall within that scope?
+3. Does the document's current description match what the code now does?
+4. If there's a mismatch, does it need to be fixed?
+
+## Output Format:
+
+Provide a structured analysis with:
+
+### 1. Code Changes Summary
+
+Brief summary of what the code changes implement (2-3 sentences).
+
+### 2. Documents Requiring Updates
+
+For each document that needs updating, provide:
+
+**{document_path}**
+- **Priority**: {HIGH|MEDIUM|LOW}
+- **Scope**: {what this document covers}
+- **Gap**: {what needs to be updated}
+- **Reasoning**: {evidence-based reasoning}
+- **Recommended Action**: {specific guidance}
+
+### 3. Documents Not Requiring Updates
+
+Brief list of documents analyzed that don't need updates, with one-line reasoning.
+
+**Example Output**:
+
+```markdown
+## Code Changes Summary
+
+Added validateSpec() function to enforce that the spec field cannot be nil when creating clusters and nodepools. Commit message indicates this is a bug fix.
+
+## Documents Requiring Updates
+
+None.
+
+**Reasoning**:
+- error-model.md already defines "required" constraint type (no need for individual examples)
+- architecture-summary.md defers field-level details to API spec
+- OpenAPI spec already marks spec as required - this is a bug fix making code match the spec
+
+## Documents Analyzed
+
+- architecture-summary.md - Overview (defers to spec)
+- error-model.md - Defines constraint patterns
+- api-versioning.md - No API contract change
+- status-guide.md - Not related to validation
+```
+
+**IMPORTANT**: Structure your analysis as described above. Focus on evidence-based reasoning.
+```
+
+### Phase 5: Format Report
 
 **Goal**: Produce a comprehensive, actionable markdown report.
 
@@ -448,12 +429,12 @@ Example:
 **Document Section**: "{section_name}" (Line {line_numbers})
 
 **What the Document Currently Describes**:
-```
+```text
 {Quote exact text from the document}
 ```
 
 **What the Code Actually Implements**:
-```
+```text
 {Describe what the code does, based on the git diff}
 ```
 
@@ -474,7 +455,7 @@ Example:
 - {Specific action 1: Add/Update/Remove what content}
 - {Specific action 2: ...}
 
-**Priority**: {MUST|SHOULD|COULD|WON'T}
+**Priority**: {HIGH|MEDIUM|LOW}
 
 ---
 
@@ -535,7 +516,7 @@ All recommended documents must be under the `architecture/hyperfleet/` directory
 
 **Actionability**:
 - Each recommendation should be independently actionable
-- Priority should guide user's workflow (MUST > SHOULD > COULD > WON'T)
+- Priority should guide user's workflow (HIGH > MEDIUM > LOW)
 - Recommendations should be specific and concrete
 
 ## Error Handling

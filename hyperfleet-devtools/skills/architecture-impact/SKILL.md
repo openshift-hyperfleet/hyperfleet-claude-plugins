@@ -1,6 +1,6 @@
 ---
 name: Architecture Impact
-description: Analyzes code changes in HyperFleet component repositories (API, Sentinel, Adapter, Broker) to determine if architecture documentation needs updates using intelligent keyword extraction and content search. Activates when users ask "analyze architecture impact", "check if docs need update", or use /architecture-impact.
+description: Analyzes code changes in HyperFleet component repositories (API, Sentinel, Adapter, Broker) to determine if architecture documentation needs updates using directory-based scope and complete document reading with single comprehensive LLM analysis. Activates when users ask "analyze architecture impact", "check if docs need update", or use /architecture-impact.
 ---
 
 # Architecture Impact Analyzer
@@ -43,10 +43,12 @@ The architecture repository is cached at:
 - ✅ Last N commits (e.g., last 5)
 
 **Analysis Method:**
-- **Intelligent Keyword Extraction**: LLM analyzes code changes to extract meaningful search terms
-- **Content-Based Search**: grep searches actual document content for extracted keywords
-- **Validation**: LLM reads candidate documents to confirm they need updating
-- **Adaptive Optimization**: Automatically refines keywords if results are too broad or narrow
+- **Complete Document Reading**: Reads entire documents (no truncation) for full context
+- **Directory-Based Scope**: Determines documents based on component directory structure
+- **Universal Analysis Prompt**: Works for all components (API, Sentinel, Adapter, Broker)
+- **Single Comprehensive LLM Call**: Provides all context at once for holistic analysis
+- **No Keyword Filtering**: Eliminates false positives from keyword-based guessing
+- **Evidence-Based Decisions**: LLM decisions grounded in complete code and documentation context
 
 **Parameters:**
 - `--range <git-range>`: Analyze commits in a git range (e.g., `--range main..HEAD`)
@@ -215,7 +217,6 @@ Format and display the agent's analysis report to the user:
    - Highlight key findings:
      - Impact level (HIGH/MEDIUM/LOW)
      - Number of documents requiring updates
-     - Priority of updates (MUST/SHOULD/COULD/WON'T)
 
 2. **Provide Next Steps**
    - If documentation updates are needed:
