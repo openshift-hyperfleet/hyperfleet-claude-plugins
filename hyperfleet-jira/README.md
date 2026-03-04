@@ -127,7 +127,7 @@ Weekly progress report for team updates:
 ```
 Output includes:
 - Closed issues from the last 7 days (Story, Task, Bug)
-- Grouped by activity type → Epic → Story hierarchy
+- Grouped by activity type → Epic → Story/Task/Bug hierarchy
 - Summary statistics by activity type
 - Epic status tracking
 - Issues without parent epics highlighted

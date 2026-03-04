@@ -1,5 +1,5 @@
 ---
-description: Weekly team update - a list of closed issues(Story,Task) in the last 7 days with a nested display : activity type -> Epic -> Story in one team.
+description: Weekly team update - a list of closed issues(Story,Task,Bug) in the last 7 days with a nested display : activity type -> Epic -> Story/Task/Bug in one team.
 allowed-tools: Bash
 argument-hint: [project-key] [team-key]
 ---
@@ -36,7 +36,7 @@ Summary of team progress over the past week, focusing on closed issues classifie
 
 ## Instructions
 
-For each activity type below, follow this two-step process to fetch issues and their parent Epic information:
+For each activity type below, follow this three-step process to fetch issues and their parent Epic information:
 
 **Step 1**: Get list of closed issue keys
 **Step 2**: For each issue, fetch full details including epic link (customfield_12311140) and summary
@@ -44,40 +44,31 @@ For each activity type below, follow this two-step process to fetch issues and t
 
 ### Activity Types to Process:
 
-1. **Quality / Stability / Reliability**
-   ```bash
-   jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] = "Quality / Stability / Reliability" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
-   ```
+Loop through these activity types using a bash array:
 
-2. **Product / Portfolio Work**
-   ```bash
-   jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] = "Product / Portfolio Work" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
-   ```
+```bash
+ACTIVITY_TYPES=(
+    "Quality / Stability / Reliability"
+    "Product / Portfolio Work"
+    "Associate Wellness & Development"
+    "Future Sustainability"
+    "Incidents & Support"
+    "Security & Compliance"
+)
 
-3. **Associate Wellness & Development**
-   ```bash
-   jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] = "Associate Wellness & Development" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
-   ```
+# For each activity type, fetch closed issues:
+for activity_type in "${ACTIVITY_TYPES[@]}"; do
+    jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] = "'"$activity_type"'" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
+    # Process each issue as described in "For Each Issue Retrieved" section below
+done
+```
 
-4. **Future Sustainability**
-   ```bash
-   jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] = "Future Sustainability" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
-   ```
+Also check for issues without an activity type:
 
-5. **Incidents & Support**
-   ```bash
-   jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] = "Incidents & Support" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
-   ```
-
-6. **Security & Compliance**
-   ```bash
-   jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] = "Security & Compliance" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
-   ```
-
-7. **Without activity type**
-   ```bash
-   jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] is EMPTY ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
-   ```
+```bash
+# Issues without activity type
+jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and status changed to "closed" during (-7d,now()) and cf[12320040] is EMPTY ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
+```
 
 ### For Each Issue Retrieved:
 
