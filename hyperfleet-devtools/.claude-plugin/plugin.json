@@ -1,7 +1,7 @@
 {
   "name": "hyperfleet-devtools",
   "version": "0.1.0",
-  "description": "Developer productivity tools for HyperFleet - performs gap analysis between code implementation and architecture documentation for all components (API, Sentinel, Adapter, Broker)",
+  "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, and more",
   "author": {
     "name": "HyperFleet Team",
     "email": "hyperfleet-dev@redhat.com"
