@@ -11,6 +11,7 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 
 ### For Team Leads
 - **`/sprint-status`** - Comprehensive sprint health overview
+- **`/team-weekly-update`** - Weekly team progress report grouped by activity type and epic
 - **`/hygiene-check`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
@@ -115,6 +116,21 @@ Output includes:
 - Blockers and at-risk items
 - Team workload distribution
 - Carry-over risk assessment
+
+#### `/team-weekly-update` (Team Leads)
+Weekly progress report for team updates:
+```
+/team-weekly-update                    # All teams in HYPERFLEET
+/team-weekly-update HYPERFLEET         # Specific project
+/team-weekly-update HYPERFLEET 6278    # Specific team
+/team-weekly-update "" 6278            # Default project with team filter
+```
+Output includes:
+- Closed issues from the last 7 days (Story, Task, Bug)
+- Grouped by activity type → Epic → Story/Task/Bug hierarchy
+- Summary statistics by activity type
+- Epic status tracking
+- Issues without parent epics highlighted
 
 #### `/hygiene-check` (Team Leads)
 Audit tickets for quality:
