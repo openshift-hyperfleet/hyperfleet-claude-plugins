@@ -29,6 +29,11 @@
       "name": "hyperfleet-devtools",
       "source": "./hyperfleet-devtools",
       "description": "Developer productivity tools for HyperFleet - architecture documentation impact analysis and development assistance"
+    },
+    {
+      "name": "hyperfleet-code-review",
+      "source": "./hyperfleet-code-review",
+      "description": "Standardized PR review workflow with JIRA validation, HyperFleet architecture checks, impact analysis, and interactive recommendations"
     }
   ]
 }
