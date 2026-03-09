@@ -98,7 +98,7 @@ Review the given PR and list the main recommendations, one at a time.
 
 First, show a brief summary:
 
-```
+```text
 **PR:** [PR title]
 **Files:** X file(s) changed
 **Recommendations found:** N (new, excluding already commented ones)
@@ -124,7 +124,7 @@ If there are no impact warnings, skip this section entirely.
 
 ### When N = 0 (no new recommendations)
 
-```
+```text
 **PR:** [PR title]
 **Files:** X file(s) changed
 **Recommendations found:** 0
@@ -136,7 +136,7 @@ No additional recommendations! Existing comments already cover the relevant poin
 
 Show only ONE recommendation at a time:
 
-```
+```text
 ---
 
 ## Recommendation 1/N - Brief problem title
@@ -164,7 +164,7 @@ Show only ONE recommendation at a time:
 
 When the recommendation is a Doc <-> Code mismatch (from step 9), use this format instead — showing both files involved:
 
-```
+```text
 ---
 
 ## Recommendation 1/N - Brief problem title
@@ -193,7 +193,7 @@ When the recommendation is a Doc <-> Code mismatch (from step 9), use this forma
 - **"next"** or **"n"**: shows the next recommendation
 - **"all"** or **"list"**: shows a summary table with all:
 
-```
+```text
 | # | File(s) | Line | Problem |
 |---|---------|------|---------|
 | 1 | path/file.ext | 42 | Brief description |
