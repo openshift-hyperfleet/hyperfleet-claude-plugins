@@ -149,4 +149,3 @@ See the main [HyperFleet Claude Plugins README](../README.md) for contribution g
 ## Maintainers
 
 - Ciaran Roche (@ciaranRoche)
-- Alex Vulaj (@AlexVulaj)
