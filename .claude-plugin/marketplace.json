@@ -1,8 +1,8 @@
 {
   "name": "hyperfleet-claude-plugins",
   "owner": {
-    "name": "Alex Vulaj",
-    "email": "avulaj@redhat.com"
+    "name": "Rafael Benevides",
+    "email": "rbenevid@redhat.com"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
     {
       "name": "hyperfleet-jira",
       "source": "./hyperfleet-jira",
-      "description": "JIRA integration for sprint management, task tracking, ticket hygiene audits, and story point estimation using jira-cli"
+      "description": "JIRA integration for sprint management, task tracking, ticket triage, and story point estimation using jira-cli"
     },
     {
       "name": "hyperfleet-standards",

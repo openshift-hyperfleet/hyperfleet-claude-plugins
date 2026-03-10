@@ -16,7 +16,7 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 
 ### Skills (Auto-Activated)
 - **JIRA Ticket Creator** - Creates well-structured tickets with What/Why/Acceptance Criteria
-- **JIRA Hygiene Checker** - Validates ticket quality when you ask about readiness
+- **JIRA Triage** - Validates ticket quality when you ask about readiness
 - **Story Point Estimator** - Helps estimate tickets using complexity analysis
 
 ## Prerequisites
@@ -159,7 +159,7 @@ The creator ensures:
 - Activity type categorization
 - All required fields populated
 
-#### Ticket Hygiene
+#### Ticket Triage
 Just ask naturally:
 - "Is TICKET-123 ready for development?"
 - "Does this ticket have enough information?"
