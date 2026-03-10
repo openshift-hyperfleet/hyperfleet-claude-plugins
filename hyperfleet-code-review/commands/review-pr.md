@@ -47,6 +47,10 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
    - If the diff adds/modifies implementation code: read the corresponding spec/design doc (if one exists in the repo) and verify the code matches what the doc describes
    - Only flag mismatches where the **diff-side** introduced the inconsistency (a new doc step with no code, or new code that contradicts the doc)
    - Common pairs: test-design docs <-> test files, API docs <-> handlers, deploy runbooks <-> deploy scripts
+   - **Link and anchor validation:** When any file in the diff contains a URL, link, or anchor reference (e.g., `runbook_url`, markdown links, `$ref`) pointing to another file in the repo, validate the reference resolves correctly — **whether or not the target file is part of the PR**. For targets outside the PR, fetch the file from the PR's base branch (usually `main`) to verify:
+     - For markdown heading anchors (`#section-name`): compute the GitHub-generated anchor (lowercase, strip characters that are not letters/numbers/spaces/hyphens, spaces to hyphens) and verify it matches the URL fragment. Example: heading `### Poll Stale (Dead Man's Switch)` generates `#poll-stale-dead-mans-switch`, NOT `#poll-stale`
+     - For file path references: verify the target file exists at the referenced path
+     - For YAML/config references to doc sections: verify the referenced section heading exists and the generated anchor matches
 11. **Mechanical code pattern checks — run ALL passes in parallel using the Agent tool.** Each pass is independent and MUST be launched as a separate agent (subagent_type=general-purpose) in a single tool-call block so they run concurrently. Each agent receives the diff content and the list of changed files, and must: list every instance found in the diff before evaluating it, then return a JSON array of findings (or empty array if none). Do NOT skip a pass because "it looks fine" — enumerate first, then judge.
 
     Skip passes that don't apply to the languages in the diff (e.g., goroutine passes for non-Go files). If a pass finds zero instances, it naturally produces no findings.
