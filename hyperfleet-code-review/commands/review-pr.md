@@ -188,6 +188,20 @@ When the recommendation is a Doc <-> Code mismatch (from step 9), use this forma
 > Type **"all"** to see a summary list of all recommendations.
 ```
 
+## Notification
+
+After showing each recommendation (including the first one), send a desktop notification so the user knows a recommendation is ready. Detect the platform and use the appropriate command:
+
+```bash
+if command -v osascript &>/dev/null; then
+  osascript -e 'display notification "Recommendation ready" with title "Review PR"'
+elif command -v notify-send &>/dev/null; then
+  notify-send "Review PR" "Recommendation ready"
+else
+  printf '\a'
+fi
+```
+
 ## Interactive behavior
 
 - **"next"** or **"n"**: shows the next recommendation
