@@ -12,11 +12,11 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 ### For Team Leads
 - **`/sprint-status`** - Comprehensive sprint health overview
 - **`/team-weekly-update`** - Weekly team progress report grouped by activity type and epic
-- **`/hygiene-check`** - Audit tickets for missing fields and quality issues
+- **`/triage`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
 - **JIRA Ticket Creator** - Creates well-structured tickets with What/Why/Acceptance Criteria
-- **JIRA Hygiene Checker** - Validates ticket quality when you ask about readiness
+- **JIRA Triage** - Validates ticket quality when you ask about readiness
 - **Story Point Estimator** - Helps estimate tickets using complexity analysis
 
 ## Prerequisites
@@ -132,11 +132,11 @@ Output includes:
 - Epic status tracking
 - Issues without parent epics highlighted
 
-#### `/hygiene-check` (Team Leads)
+#### `/triage` (Team Leads)
 Audit tickets for quality:
 ```
-/hygiene-check
-/hygiene-check backlog    # Check backlog instead of sprint
+/triage
+/triage backlog    # Check backlog instead of sprint
 ```
 Checks for:
 - Missing story points
@@ -159,7 +159,7 @@ The creator ensures:
 - Activity type categorization
 - All required fields populated
 
-#### Ticket Hygiene
+#### Ticket Triage
 Just ask naturally:
 - "Is TICKET-123 ready for development?"
 - "Does this ticket have enough information?"
@@ -215,5 +215,4 @@ See the main [HyperFleet Claude Plugins README](../README.md) for contribution g
 
 ## Maintainers
 
-- Alex Vulaj (@AlexVulaj)
 - Ciaran Roche (@ciaranRoche)

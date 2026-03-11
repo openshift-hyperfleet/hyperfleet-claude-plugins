@@ -14,7 +14,7 @@ This skill enables Claude to automatically pull in HyperFleet architecture docum
 
 ## How It Works
 
-The skill instructs Claude to read relevant documentation from the HyperFleet architecture repository (`/Users/alexvulaj/Workspace/architecture/hyperfleet/docs/`) when answering questions. This ensures:
+The skill instructs Claude to fetch relevant documentation from the [HyperFleet architecture repository](https://github.com/openshift-hyperfleet/architecture) on GitHub when answering questions. This ensures:
 - **Always up-to-date**: Uses the latest documentation as the single source of truth
 - **Accurate answers**: Based on actual team decisions, not Claude's general knowledge
 - **No manual invocation**: Claude automatically uses the skill when relevant
