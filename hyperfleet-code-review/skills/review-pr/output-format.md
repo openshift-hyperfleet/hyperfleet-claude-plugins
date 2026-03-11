@@ -8,13 +8,11 @@ First, show a brief summary:
 **PR:** [PR title]
 **Files:** X file(s) changed
 **Recommendations found:** N (new, excluding already commented ones)
-
-Showing recommendation 1 of N:
 ```
 
 ## Impact warnings (optional, only when impact analysis found files outside the PR)
 
-If step 7 (impact analysis) found files that **should have been updated but are NOT part of the PR**, show them in a separate section **before** the recommendations. These are NOT numbered recommendations — they are informational warnings so the author is aware.
+If the impact analysis (step 4b) found files that **should have been updated but are NOT part of the PR**, show them in a separate section **before** the recommendations. These are NOT numbered recommendations — they are informational warnings so the author is aware.
 
 **GitHub comment:**
 
@@ -40,7 +38,7 @@ No additional recommendations! Existing comments already cover the relevant poin
 
 ## Current recommendation (when N > 0)
 
-Show only ONE recommendation at a time:
+After the summary (and impact warnings, if any), show "Showing recommendation 1 of N:" followed by the first recommendation. Show only ONE recommendation at a time:
 
 ```text
 ---
@@ -68,7 +66,7 @@ Show only ONE recommendation at a time:
 
 ## Doc <-> Code inconsistency variant
 
-When the recommendation is a Doc <-> Code mismatch (from step 9), use this format instead — showing both files involved:
+When the recommendation is a Doc <-> Code mismatch (from step 4c), use this format instead — showing both files involved:
 
 ```text
 ---
@@ -93,16 +91,6 @@ When the recommendation is a Doc <-> Code mismatch (from step 9), use this forma
 > Type **"next"** or **"n"** to see the next recommendation.
 > Type **"all"** to see a summary list of all recommendations.
 ```
-
-## Notification
-
-After showing each recommendation (including the first one), notify the user using the bundled cross-platform notification script. Use the **absolute path** from the `Notify script` entry in Dynamic context (NOT the `CLAUDE_SKILL_DIR` variable, which is not available at runtime):
-
-```bash
-bash "/absolute/path/from/dynamic-context/notify.sh" "Review PR" "Recommendation X/N ready"
-```
-
-Where `X` is the current recommendation number and `N` is the total count. For example: `"Recommendation 3/7 ready"`.
 
 ## Interactive behavior
 

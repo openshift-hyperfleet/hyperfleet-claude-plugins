@@ -104,9 +104,7 @@ Each recommendation includes:
 skills/review-pr/
 ├── SKILL.md                 # Main instructions and workflow
 ├── mechanical-passes.md     # 5 grouped mechanical code pattern checks
-├── output-format.md         # Output format, notifications, interactive behavior
-└── scripts/
-    └── notify.sh            # Cross-platform notification script
+└── output-format.md         # Output format and interactive behavior
 ```
 
 ## Troubleshooting
