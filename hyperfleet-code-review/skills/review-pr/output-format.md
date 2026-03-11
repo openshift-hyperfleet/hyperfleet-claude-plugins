@@ -96,11 +96,13 @@ When the recommendation is a Doc <-> Code mismatch (from step 9), use this forma
 
 ## Notification
 
-After showing each recommendation (including the first one), notify the user using the bundled cross-platform notification script. The script sends OSC escape sequences (supported by iTerm2, Windows Terminal, Ghostty, Kitty, urxvt, foot, VSCode) plus native fallbacks (osascript on macOS, notify-send on Linux):
+After showing each recommendation (including the first one), notify the user using the bundled cross-platform notification script. Use the **absolute path** from the `Notify script` entry in Dynamic context (NOT the `CLAUDE_SKILL_DIR` variable, which is not available at runtime):
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/scripts/notify.sh" "Review PR" "Recommendation ready"
+bash "/absolute/path/from/dynamic-context/notify.sh" "Review PR" "Recommendation X/N ready"
 ```
+
+Where `X` is the current recommendation number and `N` is the total count. For example: `"Recommendation 3/7 ready"`.
 
 ## Interactive behavior
 

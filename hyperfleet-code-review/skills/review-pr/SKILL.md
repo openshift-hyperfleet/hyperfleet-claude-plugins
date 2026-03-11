@@ -20,6 +20,7 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 - gh CLI: !`command -v gh &>/dev/null && echo "available" || echo "NOT available"`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 - hyperfleet-architecture skill: !`ls ${CLAUDE_SKILL_DIR}/../../hyperfleet-architecture/SKILL.md 2>/dev/null && echo "available" || echo "NOT available"`
+- Notify script: !`echo "${CLAUDE_SKILL_DIR}/scripts/notify.sh"`
 
 ## Arguments
 
