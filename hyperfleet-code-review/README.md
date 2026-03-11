@@ -4,20 +4,26 @@ A Claude Code plugin that provides a standardized, interactive PR review workflo
 
 ## Features
 
-### Commands
+### Skills
 - **`/review-pr <PR>`** - Comprehensive PR review with interactive recommendations
 
 ### What It Does
 
-- Fetches PR details, diff, and existing reviewer comments via GitHub CLI
+- Fetches PR details, diff, existing reviewer comments, and HyperFleet standards in parallel
 - Validates PR against JIRA ticket requirements (title, description, acceptance criteria, and comment-thread refinements)
 - Checks consistency with HyperFleet architecture documentation
-- Runs impact analysis to detect breaking changes for consumers
-- Traces call chains to verify consistency across the codebase
-- Cross-references documentation and code for mismatches
-- Runs mechanical code pattern checks (error handling, resource lifecycle, concurrency safety, nil/bounds safety, and more)
+- Runs impact and call chain analysis to detect breaking changes and verify consistency across the codebase
+- Cross-references documentation and code for mismatches, including link and anchor validation
+- Runs 5 groups of mechanical code pattern checks in parallel:
+  - **Error handling** — ignored errors, log-and-continue, HTTP handler missing return (Go)
+  - **Concurrency** — shared state safety, goroutine lifecycle, loop variable capture (Go)
+  - **Exhaustiveness & guards** — switch/select completeness, nil/bounds safety
+  - **Resource & context lifecycle** — cleanup verification, context propagation (Go), time.After leaks (Go)
+  - **Code quality** — constants/magic values, test coverage, struct field initialization (Go)
+- Checks intra-PR consistency against HyperFleet coding standards
 - Deduplicates findings against CodeRabbit, human reviewers, and prior conversation context
 - Presents recommendations one at a time with GitHub-ready comments
+- Sends cross-platform desktop notifications (OSC 9/777/99 + native fallback)
 
 ### Review Prioritization (most to least critical)
 
@@ -25,11 +31,12 @@ A Claude Code plugin that provides a standardized, interactive PR review workflo
 2. Security issues
 3. Inconsistencies with HyperFleet architecture docs
 4. JIRA requirements not met
-5. Internal contradictions
-6. Outdated/deprecated versions
-7. Project pattern violations
-8. Mechanical checklist findings
-9. Clarity and maintainability improvements
+5. Deviations from HyperFleet coding standards
+6. Internal contradictions
+7. Outdated/deprecated versions
+8. Project pattern violations
+9. Mechanical checks and intra-PR consistency findings
+10. Clarity and maintainability improvements
 
 ## Prerequisites
 
@@ -90,6 +97,17 @@ Each recommendation includes:
 - Priority level
 - Problem description
 - GitHub-ready comment (copy-paste to PR)
+
+## Skill Structure
+
+```text
+skills/review-pr/
+├── SKILL.md                 # Main instructions and workflow
+├── mechanical-passes.md     # 5 grouped mechanical code pattern checks
+├── output-format.md         # Output format, notifications, interactive behavior
+└── scripts/
+    └── notify.sh            # Cross-platform notification script
+```
 
 ## Troubleshooting
 
