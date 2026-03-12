@@ -47,14 +47,14 @@ After the summary (and impact warnings, if any), show "Showing recommendation 1 
 
 **File:** `path/to/file.ext`
 **Line:** X
-**Priority:** [Bug/Security/Architecture/JIRA/Inconsistency/Deprecated/Pattern/Improvement]
+**Category:** [Bug/Security/Architecture/JIRA/Standards/Inconsistency/Deprecated/Pattern/Improvement]
 
 **Problem:**
 [Clear description of the problem]
 
 **GitHub comment:**
 
-> **Priority:** [same priority value from above]
+> **Category:** [same category value from above]
 >
 > [comment written as a human (casual and direct tone, not AI-generated sounding), formatted in Markdown ready to copy and paste on GitHub, with suggested fix when applicable]
 
@@ -75,14 +75,14 @@ When the recommendation is a Doc <-> Code mismatch (from step 4c), use this form
 
 **Doc:** `path/to/design-doc.md` (line X)
 **Code:** `path/to/implementation.go` (line Y — or "missing" if the code doesn't exist)
-**Priority:** Inconsistency
+**Category:** Inconsistency
 
 **Problem:**
 [Clear description of what the doc says vs what the code does (or doesn't do)]
 
 **GitHub comment:**
 
-> **Priority:** Inconsistency
+> **Category:** Inconsistency
 >
 > [comment written as a human, referencing both files so the reviewer can cross-check]
 

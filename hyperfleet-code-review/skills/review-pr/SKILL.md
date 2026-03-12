@@ -51,7 +51,7 @@ Verify `$1` is a valid PR reference (URL like `https://github.com/org/repo/pull/
   - If jira CLI is NOT available: note in the summary that JIRA validation was skipped because `jira-cli` is not installed, and continue with the rest of the review
   - Understand the ticket's goal, acceptance criteria, and any clarifications or additional requirements discussed in the comments
   - Validate whether the PR meets **all** requirements — including those added or refined in comments (e.g., "we also need X", "please use Y approach", "don't forget to handle Z")
-- If there is **no** JIRA ticket in the PR title: flag this as a recommendation (priority: Pattern) suggesting the author add a ticket reference to the PR title per team conventions
+- If there is **no** JIRA ticket in the PR title: flag this as a recommendation (category: Pattern) suggesting the author add a ticket reference to the PR title per team conventions
 
 ### Step 4 — Parallel analysis block (launch all applicable items simultaneously)
 
@@ -111,18 +111,19 @@ For patterns that appear more than once across different files in the diff, veri
 - Other human reviewers (PR comments)
 - **The user in this conversation** (if the user already suggested something before calling /review-pr, do not repeat it)
 
-## Prioritization (most to least critical)
+## Categories (ordered by priority)
 
-1. Bugs and logic issues
-2. Security issues
-3. Inconsistencies with HyperFleet architecture docs
-4. PR does not meet JIRA ticket requirements
-5. Deviations from HyperFleet coding standards
-6. Internal inconsistencies and contradictions
-7. Outdated or deprecated versions
-8. Project patterns not followed
-9. Issues found by the mechanical checks (step 4d) or intra-PR consistency (step 5) not covered above
-10. Clarity and maintainability improvements
+1. **Bug** — Bugs and logic issues
+2. **Security** — Security issues
+3. **Architecture** — Inconsistencies with HyperFleet architecture docs
+4. **JIRA** — PR does not meet JIRA ticket requirements
+5. **Standards** — Deviations from HyperFleet coding standards
+6. **Inconsistency** — Internal inconsistencies and contradictions
+7. **Deprecated** — Outdated or deprecated versions
+8. **Pattern** — Project patterns not followed
+9. **Improvement** — Clarity and maintainability improvements
+
+Issues found by the mechanical checks (step 4d) or intra-PR consistency (step 5) should be assigned the category that best matches the finding.
 
 ## Output format and interactive behavior
 
