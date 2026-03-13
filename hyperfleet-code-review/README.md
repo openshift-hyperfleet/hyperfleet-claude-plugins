@@ -14,12 +14,15 @@ A Claude Code plugin that provides a standardized, interactive PR review workflo
 - Checks consistency with HyperFleet architecture documentation
 - Runs impact and call chain analysis to detect breaking changes and verify consistency across the codebase
 - Cross-references documentation and code for mismatches, including link and anchor validation
-- Runs 5 groups of mechanical code pattern checks in parallel:
+- Runs 8 groups of mechanical code pattern checks in parallel:
   - **Error handling** — ignored errors, log-and-continue, HTTP handler missing return (Go)
   - **Concurrency** — shared state safety, goroutine lifecycle, loop variable capture (Go)
   - **Exhaustiveness & guards** — switch/select completeness, nil/bounds safety
   - **Resource & context lifecycle** — cleanup verification, context propagation (Go), time.After leaks (Go)
   - **Code quality** — constants/magic values, test coverage, struct field initialization (Go)
+  - **Traceability** — TODOs/FIXMEs without JIRA ticket reference (all languages)
+  - **Log level appropriateness** — mismatched severity levels, log spam in loops (all languages)
+  - **Typos** — misspelled words, misspelled identifiers, inconsistent spelling (all languages)
 - Checks intra-PR consistency against HyperFleet coding standards
 - Deduplicates findings against CodeRabbit, human reviewers, and prior conversation context
 - Presents recommendations one at a time with GitHub-ready comments
@@ -103,7 +106,7 @@ Each recommendation includes:
 ```text
 skills/review-pr/
 ├── SKILL.md                 # Main instructions and workflow
-├── mechanical-passes.md     # 5 grouped mechanical code pattern checks
+├── mechanical-passes.md     # 8 grouped mechanical code pattern checks
 └── output-format.md         # Output format and interactive behavior
 ```
 

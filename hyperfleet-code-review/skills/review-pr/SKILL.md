@@ -82,9 +82,9 @@ For each changed struct, config field, function signature, or behavioral change 
   - For file path references: verify the target file exists at the referenced path
   - For YAML/config references to doc sections: verify the referenced section heading exists and the generated anchor matches
 
-#### 4d. Mechanical code pattern checks (4 grouped agents in parallel)
+#### 4d. Mechanical code pattern checks (8 grouped agents in parallel)
 
-Run 5 grouped agents in parallel using the Agent tool. See [mechanical-passes.md](mechanical-passes.md) for the full prompts. Each agent is launched as `subagent_type=general-purpose` in a single tool-call block. Skip groups or individual passes that don't apply to the languages in the diff. Pass the diff content, file list, and HyperFleet standards (from step 2) to each agent. The 5 groups are: (1) Error handling, (2) Concurrency, (3) Exhaustiveness & guards, (4) Resource & context lifecycle, (5) Code quality.
+Run 8 grouped agents in parallel using the Agent tool. See [mechanical-passes.md](mechanical-passes.md) for the full prompts. Each agent is launched as `subagent_type=general-purpose` in a single tool-call block. Skip groups or individual passes that don't apply to the languages in the diff (groups 1–5 are Go-specific; groups 6–8 are language-agnostic and always run). Pass the diff content, file list, and HyperFleet standards (from step 2) to each agent. The 8 groups are: (1) Error handling, (2) Concurrency, (3) Exhaustiveness & guards, (4) Resource & context lifecycle, (5) Code quality, (6) Traceability, (7) Log level appropriateness, (8) Typos.
 
 ### Step 5 — Intra-PR consistency check
 
@@ -155,11 +155,11 @@ Before presenting recommendations, verify all steps were completed:
 - [ ] Impact and call chain analysis completed
 - [ ] Doc <-> Code cross-referencing done (if applicable)
 - [ ] Link and anchor validation done (if applicable)
-- [ ] All 5 mechanical pass groups launched in parallel (or skipped for non-applicable languages)
+- [ ] All 8 mechanical pass groups launched in parallel (groups 1–5 skipped for non-Go diffs; groups 6–8 always run)
 - [ ] Intra-PR consistency checked against HyperFleet standards
 - [ ] All findings deduplicated, prioritized, and numbered
 
 ## Additional resources
 
-- For the 5 grouped mechanical code pattern checks, see [mechanical-passes.md](mechanical-passes.md)
+- For the 8 grouped mechanical code pattern checks, see [mechanical-passes.md](mechanical-passes.md)
 - For output format, notifications, and interactive behavior, see [output-format.md](output-format.md)
