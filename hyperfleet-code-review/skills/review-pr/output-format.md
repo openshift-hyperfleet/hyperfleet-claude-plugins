@@ -16,13 +16,15 @@ If the impact analysis (step 4b) found files that **should have been updated but
 
 **GitHub comment:**
 
-> ### Impact warnings
->
-> The following files are **NOT in this PR** but may need updating due to changes in the diff:
->
-> - **`docs/development.md`** (lines 31, 33, 40) — Still references `gcp.json` which was renamed to `nodepool-request.json` in this PR
->
-> These are outside the PR scope and shown for awareness only.
+```markdown
+### Impact warnings
+
+The following files are **NOT in this PR** but may need updating due to changes in the diff:
+
+- **`docs/development.md`** (lines 31, 33, 40) — Still references `gcp.json` which was renamed to `nodepool-request.json` in this PR
+
+These are outside the PR scope and shown for awareness only.
+```
 
 If there are no impact warnings, skip this section entirely.
 
@@ -54,14 +56,16 @@ After the summary (and impact warnings, if any), show "Showing recommendation 1 
 
 **GitHub comment:**
 
-> **Category:** [same category value from above]
->
-> [comment written as a human (casual and direct tone, not AI-generated sounding), formatted in Markdown ready to copy and paste on GitHub, with suggested fix when applicable]
+```markdown
+**Category:** [same category value from above]
+
+[comment written as a human (casual and direct tone, not AI-generated sounding), formatted in Markdown ready to copy and paste on GitHub, with suggested fix when applicable]
+```
 
 ---
 
-> Type **"next"** or **"n"** to see the next recommendation.
-> Type **"all"** to see a summary list of all recommendations.
+Type **"next"** or **"n"** to see the next recommendation.
+Type **"all"** to see a summary list of all recommendations.
 ```
 
 ## Doc <-> Code inconsistency variant
@@ -82,14 +86,16 @@ When the recommendation is a Doc <-> Code mismatch (from step 4c), use this form
 
 **GitHub comment:**
 
-> **Category:** Inconsistency
->
-> [comment written as a human, referencing both files so the reviewer can cross-check]
+```markdown
+**Category:** Inconsistency
+
+[comment written as a human, referencing both files so the reviewer can cross-check]
+```
 
 ---
 
-> Type **"next"** or **"n"** to see the next recommendation.
-> Type **"all"** to see a summary list of all recommendations.
+Type **"next"** or **"n"** to see the next recommendation.
+Type **"all"** to see a summary list of all recommendations.
 ```
 
 ## Interactive behavior
@@ -104,7 +110,7 @@ When the recommendation is a Doc <-> Code mismatch (from step 4c), use this form
 | 2 | doc.md <-> impl.go | 10, 55 | Doc <-> Code mismatch description |
 | ... | ... | ... | ... |
 
-> Type "1" to "N" to see details of a specific recommendation.
+Type "1" to "N" to see details of a specific recommendation.
 ```
 
 - **Number (e.g. "3")**: shows details of the specific recommendation
