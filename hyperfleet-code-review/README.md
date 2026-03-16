@@ -120,6 +120,7 @@ Install jira-cli:
 ```bash
 brew install ankitpokhrel/jira-cli/jira-cli
 ```
+Then configure it for HyperFleet — see the [hyperfleet-jira README](../hyperfleet-jira/README.md#configure-jira-cli) for the setup command.
 
 ### "Permission denied" or "Not Found" on PR
 Ensure `gh` is authenticated and has access to the repository:

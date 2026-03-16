@@ -50,17 +50,19 @@ sudo mv jira /usr/local/bin/
    export JIRA_API_TOKEN="your-api-token"
    ```
 
-3. **Initialize jira-cli:**
+3. **Initialize jira-cli for HyperFleet:**
    ```bash
-   jira init
+   jira init --installation cloud \
+     --server https://redhat.atlassian.net \
+     --login your-email@redhat.com \
+     --auth-type basic \
+     --project HYPERFLEET
    ```
-   - Select "Cloud" for Atlassian Cloud
-   - Enter your JIRA URL (e.g., `https://yourcompany.atlassian.net`)
-   - Enter your email
-   - Select your default project
+   It will prompt you for the API token and default board selection.
 
 4. **Verify setup:**
    ```bash
+   jira me
    jira issue list
    ```
 
