@@ -14,15 +14,17 @@ A Claude Code plugin that provides a standardized, interactive PR review workflo
 - Checks consistency with HyperFleet architecture documentation
 - Runs impact and call chain analysis to detect breaking changes and verify consistency across the codebase
 - Cross-references documentation and code for mismatches, including link and anchor validation
-- Runs 8 groups of mechanical code pattern checks in parallel:
-  - **Error handling** — ignored errors, log-and-continue, HTTP handler missing return (Go)
+- Runs 10 groups of mechanical code pattern checks in parallel:
+  - **Error handling & wrapping** — ignored errors, log-and-continue, HTTP handler missing return, error wrapping (%w), sentinel errors (Go)
   - **Concurrency** — shared state safety, goroutine lifecycle, loop variable capture (Go)
-  - **Exhaustiveness & guards** — switch/select completeness, nil/bounds safety
-  - **Resource & context lifecycle** — cleanup verification, context propagation (Go), time.After leaks (Go)
-  - **Code quality** — constants/magic values, test coverage, struct field initialization (Go)
-  - **Traceability** — TODOs/FIXMEs without JIRA ticket reference (all languages)
-  - **Log level appropriateness** — mismatched severity levels, log spam in loops (all languages)
-  - **Typos** — misspelled words, misspelled identifiers, inconsistent spelling (all languages)
+  - **Exhaustiveness & guards** — switch/select completeness, nil/bounds safety (Go)
+  - **Resource & context lifecycle** — cleanup verification, context propagation, time.After leaks (Go)
+  - **Code quality & struct completeness** — constants/magic values, struct field initialization (Go)
+  - **Testing & coverage** — test coverage for new code, test structure patterns, test isolation and cleanup (Go)
+  - **Naming & code organization** — stuttering, acronym casing, getter naming, function complexity (Go)
+  - **Security** — injection vulnerabilities, secrets exposure, path traversal, input validation (all languages)
+  - **Code hygiene** — TODOs/FIXMEs without ticket, log level appropriateness, typo detection (all languages)
+  - **Performance** — allocation/preallocation patterns, defer in loops, N+1 queries (Go)
 - Checks intra-PR consistency against HyperFleet coding standards
 - Deduplicates findings against CodeRabbit, human reviewers, and prior conversation context
 - Presents recommendations one at a time with GitHub-ready comments
@@ -106,7 +108,7 @@ Each recommendation includes:
 ```text
 skills/review-pr/
 ├── SKILL.md                 # Main instructions and workflow
-├── mechanical-passes.md     # 8 grouped mechanical code pattern checks
+├── mechanical-passes.md     # 10 grouped mechanical code pattern checks
 └── output-format.md         # Output format and interactive behavior
 ```
 
