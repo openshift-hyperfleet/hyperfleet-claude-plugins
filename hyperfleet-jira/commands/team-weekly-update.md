@@ -1,7 +1,7 @@
 ---
-description: Weekly team update - a list of closed issues(Story,Task,Bug) in the last 7 days with a nested display : activity type -> Epic -> Story/Task/Bug in one team.
+description: "Weekly team update - a list of closed issues(Story,Task,Bug) in the last 7 days with a nested display : activity type -> Epic -> Story/Task/Bug in one team"
 allowed-tools: Bash
-argument-hint: [project-key] [team-key]
+argument-hint: "[project-key] [team-key]"
 ---
 
 # Team Weekly Update
