@@ -1,7 +1,7 @@
 ---
-description: Generate commit message following HyperFleet commit standard
+description: "Generate commit message following HyperFleet commit standard"
 allowed-tools: Bash, Read
-argument-hint: [type] [HYPERFLEET-XXX]
+argument-hint: "[type] [HYPERFLEET-XXX]"
 ---
 
 # Commit Message Generator
@@ -32,17 +32,38 @@ Generate a standardized commit message following the HyperFleet Commit Standard.
    - If `$1` provided: use that type (validate against standard)
    - If not provided: infer from changes based on standard's type definitions
 
-5. **Generate message** following standard format:
-   - With ticket: `HYPERFLEET-XXX - <type>: <subject>`
-   - Without ticket: `<type>: <subject>`
-   - Apply all constraints from commit-standard.md
+5. **Generate message and save to temporary file**:
+   - Generate message following standard format:
+     - Subject line:
+       - With ticket: `HYPERFLEET-XXX - <type>: <subject>`
+       - Without ticket: `<type>: <subject>`
+     - Body (REQUIRED - always generate):
+       - First paragraph: Brief summary (1-2 sentences explaining what and why)
+       - Blank line
+       - Detailed changes as bullet points: `- Change 1`, `- Change 2`
+       - Each bullet point on a new line
+       - Separate from subject with blank line
+     - Apply all constraints from commit-standard.md
+     - Do NOT add Co-Authored-By footer
+   - Write message to temporary file:
+     - File path: `/tmp/commit-msg-<JIRA-ticket>.txt` (or `/tmp/commit-msg.txt` if no ticket)
+     - Use Bash tool to write the file
 
 6. **Present with details**:
-   - Show the generated message
-   - Display: length/72, type, JIRA status
-   - Provide git commit command
+   - Show the complete generated message (subject + body with bullet points)
+   - Display: subject character count, type, JIRA status
+   - Confirm temporary file location: `/tmp/commit-msg-<ticket>.txt`
+   - Provide TWO git commit commands:
+     - **Recommended**: Full message with body from file
+       ```bash
+       git commit -F /tmp/commit-msg-HYPERFLEET-XXX.txt
+       ```
+     - **Quick option**: Subject only
+       ```bash
+       git commit -m "subject"
+       ```
    - Warn if no JIRA ticket
-   - Suggest shorter version if over 72 chars
+   - Suggest shorter subject if exceeds limit from standard
 
 ## Notes
 
