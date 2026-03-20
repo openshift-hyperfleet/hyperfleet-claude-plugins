@@ -101,11 +101,11 @@ For each activity type, please group issues by their parent Epic and display in 
 
 **Activity Type Name** (count)
 
-  **Epic: [EPIC-KEY] - [Epic Summary]** (Status: [Epic Status], complete_ratio)
+  **Epic: [EPIC-KEY] - [Epic Summary]** (Status: [Epic Status], Done/Total, complete_ratio)
     - [ISSUE-KEY]: [Issue Summary]
     - [ISSUE-KEY]: [Issue Summary]
 
-  **Epic: [EPIC-KEY2] - [Epic Summary]** (Status: [Epic Status],complete_ratio)
+  **Epic: [EPIC-KEY2] - [Epic Summary]** (Status: [Epic Status],Done/Total, complete_ratio)
     - [ISSUE-KEY]: [Issue Summary]
     - [ISSUE-KEY]: [Issue Summary]
     
