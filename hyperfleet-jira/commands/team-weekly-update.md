@@ -58,7 +58,7 @@ ACTIVITY_TYPES=(
 
 # For each activity type, fetch closed issues:
 for activity_type in "${ACTIVITY_TYPES[@]}"; do
-    jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done AND status changed to closed during (-7d, now()) and customfield_10464 = "'"$activity_type"'" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
+    jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done and status changed to closed during (-7d, now()) and customfield_10464 = "'"$activity_type"'" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
     # Process each issue as described in "For Each Issue Retrieved" section below
 done
 ```
@@ -67,7 +67,7 @@ Also check for issues without an activity type:
 
 ```bash
 # Issues without activity type
-jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done AND status changed to closed during (-7d, now()) and customfield_10464 is EMPTY ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
+jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done and status changed to closed during (-7d, now()) and customfield_10464 is EMPTY ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
 ```
 
 ### For Each Issue Retrieved:
@@ -85,40 +85,47 @@ Note: If parent is null, the issue has no parent epic.
 ```bash
 jira issue view <EPIC_KEY> --raw 2>/dev/null | jq -r '{key: .key, summary: .fields.summary, status: .fields.status.name, type: .fields.issuetype.name}'
 ```
-2. Calucate the Epic complete_ratio:
-complete_ratio = the number of Done childeren issues / total number of children issue * 100 
+
+2. Get all children of the epic and their resolution status and calculate the complete_ratio of the Epic:
+```bash
+jira issue list -q "parent = <EPIC_KEY>" --raw 2>/dev/null  | jq -r '.[] | {key: .key, status: .fields.status.name}'
+```
+
+complete_ratio = count(the number of closed children issues) / count(the number of children issues) * 100 
 
 ## Output Format
 
-**Weekly [Team: team-key] Update - [Start Date] to [End Date]**
+CRITICAL: You MUST create a THREE-LEVEL NESTED STRUCTURE. Do NOT skip any level:
+
+---
+
+**Weekly Team Update - [Start Date] to [End Date]**
+**Team: [team-key]**
 
 ### Summary Stats
-- Total number of closed issues
+- Total closed issues: [count]
+---
 
-### Issues Grouped by Activity Type, then by Parent Epic
-
-For each activity type, please group issues by their parent Epic and display in this nested structure: Activity type -> Epic -> Story/Task/Bug 
-
-**Activity Type Name** (count)
-
-  **Epic: [EPIC-KEY] - [Epic Summary]** (Status: [Epic Status], Done/Total, complete_ratio)
-    - [ISSUE-KEY]: [Issue Summary]
-    - [ISSUE-KEY]: [Issue Summary]
-
-  **Epic: [EPIC-KEY2] - [Epic Summary]** (Status: [Epic Status],Done/Total, complete_ratio)
+**[Activity Type Name]** 
+  **Epic: [EPIC-KEY] - [Epic Summary]** (Status: [Epic Status], [Closed]/[Total], [%]%)
     - [ISSUE-KEY]: [Issue Summary]
     - [ISSUE-KEY]: [Issue Summary]
     
 
+  **Epic: [EPIC-KEY2] - [Epic Summary]** (Status: [Epic Status], [Closed]/[Total], [%]%)
+    - [ISSUE-KEY]: [Issue Summary]
+    
   **No Parent Epic**
-    - [ISSUE-KEY]: [ISSUE-TYPE]: [Issue Summary]
-    - [ISSUE-KEY]: [ISSUE-TYPE]: [Issue Summary]
-    
+    - [ISSUE-KEY]: [[TYPE]] [Issue Summary]
+    - [ISSUE-KEY]: [[TYPE]] [Issue Summary]
+
+---
+
 Example:
 
-**Quality / Stability / Reliability** (21 issues)
+**Quality / Stability / Reliability** (8 issues)
 
-  **Epic: HYPERFLEET-402 - E2E Test Automation Framework for CLM Components - MVP** (Status: Closed, 90%)
+  **Epic: HYPERFLEET-402 - E2E Test Automation Framework for CLM Components - MVP** (Status: Closed, 9/10, 90%)
     - HYPERFLEET-680: Migrate from kubectl CLI to Kubernetes client-go Library for E2E Testing
     - HYPERFLEET-532: E2E Test Case Automation Run Strategy and Resource Management
 
