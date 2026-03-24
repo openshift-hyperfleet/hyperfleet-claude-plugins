@@ -86,12 +86,12 @@ Note: If parent is null, the issue has no parent epic.
 jira issue view <EPIC_KEY> --raw 2>/dev/null | jq -r '{key: .key, summary: .fields.summary, status: .fields.status.name, type: .fields.issuetype.name}'
 ```
 
-2. Get all children of the epic and their resolution status and calculate the complete_ratio of the Epic:
+2. Get all children of the epic and their status and calculate the complete_ratio of the Epic:
 ```bash
 jira issue list -q "parent = <EPIC_KEY>" --raw 2>/dev/null  | jq -r '.[] | {key: .key, status: .fields.status.name}'
 ```
 
-complete_ratio = count(the number of closed children issues) / count(the number of children issues) * 100 
+complete_ratio = count(the number of Done children issues) / count(the number of children issues) * 100 
 
 ## Output Format
 
@@ -123,7 +123,7 @@ CRITICAL: You MUST create a THREE-LEVEL NESTED STRUCTURE. Do NOT skip any level:
 
 Example:
 
-**Quality / Stability / Reliability** (8 issues)
+**Quality / Stability / Reliability** 
 
   **Epic: HYPERFLEET-402 - E2E Test Automation Framework for CLM Components - MVP** (Status: Closed, 9/10, 90%)
     - HYPERFLEET-680: Migrate from kubectl CLI to Kubernetes client-go Library for E2E Testing
