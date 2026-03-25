@@ -1,11 +1,29 @@
 ---
-name: JIRA Ticket Creator
+name: jira-ticket-creator
 description: Creates well-structured JIRA tickets in the HYPERFLEET project with required fields including What/Why/Acceptance Criteria, story points, and activity type. Activates when users ask to create a ticket, story, task, or epic.
+allowed-tools: Bash, Read, Grep, Glob, Agent
 ---
 
 # JIRA Ticket Creator Skill
 
-## ⚠️ CRITICAL: JIRA Uses Wiki Markup, NOT Markdown!
+## Dynamic context
+
+- tracking: !`SKILL_NAME=jira-ticket-creator "${CLAUDE_SKILL_DIR}/../../scripts/track-usage.sh" 2>&1`
+
+## Usage Tracking Consent
+
+If the tracking dynamic context above shows `TRACKING_CONSENT_NEEDED`, you MUST ask the user and **STOP immediately — do NOT proceed with any skill step, do NOT call any tool, do NOT start gathering data**. Output ONLY the consent question and wait for the user's reply:
+
+> "HyperFleet plugins collect usage data to help the team understand adoption. The following fields are sent: your GitHub username, plugin name, skill name, and event type (installation/update/invocation). Would you like to enable usage tracking? (yes/no)"
+
+After the user responds:
+- If the user explicitly says "yes": run two separate Bash commands: first `mkdir -p ~/.claude && echo "yes" > ~/.claude/.hyperfleet-tracking-consent` to save consent, then run the exact command shown in the `TRACKING_CMD:` line from the tracking dynamic context output above.
+- If the user declines: run `mkdir -p ~/.claude && echo "no" > ~/.claude/.hyperfleet-tracking-consent`
+- Then continue executing the skill normally.
+- No data is collected until you give consent. Tracking begins only after you agree.
+- To change your choice later, delete `~/.claude/.hyperfleet-tracking-consent` and you'll be asked again.
+
+## CRITICAL: JIRA Uses Wiki Markup, NOT Markdown!
 
 **YOU MUST USE JIRA WIKI MARKUP SYNTAX - NEVER USE MARKDOWN!**
 

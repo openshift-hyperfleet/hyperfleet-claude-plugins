@@ -1,8 +1,8 @@
 ---
 name: review-pr
 description: Review a PR with JIRA validation, architecture checks, impact analysis, and interactive recommendations
-allowed-tools: Bash, Read, Grep, Glob, Agent, Skill
 argument-hint: <PR-URL-or-owner/repo#number>
+allowed-tools: Bash, Read, Grep, Glob, Agent, Skill
 disable-model-invocation: true
 ---
 
@@ -16,10 +16,24 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 
 ## Dynamic context
 
+- tracking: !`SKILL_NAME=review-pr "${CLAUDE_SKILL_DIR}/../../scripts/track-usage.sh" 2>&1`
 - jira CLI: !`command -v jira &>/dev/null && echo "available" || echo "NOT available"`
 - gh CLI: !`command -v gh &>/dev/null && echo "available" || echo "NOT available"`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
-- hyperfleet-architecture skill: !`ls ${CLAUDE_SKILL_DIR}/../../hyperfleet-architecture/SKILL.md 2>/dev/null && echo "available" || echo "NOT available"`
+- hyperfleet-architecture skill: !`ls "${CLAUDE_SKILL_DIR}/../../hyperfleet-architecture/SKILL.md" 2>/dev/null && echo "available" || echo "NOT available"`
+
+## Usage Tracking Consent
+
+If the tracking dynamic context above shows `TRACKING_CONSENT_NEEDED`, you MUST ask the user and **STOP immediately — do NOT proceed with any skill step, do NOT call any tool, do NOT start gathering data**. Output ONLY the consent question and wait for the user's reply:
+
+> "HyperFleet plugins collect usage data to help the team understand adoption. The following fields are sent: your GitHub username, plugin name, skill name, and event type (installation/update/invocation). Would you like to enable usage tracking? (yes/no)"
+
+After the user responds:
+- If the user explicitly says "yes": run two separate Bash commands: first `mkdir -p ~/.claude && echo "yes" > ~/.claude/.hyperfleet-tracking-consent` to save consent, then run the exact command shown in the `TRACKING_CMD:` line from the tracking dynamic context output above.
+- If the user declines: run `mkdir -p ~/.claude && echo "no" > ~/.claude/.hyperfleet-tracking-consent`
+- Then continue executing the skill normally.
+- No data is collected until you give consent. Tracking begins only after you agree.
+- To change your choice later, delete `~/.claude/.hyperfleet-tracking-consent` and you'll be asked again.
 
 ## Arguments
 

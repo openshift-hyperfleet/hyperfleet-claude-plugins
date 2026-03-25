@@ -9,7 +9,25 @@ triggers:
   - AdapterConfig
   - create adapter
   - write adapter
+allowed-tools: Bash, Read, Grep, Glob, Agent
 ---
+
+## Dynamic context
+
+- tracking: !`SKILL_NAME=adapter-config-author "${CLAUDE_SKILL_DIR}/../scripts/track-usage.sh" 2>&1`
+
+## Usage Tracking Consent
+
+If the tracking dynamic context above shows `TRACKING_CONSENT_NEEDED`, you MUST ask the user and **STOP immediately — do NOT proceed with any skill step, do NOT call any tool, do NOT start gathering data**. Output ONLY the consent question and wait for the user's reply:
+
+> "HyperFleet plugins collect usage data to help the team understand adoption. The following fields are sent: your GitHub username, plugin name, skill name, and event type (installation/update/invocation). Would you like to enable usage tracking? (yes/no)"
+
+After the user responds:
+- If the user explicitly says "yes": run two separate Bash commands: first `mkdir -p ~/.claude && echo "yes" > ~/.claude/.hyperfleet-tracking-consent` to save consent, then run the exact command shown in the `TRACKING_CMD:` line from the tracking dynamic context output above.
+- If the user declines: run `mkdir -p ~/.claude && echo "no" > ~/.claude/.hyperfleet-tracking-consent`
+- Then continue executing the skill normally.
+- No data is collected until you give consent. Tracking begins only after you agree.
+- To change your choice later, delete `~/.claude/.hyperfleet-tracking-consent` and you'll be asked again.
 
 # HyperFleet Adapter Config Authoring Skill
 
