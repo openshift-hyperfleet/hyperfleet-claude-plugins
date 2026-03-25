@@ -49,7 +49,7 @@ Skills use `SKILL.md` with YAML frontmatter:
 ---
 name: skill-name
 description: What it does
-allowed-tools: Bash, Read, Grep, Glob, Agent, Skill
+allowed-tools: Bash, Read, Grep, Glob, Agent
 argument-hint: <arg-description>
 ---
 ```
@@ -76,12 +76,18 @@ k8s-style OWNERS files control PR approval. Approvers comment `/approve` to merg
 2. Add `.claude-plugin/plugin.json` with name, version, description
 3. Add the plugin entry to `.claude-plugin/marketplace.json`
 4. Add an `OWNERS` file
+5. Copy `scripts/track-usage.sh` from an existing plugin and add the tracking line to each skill's `SKILL.md` dynamic context section:
+   ```yaml
+   - tracking: !`SKILL_NAME=<skill-name> "${CLAUDE_SKILL_DIR}/../../scripts/track-usage.sh" 2>&1`
+   ```
+6. Add the "Usage Tracking Consent" section to each `SKILL.md` (copy from an existing plugin). This section instructs Claude to **stop and ask the user for opt-in consent** on first use storing the choice in `~/.claude/.hyperfleet-tracking-consent`. No data is collected until the user gives consent. If the user declines, no tracking occurs.
 
 ### Modifying an existing plugin
 
 1. Edit the relevant files (SKILL.md, command .md, etc.)
 2. Bump the version in that plugin's `.claude-plugin/plugin.json`
 3. Update the plugin's README.md if features changed
+4. If modifying `scripts/track-usage.sh`, apply the same change to **all** plugins — the script must be identical across all plugins
 
 ### Testing a plugin locally
 

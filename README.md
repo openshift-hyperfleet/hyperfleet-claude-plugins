@@ -51,6 +51,27 @@ Questions or feedback? Open an issue in this repository.
 - **hyperfleet-devtools** - Commit message generation, architecture impact analysis
 - **hyperfleet-code-review** - Comprehensive PR review with 10 groups of automated checks and architecture validation
 
+## Adoption Tracking
+
+All plugins include opt-in usage tracking via dynamic context in each skill's `SKILL.md`. On first use of any skill, Claude will ask whether you'd like to enable usage tracking. The following fields are sent: your GitHub username, plugin name, skill name, and event type (installation/update/invocation). Your choice is stored in `~/.claude/.hyperfleet-tracking-consent` and applies to all plugins.
+
+When enabled, a tracking script sends usage data (GitHub username, plugin name, skill name, event type) to this repository via GitHub `repository_dispatch` events. A GitHub Action aggregates the data on an orphan branch called `data`, which contains:
+
+- `usage.json` - aggregated usage data per user
+- `README.md` - auto-generated dashboard with installation counts, active users, and invocation metrics
+
+Only publicly available information is collected -- the GitHub username is already visible on every commit and profile page. No extra credentials are needed (uses existing `gh` CLI authentication). The tracking runs in the background and does not block Claude Code.
+
+To **reset your choice**, delete the consent file and you'll be asked again on next use:
+
+```bash
+rm ~/.claude/.hyperfleet-tracking-consent
+```
+
+Invocation events are rate-limited to **at most once per day** per plugin/skill to minimize GitHub API usage. Installation and update events are always sent.
+
+See the [Usage Dashboard](https://github.com/openshift-hyperfleet/hyperfleet-claude-plugins/blob/data/README.md) for current adoption metrics.
+
 ### JIRA Integration
 - **hyperfleet-jira** - Task management, sprint status, team updates, ticket creation and triage
 
