@@ -1,7 +1,7 @@
 {
   "name": "hyperfleet-devtools",
-  "version": "0.2.1",
-  "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, and more",
+  "version": "0.4.0",
+  "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, E2E test case design, and more",
   "author": {
     "name": "HyperFleet Team",
     "email": "hyperfleet-dev@redhat.com"

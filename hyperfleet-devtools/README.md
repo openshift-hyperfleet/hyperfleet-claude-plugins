@@ -88,6 +88,30 @@ Analyzes code changes and determines if architecture documentation needs to be u
 
 See [skills/architecture-impact/SKILL.md](./skills/architecture-impact/SKILL.md) for detailed documentation.
 
+---
+
+### 🧪 E2E Test Case Designer
+
+**Status**: ✅ Production Ready
+
+Designs black-box E2E test cases for HyperFleet features using systematic test design techniques.
+
+**What It Does**:
+- Builds traceability matrices mapping acceptance criteria to existing test coverage
+- Identifies coverage gaps with risk-based prioritization (likelihood x blast radius)
+- Applies formal test design techniques (State Transition, Decision Table, Failure Mode Analysis)
+- Filters false positive candidates using 4-stage pre-filter (scope boundary, implicit coverage, third-party internals, design-time guarantees)
+- Generates Jira-ready gap specifications for uncovered acceptance criteria
+
+**Usage**:
+
+```bash
+# Design test cases for a Jira epic
+"design E2E test cases for HYPERFLEET-559"
+```
+
+See [skills/e2e-test-design/SKILL.md](./skills/e2e-test-design/SKILL.md) for detailed documentation.
+
 ## Installation
 
 This plugin is part of the HyperFleet Claude Plugins marketplace and is automatically available when you install the marketplace.
@@ -106,6 +130,7 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 # You should see:
 # - hyperfleet-devtools:commit-message
 # - hyperfleet-devtools:architecture-impact
+# - hyperfleet-devtools:e2e-test-design
 ```
 
 ## Configuration
@@ -142,7 +167,8 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.1.0 - ✅ Current Release
+### v0.4.0 - ✅ Current Release
+- ✅ **E2E Test Case Designer**: Systematic E2E test case design with traceability, risk assessment, and coverage verification
 - ✅ **Commit Message Generator**: Auto-generate standardized commit messages with JIRA ticket detection
 - ✅ **Architecture Impact Analyzer**: Detect when code changes require documentation updates
 
@@ -184,6 +210,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.1.0
-**Last Updated**: 2026-03-02
+**Version**: 0.4.0
+**Last Updated**: 2026-03-25
 **Status**: ✅ Production Ready
