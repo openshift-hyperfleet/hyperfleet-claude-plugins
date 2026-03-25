@@ -91,7 +91,7 @@ jira issue view <EPIC_KEY> --raw 2>/dev/null | jq -r '{key: .key, summary: .fiel
 jira issue list -q "parent = <EPIC_KEY>" --raw 2>/dev/null  | jq -r '.[] | {key: .key, status: .fields.status.name}'
 ```
 
-complete_ratio = count(the number of Done children issues) / count(the number of children issues) * 100 
+complete_ratio = count(the number of Closed children issues) / count(the number of children issues) * 100 
 
 ## Output Format
 
@@ -103,7 +103,7 @@ CRITICAL: You MUST create a THREE-LEVEL NESTED STRUCTURE. Do NOT skip any level:
 **Team: [team-key]**
 
 ### Summary Stats
-- Total closed issues: [count]
+- Total Done issues: [count]
 ---
 
 **[Activity Type Name]** 
