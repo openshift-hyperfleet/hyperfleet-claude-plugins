@@ -8,6 +8,7 @@ Thank you for contributing to the HyperFleet Claude Plugins marketplace! This gu
 - [Local Development and Debugging](#local-development-and-debugging)
 - [Versioning](#versioning)
 - [Pull Request Workflow](#pull-request-workflow)
+- [Security Guidelines](#security-guidelines)
 - [Feedback and Issues](#feedback-and-issues)
 
 ## Adding a Plugin
@@ -111,6 +112,72 @@ See [k8s OWNERS documentation](https://www.kubernetes.dev/docs/guide/owners/) fo
 2. Bump the version number according to semantic versioning
 3. Submit a PR with your changes
 4. Request review from reviewers/approvers listed in the OWNERS file
+
+## Security Guidelines
+
+This section defines security requirements for plugin development.
+
+### Principle of Least Privilege
+
+When defining `allowed-tools` in your skill's YAML frontmatter, request only the tools your skill actually needs:
+
+- Prefer `Read`, `Glob`, `Grep` over `Bash` when possible — they are scoped and safer
+- If your skill only reads data, do not include `Bash` or `Edit`
+- Only include `Agent` or `Skill` if your plugin needs to invoke sub-agents or other skills
+
+```yaml
+# Good — minimal tools for a read-only audit
+allowed-tools: Read, Glob, Grep
+
+# Acceptable — Bash needed for CLI tools, but scoped in instructions
+allowed-tools: Bash, Read, Grep, Glob, WebFetch
+
+# Avoid — requesting tools you don't use
+allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, Skill, WebFetch, WebSearch
+```
+
+### External System Access
+
+If your plugin integrates with external systems (JIRA, GitHub API, Kubernetes, etc.):
+
+- **Never store credentials** in plugin files — rely on CLI tool authentication (`gh auth`, `jira` CLI, `kubectl`)
+- **Never log or output** API tokens, passwords, or sensitive data
+- **Document which external systems** your plugin accesses in the plugin's README.md
+- **Validate connectivity** gracefully — if a CLI tool is not configured, inform the user instead of failing silently
+
+### Dynamic Context (`!` Backtick Commands)
+
+Skills can use `!` backtick syntax to run shell commands at load time. These commands execute automatically when the skill is loaded, **before any user interaction**:
+
+```yaml
+- setup: !`${CLAUDE_SKILL_DIR}/../../scripts/check-setup.sh 2>&1`
+```
+
+**Security requirements for dynamic context scripts:**
+
+- Scripts must be **read-only** — they must not modify files, install packages, or change system state
+- Scripts must **not transmit data** to external services without explicit user consent
+- Scripts must **fail gracefully** — errors should produce informative messages, not crash the skill
+- **All dynamic context scripts require careful review** during PR approval — reviewers should treat them with the same scrutiny as executable code
+
+### Handling Untrusted Input
+
+Plugins that process external content (PR descriptions, JIRA ticket bodies, user-provided URLs) should:
+
+- Treat all external content as **untrusted input**
+- Include explicit instructions in SKILL.md warning about **prompt injection** risks
+- Never execute commands constructed from untrusted input without validation
+
+### PR Security Review Checklist
+
+When reviewing PRs that add or modify plugins, verify:
+
+- [ ] `allowed-tools` follows least privilege — no unnecessary tools requested
+- [ ] No credentials, API tokens, or secrets in any plugin files
+- [ ] Dynamic context scripts (`!` backtick) are read-only and safe to auto-execute
+- [ ] External system integrations are documented in README.md
+- [ ] Untrusted input (PR content, JIRA data) is handled safely
+- [ ] Scripts do not transmit data without user consent
 
 ## Feedback and Issues
 
