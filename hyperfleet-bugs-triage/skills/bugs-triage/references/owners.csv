@@ -1,0 +1,13 @@
+type,name,primary_owner,secondary_owner
+component,Hyperfleet API,Yanming Sun,Angel Marin
+component,Broker,Angel Marin,dandan wang
+component,Adapter,Xue Li,Angel Marin
+component,Sentinel,Rafael Benevides,"Phuongnhat Nguyen, Yanming Sun"
+component,CICD,Ying Zhang,
+component,Claude Code Plugin,Rafael Benevides,Yanming Sun
+domain,Hyperfleet Architecture,Victor Kareh Fabregas,Ciaran Roche
+domain,CLM Architecture,Ciaran Roche,Angel Marin
+domain,CICD Framework,Xue Li,
+domain,Test Automation Framework,Yanming Sun,Ying Zhang
+domain,Deployment Strategy,Ciaran Roche,Rafael Benevides
+domain,Implementation Standard,"Angel Marin, Rafael Benevides",Ciaran Roche
