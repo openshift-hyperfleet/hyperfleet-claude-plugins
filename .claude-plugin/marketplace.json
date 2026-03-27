@@ -1,8 +1,8 @@
 {
   "name": "hyperfleet-claude-plugins",
   "owner": {
-    "name": "Alex Vulaj",
-    "email": "avulaj@redhat.com"
+    "name": "Rafael Benevides",
+    "email": "rbenevid@redhat.com"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
     {
       "name": "hyperfleet-jira",
       "source": "./hyperfleet-jira",
-      "description": "JIRA integration for sprint management, task tracking, ticket hygiene audits, and story point estimation using jira-cli"
+      "description": "JIRA integration for sprint management, task tracking, ticket triage, and story point estimation using jira-cli"
     },
     {
       "name": "hyperfleet-standards",
@@ -28,7 +28,12 @@
     {
       "name": "hyperfleet-devtools",
       "source": "./hyperfleet-devtools",
-      "description": "Developer productivity tools for HyperFleet - architecture documentation impact analysis and development assistance"
+      "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, E2E test case design, and more"
+    },
+    {
+      "name": "hyperfleet-code-review",
+      "source": "./hyperfleet-code-review",
+      "description": "Standardized PR review workflow with JIRA validation, HyperFleet architecture checks, impact analysis, and interactive recommendations"
     }
   ]
 }

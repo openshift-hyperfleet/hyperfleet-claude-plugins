@@ -670,7 +670,7 @@ After creating multiple tickets via CLI:
 
 This skill complements:
 - **jira-story-pointer**: Use to refine story point estimates after creation
-- **jira-hygiene**: Use to validate ticket quality after creation
+- **jira-triage**: Use to validate ticket quality after creation
 - **jira-cli**: All operations use jira-cli under the hood
 
 ## Quick Reference Card

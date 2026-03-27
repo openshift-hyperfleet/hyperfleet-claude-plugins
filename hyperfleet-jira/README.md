@@ -11,11 +11,12 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 
 ### For Team Leads
 - **`/sprint-status`** - Comprehensive sprint health overview
-- **`/hygiene-check`** - Audit tickets for missing fields and quality issues
+- **`/team-weekly-update`** - Weekly team progress report grouped by activity type and epic
+- **`/triage`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
 - **JIRA Ticket Creator** - Creates well-structured tickets with What/Why/Acceptance Criteria
-- **JIRA Hygiene Checker** - Validates ticket quality when you ask about readiness
+- **JIRA Triage** - Validates ticket quality when you ask about readiness
 - **Story Point Estimator** - Helps estimate tickets using complexity analysis
 
 ## Prerequisites
@@ -49,17 +50,19 @@ sudo mv jira /usr/local/bin/
    export JIRA_API_TOKEN="your-api-token"
    ```
 
-3. **Initialize jira-cli:**
+3. **Initialize jira-cli for HyperFleet:**
    ```bash
-   jira init
+   jira init --installation cloud \
+     --server https://redhat.atlassian.net \
+     --login your-email@redhat.com \
+     --auth-type basic \
+     --project HYPERFLEET
    ```
-   - Select "Cloud" for Atlassian Cloud
-   - Enter your JIRA URL (e.g., `https://yourcompany.atlassian.net`)
-   - Enter your email
-   - Select your default project
+   It will prompt you for the API token and default board selection.
 
 4. **Verify setup:**
    ```bash
+   jira me
    jira issue list
    ```
 
@@ -116,11 +119,26 @@ Output includes:
 - Team workload distribution
 - Carry-over risk assessment
 
-#### `/hygiene-check` (Team Leads)
+#### `/team-weekly-update` (Team Leads)
+Weekly progress report for team updates:
+```
+/team-weekly-update                    # All teams in HYPERFLEET
+/team-weekly-update HYPERFLEET         # Specific project
+/team-weekly-update HYPERFLEET 6278    # Specific team
+/team-weekly-update "" 6278            # Default project with team filter
+```
+Output includes:
+- Closed issues from the last 7 days (Story, Task, Bug)
+- Grouped by activity type → Epic → Story/Task/Bug hierarchy
+- Summary statistics by activity type
+- Epic status tracking
+- Issues without parent epics highlighted
+
+#### `/triage` (Team Leads)
 Audit tickets for quality:
 ```
-/hygiene-check
-/hygiene-check backlog    # Check backlog instead of sprint
+/triage
+/triage backlog    # Check backlog instead of sprint
 ```
 Checks for:
 - Missing story points
@@ -143,7 +161,7 @@ The creator ensures:
 - Activity type categorization
 - All required fields populated
 
-#### Ticket Hygiene
+#### Ticket Triage
 Just ask naturally:
 - "Is TICKET-123 ready for development?"
 - "Does this ticket have enough information?"
@@ -199,5 +217,4 @@ See the main [HyperFleet Claude Plugins README](../README.md) for contribution g
 
 ## Maintainers
 
-- Alex Vulaj (@AlexVulaj)
 - Ciaran Roche (@ciaranRoche)
