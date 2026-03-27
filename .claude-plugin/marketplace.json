@@ -28,7 +28,7 @@
     {
       "name": "hyperfleet-devtools",
       "source": "./hyperfleet-devtools",
-      "description": "Developer productivity tools for HyperFleet - architecture documentation impact analysis and development assistance"
+      "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, E2E test case design, and more"
     },
     {
       "name": "hyperfleet-code-review",
