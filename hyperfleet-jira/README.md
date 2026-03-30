@@ -18,6 +18,7 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 - **JIRA Ticket Creator** - Creates well-structured tickets with What/Why/Acceptance Criteria
 - **JIRA Triage** - Validates ticket quality when you ask about readiness
 - **Story Point Estimator** - Helps estimate tickets using complexity analysis
+- **Is Ticket Implemented?** - Validates whether a ticket's requirements are implemented in the codebase
 
 ## Prerequisites
 
@@ -178,6 +179,21 @@ The estimator analyzes:
 - Dependencies and risks
 - Similar completed tickets
 - Team velocity patterns
+
+#### Ticket Implementation Validation
+Check if a ticket's requirements are implemented:
+```
+/is-ticket-implemented HYPERFLEET-123          # local codebase
+/is-ticket-implemented HYPERFLEET-123 github   # remote (infers repo from ticket)
+```
+Or ask naturally: "Is HYPERFLEET-123 implemented?" / "Check if this ticket is done"
+
+Generates an acceptance report with:
+- Completion percentage
+- Implemented items with file:line references
+- Partially implemented and missing items
+- Manual verification needed
+- Recommended next actions
 
 ## Story Points Reference
 
