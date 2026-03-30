@@ -59,45 +59,17 @@ For each requirement/criterion, search the codebase to determine if it is implem
 
 #### Local mode (default)
 
-- Use `Grep` to find relevant code by keywords, function names, types, or patterns described in the requirement
-- Use `Glob` to find relevant files by name patterns
-- Use `Read` to inspect candidate files and confirm the implementation matches the requirement
-- Use the `Agent` tool with `subagent_type=Explore` for requirements that span multiple files or need deep investigation
+Search the current working directory using any available tools. Record file:line locations for every match.
 
 #### Remote mode (`$1` = `github`)
 
-First, determine the target repository:
+Infer the target repository from the ticket's component, title, and description (e.g., component `API` maps to `hyperfleet-api`). Validate the inferred name against the org repo list:
 
-1. Read the ticket's title, description, and component to identify which repo is relevant
-2. List available repos in the org:
-   ```bash
-   gh repo list openshift-hyperfleet --limit 50 --json name --jq '.[].name' | sort
-   ```
-3. Infer the most likely repo based on:
-   - Ticket component (e.g., `API` likely maps to `hyperfleet-api`)
-   - Keywords in the title/description (e.g., "adapter", "sentinel", "api")
-   - File paths or package names mentioned in the ticket
-4. **Validate the inferred repo:** the inferred name must exactly match one of the repo names returned by `gh repo list` in step 2. If it does not match exactly, do not use it in any `gh` command -- ask the user to choose from the validated list instead.
-5. If the repo cannot be confidently inferred, show the user the list of repos and ask which one to analyze
+```bash
+gh repo list openshift-hyperfleet --limit 50 --json name --jq '.[].name' | sort
+```
 
-Then use `gh` CLI to explore the repository:
-
-- List files and directories:
-  ```bash
-  gh api repos/openshift-hyperfleet/{repo}/git/trees/main --jq '.tree[] | select(.type=="blob") | .path' 2>/dev/null
-  ```
-- Search for code with GitHub search API:
-  ```bash
-  gh api "search/code?q=KEYWORD+repo:openshift-hyperfleet/{repo}" --jq '.items[] | "\(.path):\(.name)"'
-  ```
-- Read file contents:
-  ```bash
-  gh api "repos/openshift-hyperfleet/{repo}/contents/{path}?ref=main" --jq '.content' | base64 --decode
-  ```
-- For large repos, use the tree API recursively:
-  ```bash
-  gh api "repos/openshift-hyperfleet/{repo}/git/trees/main?recursive=1" --jq '.tree[] | select(.path | test("pattern")) | .path'
-  ```
+If the repo cannot be confidently inferred, ask the user to choose. Then use `gh` CLI to explore the repository (tree API, search API, contents API).
 
 #### Status determination
 
