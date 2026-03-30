@@ -1,0 +1,9 @@
+{
+  "name": "hyperfleet-bugs-triage",
+  "version": "0.1.0",
+  "description": "Interactive JIRA bug triage (New->Backlog) and GitHub issue triage for openshift-hyperfleet repositories",
+  "author": {
+    "name": "Rafael Benevides",
+    "email": "rbenevid@redhat.com"
+  }
+}
