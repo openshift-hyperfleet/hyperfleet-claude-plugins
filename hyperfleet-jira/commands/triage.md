@@ -74,6 +74,7 @@ Audit JIRA tickets for sprint readiness, including required fields, valid compon
    When inspecting individual tickets, verify:
    - **Title**: Clear, actionable, under 100 characters
    - **Acceptance Criteria**: At least 2 clear, testable criteria in description
+   - **Language**: All content (title, description, comments, acceptance criteria) must be in English
    - **No ambiguous language**: Check for "maybe", "probably", "TBD", "possibly"
 
 ## Output Format

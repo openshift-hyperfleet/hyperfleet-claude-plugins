@@ -133,7 +133,7 @@ See [output-format.md](output-format.md) for the complete output format, notific
 
 - **SCOPE: diff only** — Only recommend problems on lines that were **added or modified** in the PR (lines with `+` in the diff). Pre-existing code that was not changed by the PR is **out of scope**, even if it has problems. Files that are NOT in the PR's file list are **never** valid targets for recommendations — even if a change in the diff makes them stale or broken. Impact analysis (step 4b) may discover such files, but they must go in the **Impact warnings** section (see [output-format.md](output-format.md)), never as numbered recommendations.
 - DO NOT repeat problems already pointed out (by bots, reviewers, or the user in the conversation)
-- Include concrete suggestions for fixes (code or text) when possible
+- Include concrete suggestions for fixes (code or text) when possible. The "GitHub comment" section MUST be wrapped in a tilde fence (`~~~markdown`) so the user can copy-paste raw Markdown. Code snippets inside MUST use backtick fences (` ```go `) with language identifiers — see [output-format.md](output-format.md) for the full rule
 - Adapt N to the actual number of recommendations (can be 0, 1, 5, 15, etc.)
 - **Line numbers**: always use the line from the **new file** that corresponds to what GitHub shows in the right column of the diff in the web UI. **DO NOT manually calculate** from the `@@` headers of the diff — this is error-prone. Instead, fetch the file directly from the PR branch and find the exact line:
   ```bash

@@ -4,11 +4,9 @@
 
 First, show a brief summary:
 
-```text
 **PR:** [PR title]
 **Files:** X file(s) changed
 **Recommendations found:** N (new, excluding already commented ones)
-```
 
 ## Impact warnings (optional, only when impact analysis found files outside the PR)
 
@@ -16,7 +14,6 @@ If the impact analysis (step 4b) found files that **should have been updated but
 
 **GitHub comment:**
 
-```markdown
 ### Impact warnings
 
 The following files are **NOT in this PR** but may need updating due to changes in the diff:
@@ -24,25 +21,21 @@ The following files are **NOT in this PR** but may need updating due to changes 
 - **`docs/development.md`** (lines 31, 33, 40) — Still references `gcp.json` which was renamed to `nodepool-request.json` in this PR
 
 These are outside the PR scope and shown for awareness only.
-```
 
 If there are no impact warnings, skip this section entirely.
 
 ## When N = 0 (no new recommendations)
 
-```text
 **PR:** [PR title]
 **Files:** X file(s) changed
 **Recommendations found:** 0
 
 No additional recommendations! Existing comments already cover the relevant points.
-```
 
 ## Current recommendation (when N > 0)
 
 After the summary (and impact warnings, if any), show "Showing recommendation 1 of N:" followed by the first recommendation. Show only ONE recommendation at a time:
 
-```text
 ---
 
 ## Recommendation 1/N - Brief problem title
@@ -54,25 +47,23 @@ After the summary (and impact warnings, if any), show "Showing recommendation 1 
 **Problem:**
 [Clear description of the problem]
 
-**GitHub comment:**
+**GitHub comment (ready to copy-paste):**
 
-```markdown
+~~~markdown
 **Category:** [same category value from above]
 
-[comment written as a human (casual and direct tone, not AI-generated sounding), formatted in Markdown ready to copy and paste on GitHub, with suggested fix when applicable]
-```
+[comment written as a human (casual and direct tone, not AI-generated sounding), formatted in Markdown ready to copy and paste on GitHub, with suggested fix when applicable. Use backtick fenced code blocks (` ``` `) with language identifiers for all code snippets.]
+~~~
 
 ---
 
 Type **"next"** or **"n"** to see the next recommendation.
 Type **"all"** to see a summary list of all recommendations.
-```
 
 ## Doc <-> Code inconsistency variant
 
 When the recommendation is a Doc <-> Code mismatch (from step 4c), use this format instead — showing both files involved:
 
-```text
 ---
 
 ## Recommendation 1/N - Brief problem title
@@ -84,26 +75,24 @@ When the recommendation is a Doc <-> Code mismatch (from step 4c), use this form
 **Problem:**
 [Clear description of what the doc says vs what the code does (or doesn't do)]
 
-**GitHub comment:**
+**GitHub comment (ready to copy-paste):**
 
-```markdown
+~~~markdown
 **Category:** Inconsistency
 
-[comment written as a human, referencing both files so the reviewer can cross-check]
-```
+[comment written as a human, referencing both files so the reviewer can cross-check. Use backtick fenced code blocks (` ``` `) with language identifiers for all code snippets.]
+~~~
 
 ---
 
 Type **"next"** or **"n"** to see the next recommendation.
 Type **"all"** to see a summary list of all recommendations.
-```
 
 ## Interactive behavior
 
 - **"next"** or **"n"**: shows the next recommendation
 - **"all"** or **"list"**: shows a summary table with all:
 
-```text
 | # | File(s) | Line | Problem |
 |---|---------|------|---------|
 | 1 | path/file.ext | 42 | Brief description |
@@ -111,8 +100,34 @@ Type **"all"** to see a summary list of all recommendations.
 | ... | ... | ... | ... |
 
 Type "1" to "N" to see details of a specific recommendation.
-```
 
 - **Number (e.g. "3")**: shows details of the specific recommendation
 - **Unrecognized input**: remind the user of the available commands ("next", "all", or a number)
 - **When done**: "Review complete! All N recommendations have been shown."
+
+## Code block rule — rendering and copy-paste
+
+The "GitHub comment" section MUST be wrapped in a **tilde fence** (`~~~markdown`) so the user can copy-paste the raw Markdown directly into GitHub. Inside the tilde fence, use **backtick fences** (` ``` `) with language identifiers for code snippets. This nesting works because tildes and backticks are different delimiters.
+
+### Example of correct output
+
+**GitHub comment (ready to copy-paste):**
+
+~~~markdown
+**Category:** Bug
+
+`Default.New()` has a nil guard on `tx.DB` but `Test.New()` skips it. Add the same guard:
+
+```go
+if tx.DB == nil {
+    panic("transaction context contains nil DB handle")
+}
+```
+~~~
+
+### Rules
+
+1. The outer fence for GitHub comments MUST use tildes (`~~~markdown`)
+2. Code snippets inside MUST use backtick fences (` ```go `, ` ```yaml `, etc.)
+3. Always include a language identifier — never use bare ` ``` `
+4. Every opening fence MUST have a matching closing fence
