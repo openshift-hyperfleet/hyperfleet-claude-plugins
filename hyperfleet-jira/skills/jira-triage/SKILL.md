@@ -1,5 +1,5 @@
 ---
-name: JIRA Ticket Triage
+name: jira-triage
 description: Validates JIRA tickets have required fields and quality standards for sprint planning.
 ---
 
@@ -39,6 +39,7 @@ Activate when the user:
 
 ### Quality Checks
 - **CRITICAL: Not a duplicate** - Search for similar titles/descriptions in backlog before adding
+- All content (title, description, comments, acceptance criteria) must be in **English**
 - No ambiguous language ("maybe", "probably", "TBD", "possibly")
 - Technical approach outlined or referenced
 - Dependencies identified and linked
@@ -95,32 +96,9 @@ When analyzing a ticket, provide:
 1. [Specific action to fix issue 1]
 2. [Specific action to fix issue 2]
 
-## Activity Types (Sankey Capacity Allocation)
+## Activity Types
 
-Activity Type is **required** for sprint/kanban capacity planning. Tickets without an Activity Type appear as "Uncategorized" and cannot be properly allocated.
-
-### Reactive Work (Non-Negotiable First)
-| Activity Type | Description | Examples |
-|---------------|-------------|----------|
-| **Associate Wellness & Development** | Onboarding, team growth, training, associate experience | Training sessions, mentorship |
-| **Incidents & Support** | Escalations, production issues | Customer escalations, outages |
-| **Security & Compliance** | Vulnerabilities and weaknesses, CVEs | Security patches, compliance fixes |
-
-### Core Principles (Quality Focus)
-| Activity Type | Description | Examples |
-|---------------|-------------|----------|
-| **Quality / Stability / Reliability** | Bugs, SLOs, chores, tech debt, PMR action items, toil reduction | Bug fixes, performance improvements |
-
-### Proactive Work (Balance Remaining Capacity)
-| Activity Type | Description | Examples |
-|---------------|-------------|----------|
-| **Future Sustainability** | Productivity improvements, team improvements, upstream, proactive architecture, enablement | Tooling, automation, refactoring |
-| **Product / Portfolio Work** | Strategic portfolio (HATSTRAT), strategic product, product outcome, BU features | New features, product enhancements |
-
-### Priority Order
-1. **Non-Negotiable**: Achieve SLAs for Escalations & CVEs
-2. **Core Principles**: Reduce bug backlog, ensure quality/stability/reliability
-3. **Then Balance**: Set up for long-term success by balancing remaining capacity between Future Sustainability and Product Work
+Follow the same activity type definitions used by the `jira-ticket-creator` skill. When triaging, verify the ticket's activity type is set and matches the correct Sankey tier (Non-Negotiable → Core Principles → Balance).
 
 ## Red Flags to Highlight
 

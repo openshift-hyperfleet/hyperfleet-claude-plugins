@@ -1,5 +1,5 @@
 ---
-name: HyperFleet Architecture
+name: hyperfleet-architecture
 description: Answers questions about HyperFleet architecture, design patterns, versioning strategies, cluster lifecycle, event-driven architecture, adapter framework, and git workflow by fetching docs from the openshift-hyperfleet/architecture GitHub repository.
 ---
 

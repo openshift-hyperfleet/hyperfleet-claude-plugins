@@ -15,9 +15,9 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 - **`/triage`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
-- **JIRA Ticket Creator** - Creates well-structured tickets with What/Why/Acceptance Criteria
-- **JIRA Triage** - Validates ticket quality when you ask about readiness
-- **Story Point Estimator** - Helps estimate tickets using complexity analysis
+- **jira-ticket-creator** - Creates well-structured tickets with What/Why/Acceptance Criteria, duplicate check, story points, activity type, and validation gate
+- **jira-triage** - Validates ticket quality and sprint readiness
+- **jira-story-pointer** - Estimates story points using complexity analysis and historical comparison
 - **Is Ticket Implemented?** - Validates whether a ticket's requirements are implemented in the codebase
 
 ## Prerequisites
@@ -157,10 +157,11 @@ Just ask naturally to create tickets:
 - "Can you create a JIRA ticket for this work?"
 
 The creator ensures:
+- Duplicate check before creating
 - **What/Why/Acceptance Criteria** structure
-- Story points assignment
-- Activity type categorization
-- All required fields populated
+- Story points via `jira-story-pointer` skill
+- Activity type via Sankey capacity allocation flow
+- Validation gate — blocks creation until all required fields are set
 
 #### Ticket Triage
 Just ask naturally:
@@ -199,12 +200,14 @@ Generates an acceptance report with:
 
 | Points | Meaning | Example |
 |--------|---------|---------|
+| 0 | Tracking Only | Quick/easy task with stakeholder value |
 | 1 | Trivial | Config change, typo fix |
-| 2 | Small | Well-understood, few files |
-| 3 | Medium-Small | Clear scope, limited testing |
-| 5 | Medium | Multiple components |
-| 8 | Large | Significant work, dependencies |
-| 13 | Very Large | Consider breaking down |
+| 3 | Straightforward | Time consuming but fairly straightforward |
+| 5 | Medium | Requires investigation, design, collaboration |
+| 8 | Large | Significant work, dependencies. Design doc required |
+| 13 | Too Large | Must be broken down into smaller stories |
+
+See [jira-story-pointer SKILL.md](./skills/jira-story-pointer/SKILL.md) for canonical definitions and estimation methodology.
 
 ## Troubleshooting
 

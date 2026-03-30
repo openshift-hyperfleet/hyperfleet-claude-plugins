@@ -19,7 +19,7 @@ The **HyperFleet Standards Audit** skill automatically activates when you ask ab
 - **Dynamic Standards Discovery** - Fetches standards from the architecture repo (GitHub with local fallback), ensuring the skill stays current as standards evolve
 - **Repository Type Detection** - Automatically identifies if the repo is an API, Sentinel, Adapter, Infrastructure, or Tooling project
 - **Comprehensive Audit** - Checks against all applicable standards based on repo type
-- **JIRA Integration** - Produces gap specifications in JIRA wiki markup, ready for use with `jira-ticket-creator`
+- **Gap Specifications** - Produces structured gap specifications in Markdown for each compliance issue found
 - **Read-Only** - Never modifies any files in the audited repository
 
 ## Standards Checked
@@ -86,23 +86,23 @@ The audit produces:
 - Specific gaps with file locations
 - Remediation guidance
 
-**JIRA-Ready Gap Specifications:**
-- Pre-formatted ticket specs for `jira-ticket-creator`
+**Gap Specifications:**
+- Structured specs for each compliance gap
 - Includes What/Why/Acceptance Criteria
-- Story points and priority recommendations
+- Priority recommendations
 
-### Create Tickets for Gaps
+### Act on Gaps
 
-After reviewing the audit report, create JIRA tickets:
+After reviewing the audit report, you can ask to address specific gaps:
 
+```text
+fix GAP-LNT-001
 ```
-create a ticket for GAP-LNT-001
-```
 
-Or bulk create:
+Or review all critical gaps:
 
-```
-create tickets for all critical gaps
+```text
+show me all critical gaps
 ```
 
 ## Repository Type Detection

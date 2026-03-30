@@ -157,17 +157,13 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
    /hyperfleet-devtools:commit-message
    ```
 
-4. **Create Tracking Tickets**: Use `hyperfleet-jira:jira-ticket-creator` for doc updates
-   ```
-   /create-ticket
-   # Based on the analysis report recommendations
-   ```
+4. **Create Tracking Tickets**: Ask to create tickets for any documentation updates — the `jira-ticket-creator` skill auto-activates when you request ticket creation
 
 5. **Commit & PR**: Submit linked PRs for code and documentation
 
 ## Roadmap
 
-### v0.4.0 - ✅ Current Release
+### v0.4.1 - ✅ Current Release
 - ✅ **E2E Test Case Designer**: Systematic E2E test case design with traceability, risk assessment, and coverage verification
 - ✅ **Commit Message Generator**: Auto-generate standardized commit messages with JIRA ticket detection
 - ✅ **Architecture Impact Analyzer**: Detect when code changes require documentation updates
@@ -210,6 +206,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.4.0
+**Version**: 0.4.1
 **Last Updated**: 2026-03-25
 **Status**: ✅ Production Ready

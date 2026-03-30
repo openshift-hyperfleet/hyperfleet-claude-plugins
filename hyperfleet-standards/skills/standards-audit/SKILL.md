@@ -1,13 +1,13 @@
 ---
-name: HyperFleet Standards Audit
-description: Audits local HyperFleet repositories against team architecture standards dynamically fetched from the architecture repo. Activates when users ask to audit repos, check standards compliance, or identify standards gaps. READ-ONLY - does not modify any files. Produces JIRA-ready gap specifications for integration with jira-ticket-creator skill.
+name: standards-audit
+description: Audits local HyperFleet repositories against team architecture standards dynamically fetched from the architecture repo. Activates when users ask to audit repos, check standards compliance, or identify standards gaps. READ-ONLY - does not modify any files.
 ---
 
 # HyperFleet Standards Audit Skill
 
 ## CRITICAL: READ-ONLY MODE
 
-**This skill MUST NOT modify any files in the repository being audited.** All operations are read-only analysis. The skill produces reports and JIRA-ready gap specifications but never changes code, configuration, or documentation.
+**This skill MUST NOT modify any files in the repository being audited.** All operations are read-only analysis. The skill produces reports and gap specifications but never changes code, configuration, or documentation.
 
 ## When to Use This Skill
 
@@ -291,56 +291,46 @@ Validate each against regex:
 
 ---
 
-## JIRA-Ready Gap Specifications
+## Gap Specifications
 
-[For each gap, provide a complete ticket specification]
+[For each gap, provide a complete specification]
 ```
 
-### JIRA Gap Specification Format
+### Gap Specification Format
 
-For integration with the `jira-ticket-creator` skill, format each gap as:
+Format each gap as:
 
 ```markdown
 ### GAP-[STANDARD]-[NUMBER]: [Brief Title]
 
-**Suggested Ticket:**
 - **Title:** [Concise title < 100 chars]
 - **Type:** Task
 - **Priority:** [Major/Normal/Minor based on severity]
-- **Story Points:** [1/3/5 based on complexity]
-- **Activity Type:** Quality / Stability / Reliability
+- **Severity:** Critical/Major/Minor
+- **Story Points:** [Set via jira-story-pointer before ticket creation]
+- **Activity Type:** [Set using jira-ticket-creator/references/activity-types.md]
 
-**Description (JIRA Wiki Markup):**
-
-h3. What
+### What
 
 [Clear description of what needs to be done - 2-4 sentences]
 
-h3. Why
+### Why
 
-* Required by HyperFleet [Standard Name] standard
-* [Additional business justification]
-* Reference: architecture/hyperfleet/standards/[filename].md
+- Required by HyperFleet [Standard Name] standard
+- [Additional business justification]
+- Reference: architecture/hyperfleet/standards/[filename].md
 
-h3. Acceptance Criteria:
+### Acceptance Criteria
 
-* [Specific, testable criterion 1]
-* [Specific, testable criterion 2]
-* [Specific, testable criterion 3]
+- [Specific, testable criterion 1]
+- [Specific, testable criterion 2]
+- [Specific, testable criterion 3]
 
-h3. Technical Notes:
+### Technical Notes
 
-* [Implementation guidance]
-* [Related files or patterns]
+- [Implementation guidance]
+- [Related files or patterns]
 ```
-
-### Story Points Guidance
-
-| Complexity | Points | Examples |
-|------------|--------|----------|
-| Config change | 1 | Add .golangci.yml, update .gitignore, add Makefile target |
-| Code changes | 3 | Add health endpoint, implement signal handler |
-| Refactoring | 5 | Restructure logging, implement error model |
 
 ### Priority Mapping
 
@@ -349,21 +339,6 @@ h3. Technical Notes:
 | Critical | Major |
 | Major | Normal |
 | Minor | Minor |
-
-## Integration with jira-ticket-creator
-
-After generating the audit report, users can create JIRA tickets for gaps:
-
-**Workflow:**
-1. User: "audit this repo against standards"
-2. Skill: Generates report with JIRA-ready gap specifications
-3. User: "create a ticket for GAP-LNT-001"
-4. jira-ticket-creator skill: Uses the pre-formatted specification
-
-**Bulk Ticket Creation:**
-User can also request: "create tickets for all critical gaps"
-
-The gap specifications are pre-formatted in JIRA wiki markup (not Markdown) to work directly with jira-ticket-creator.
 
 ## Example Audit Session
 
@@ -425,40 +400,36 @@ The gap specifications are pre-formatted in JIRA wiki markup (not Markdown) to w
 
 ---
 
-## JIRA-Ready Gap Specifications
+## Gap Specifications
 
 ### GAP-LNT-001: Add missing linters to .golangci.yml
 
-**Suggested Ticket:**
 - **Title:** Add missing linters to hyperfleet-api golangci config
 - **Type:** Task
 - **Priority:** Normal
-- **Story Points:** 1
-- **Activity Type:** Quality / Stability / Reliability
+- **Severity:** Major
 
-**Description (JIRA Wiki Markup):**
+### What
 
-h3. What
+Update `.golangci.yml` to enable all 16 required linters per HyperFleet linting standard. Currently missing 7 linters: goimports, gocritic, exhaustive, gofmt, lll, revive, goconst.
 
-Update {{.golangci.yml}} to enable all 16 required linters per HyperFleet linting standard. Currently missing 7 linters: goimports, gocritic, exhaustive, gofmt, lll, revive, goconst.
+### Why
 
-h3. Why
+- Required by HyperFleet Linting Standard
+- Ensures consistent code quality across all HyperFleet repositories
+- Reference: architecture/hyperfleet/standards/linting.md
 
-* Required by HyperFleet Linting Standard
-* Ensures consistent code quality across all HyperFleet repositories
-* Reference: architecture/hyperfleet/standards/linting.md
+### Acceptance Criteria
 
-h3. Acceptance Criteria:
+- All 16 linters enabled in `.golangci.yml`
+- `make lint` passes with no new violations (or violations tracked separately)
+- Configuration matches reference at `architecture/hyperfleet/standards/golangci.yml`
 
-* All 16 linters enabled in {{.golangci.yml}}
-* {{make lint}} passes with no new violations (or violations tracked separately)
-* Configuration matches reference at {{architecture/hyperfleet/standards/golangci.yml}}
+### Technical Notes
 
-h3. Technical Notes:
-
-* Copy settings from reference config in architecture repo
-* May need to add {{exclude-rules}} for existing violations to fix incrementally
-* Consider creating separate ticket for fixing existing lint violations
+- Copy settings from reference config in architecture repo
+- May need to add `exclude-rules` for existing violations to fix incrementally
+- Consider creating separate ticket for fixing existing lint violations
 
 ---
 
@@ -470,7 +441,7 @@ h3. Technical Notes:
 **Priority Items:**
 1. Fix linting configuration before merging new PRs
 
-Would you like me to create JIRA tickets for any of these gaps?
+Would you like to take action on any of these gaps?
 ```
 
 ## Error Handling
@@ -488,7 +459,9 @@ Always provide partial results where possible and suggest manual verification st
 
 - This skill is **READ-ONLY** - it never modifies files
 - Standards are **dynamically fetched** - skill stays current as standards evolve
-- Gap specifications use **JIRA wiki markup** (not Markdown) for jira-ticket-creator compatibility
+- Gap specifications use **Markdown**
 - Severity ratings: Critical > Major > Minor
 - Repository type affects which standards apply
 - All checks include file locations and specific remediation guidance
+- You can ask to create tickets for any gaps found — the `jira-ticket-creator` skill auto-activates when you request ticket creation
+- Before creation, ensure required Jira fields are set (story points via `jira-story-pointer`, activity type via activity types reference)

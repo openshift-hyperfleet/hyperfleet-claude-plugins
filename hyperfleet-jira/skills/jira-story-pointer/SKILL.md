@@ -1,5 +1,5 @@
 ---
-name: JIRA Story Point Estimator
+name: jira-story-pointer
 description: Estimates story points for JIRA tickets by analyzing complexity, scope, and comparing to historical team data. Activates when users ask to estimate, point, or size a ticket, or ask "how many points should this be?"
 ---
 
