@@ -6,7 +6,7 @@ A Claude Code plugin that audits HyperFleet repositories against team architectu
 
 ### Standards Audit Skill (Auto-Activated)
 
-The **HyperFleet Standards Audit** skill automatically activates when you ask about standards compliance:
+The **HyperFleet Standards Audit** skill automatically activates when you ask about standards compliance. It performs a comprehensive audit and can deep-dive into specific standards when gaps are found.
 
 - "audit this repo against standards"
 - "does this repo follow hyperfleet standards?"
@@ -16,11 +16,11 @@ The **HyperFleet Standards Audit** skill automatically activates when you ask ab
 
 ### Key Capabilities
 
-- **Dynamic Standards Discovery** - Fetches standards from the architecture repo (GitHub with local fallback), ensuring the skill stays current as standards evolve
+- **Dynamic Standards Discovery** - Delegates to the `hyperfleet-architecture` plugin to fetch standards, ensuring the skill stays current as standards evolve
 - **Repository Type Detection** - Automatically identifies if the repo is an API, Sentinel, Adapter, Infrastructure, or Tooling project
-- **Comprehensive Audit** - Checks against all applicable standards based on repo type
-- **Gap Specifications** - Produces structured gap specifications in Markdown for each compliance issue found
-- **Read-Only** - Never modifies any files in the audited repository
+- **Parallel Deep-Dive** - Runs thorough checks per standard in parallel using dedicated agents
+- **Interactive Output** - Paginated results with AskUserQuestion — never dumps the full report at once
+- **Fix Gaps** - Can fix compliance gaps directly when the user chooses to
 
 ## Standards Checked
 
@@ -31,14 +31,20 @@ https://github.com/openshift-hyperfleet/architecture/tree/main/hyperfleet/standa
 
 Current standards include:
 - Commit Message Standard
-- Linting Standard (golangci-lint)
-- Makefile Conventions
+- Configuration Standard
+- Container Image Standard
+- Dependency Pinning
+- Directory Structure
 - Error Model (RFC 9457)
+- Generated Code Policy
 - Graceful Shutdown
 - Health Endpoints
+- Helm Chart Conventions
+- Linting Standard (golangci-lint)
 - Logging Specification
+- Makefile Conventions
 - Metrics Standard
-- Generated Code Policy
+- Tracing Standard
 
 ## Installation
 
@@ -70,40 +76,14 @@ The skill will:
 3. Run applicable checks
 4. Generate a compliance report with gaps
 
-### Output Format
+### Interactive Flow
 
-The audit produces:
+The audit is interactive and paginated:
 
-**Summary Table:**
-```markdown
-| Standard | Status | Severity | Gaps |
-|----------|--------|----------|------|
-| Linting  | PARTIAL | Major   | 1    |
-```
-
-**Detailed Findings:**
-- Per-standard check results
-- Specific gaps with file locations
-- Remediation guidance
-
-**Gap Specifications:**
-- Structured specs for each compliance gap
-- Includes What/Why/Acceptance Criteria
-- Priority recommendations
-
-### Act on Gaps
-
-After reviewing the audit report, you can ask to address specific gaps:
-
-```text
-fix GAP-LNT-001
-```
-
-Or review all critical gaps:
-
-```text
-show me all critical gaps
-```
+1. **Summary** — shows a compliance table (PASS/PARTIAL/FAIL per standard)
+2. **Choose a standard** — user picks which standard to inspect
+3. **Detail** — shows the detailed findings for that standard
+4. **Act** — user can fix a gap, create a ticket, inspect another standard, or finish
 
 ## Repository Type Detection
 
@@ -124,23 +104,60 @@ Not all standards apply to all repository types:
 | Standard | API | Sentinel | Adapter | Infra | Tooling |
 |----------|-----|----------|---------|-------|---------|
 | Commit Messages | Yes | Yes | Yes | Yes | Yes |
-| Linting | Yes | Yes | Yes | No | Yes |
-| Makefile | Yes | Yes | Yes | Yes | Yes |
+| Configuration | Yes | Yes | Yes | No | Yes |
+| Container Image | Yes | Yes | Yes | No | No |
+| Dependency Pinning | Yes | Yes | Yes | No | Yes |
+| Directory Structure | Yes | Yes | Yes | No | Yes |
 | Error Model | Yes | Partial | Partial | No | No |
+| Generated Code | If applicable | If applicable | If applicable | No | No |
 | Graceful Shutdown | Yes | Yes | Yes | No | No |
 | Health Endpoints | Yes | Yes | Yes | No | No |
+| Helm Chart | Yes | Yes | Yes | Yes | No |
+| Linting | Yes | Yes | Yes | No | Yes |
 | Logging | Yes | Yes | Yes | No | Optional |
+| Makefile | Yes | Yes | Yes | Yes | Yes |
 | Metrics | Yes | Yes | Yes | No | No |
-| Generated Code | If applicable | If applicable | If applicable | No | No |
+| Tracing | Yes | Yes | Yes | No | No |
 
 ## Offline Mode
 
 If GitHub is unavailable, the skill falls back to the local architecture repository:
-```
-/home/croche/Projects/hyperfleet/architecture/hyperfleet/standards/
+```text
+[auto-detected local architecture repo path]
 ```
 
 Ensure your local architecture repo is up to date for offline use.
+
+### Standards Covered
+
+Each standard has a dedicated deep-dive reference with specific checks:
+
+- Configuration (config sources, env vars, validation)
+- Container Image (Dockerfile, base images, labels)
+- Dependency Pinning (.bingo/, tool isolation)
+- Directory Structure (required dirs, .gitignore)
+- Error Model (RFC 9457, error codes, wrapping, security)
+- Graceful Shutdown (signals, drain, timeouts)
+- Health Endpoints (paths, ports, probes, response format)
+- Helm Chart (values.yaml, security posture, testing)
+- Linting (.golangci.yml, required linters)
+- Logging (structured logging, levels, fields, redaction)
+- Makefile (targets, variables, build flags)
+- Metrics (naming, labels, histogram buckets)
+- Tracing (OTel, propagation, spans)
+
+## Relationship with Operational Readiness
+
+Some checks overlap with the [Operational Readiness](../hyperfleet-operational-readiness/README.md) plugin (health endpoints, graceful shutdown, metrics). The two plugins are complementary:
+
+| Aspect | Standards Audit | Operational Readiness |
+|--------|----------------|----------------------|
+| Source | Dynamic (architecture repo) | Dynamic (architecture repo) |
+| Focus | Code quality & conventions | Production reliability |
+| Checks | Linting, commits, error model | Health probes, PDB, metrics |
+| Perspective | Does the code follow the standard? | Does it work in production? |
+
+A health probe can pass the standards audit (correct path and port) but fail operational readiness (returns 200 without checking the database). Run both before a release.
 
 ## Contributing
 

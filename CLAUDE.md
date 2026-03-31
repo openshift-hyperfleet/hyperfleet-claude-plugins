@@ -27,7 +27,7 @@ hyperfleet-<name>/                <- each plugin
 | `hyperfleet-code-review` | PR review workflow | `/review-pr` | - | - |
 | `hyperfleet-jira` | JIRA integration | 3 skills | 5 commands | - |
 | `hyperfleet-architecture` | Architecture docs Q&A | 1 skill | - | - |
-| `hyperfleet-standards` | Standards audit | 1 skill | - | - |
+| `hyperfleet-standards` | Standards audit with deep-dive reviews | 1 skill | - | - |
 | `hyperfleet-operational-readiness` | Operational readiness audit | 1 skill | - | - |
 | `hyperfleet-devtools` | Dev productivity | 1 skill | 1 command | 1 agent |
 | `hyperfleet-adapter-authoring` | Adapter authoring | 1 skill | - | - |

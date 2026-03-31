@@ -1,6 +1,6 @@
 # Mechanical Code Pattern Checks
 
-Launch 10 grouped agents in parallel using a single tool-call block (`subagent_type=general-purpose`). Each agent receives the diff content, the list of changed files, and the HyperFleet standards fetched in step 2. Each agent must: list every instance found in the diff before evaluating it, then return a JSON array of findings (or empty array if none). Do NOT skip a check because "it looks fine" — enumerate first, then judge.
+Launch 10 grouped agents in parallel using a single tool-call block (`subagent_type=general-purpose`). Each agent receives the diff content, the list of changed files, and the HyperFleet standards fetched in the data-gathering step. Each agent must: list every instance found in the diff before evaluating it, then return a JSON array of findings (or empty array if none). Do NOT skip a check because "it looks fine" — enumerate first, then judge.
 
 Groups 1–7 and 10 are written for Go codebases (HyperFleet's primary language). Skip these groups when the diff contains no `.go` files. If a check finds zero instances, it naturally produces no findings. Groups 8–9 are language-agnostic and run for every PR.
 
@@ -20,7 +20,7 @@ List every call to `http.Error()`, `w.WriteHeader()`, or error-response helpers 
 
 ### Pass W — Error wrapping and sentinel errors
 
-The HyperFleet error model standard defines the canonical wrapping pattern: `fmt.Errorf("failed to get cluster %s: %w", id, err)` — always add context describing what the current function was doing, and always use `%w` to preserve the error chain. Bare `return errors.New("database error")` that discards the original error is explicitly prohibited.
+Compare against the HyperFleet error model standard fetched in the data-gathering step. The standard defines the canonical wrapping pattern and prohibited patterns. If the standard was not fetched or is partial, emit a mandatory finding stating "required error model standard unavailable" with fetch error details, then continue with the baseline checks below.
 
 List every `return err` and `return fmt.Errorf(...)` in the diff. For each, check:
 
@@ -149,7 +149,7 @@ This group is **language-agnostic** and runs for every PR regardless of file typ
 
 ### Pass R — Injection vulnerabilities
 
-Per the HyperFleet error model standard, user input in error messages must be sanitized to prevent injection.
+Per the HyperFleet error model standard (fetched in the data-gathering step), user input in error messages must be sanitized to prevent injection.
 
 List every place in the diff where external input (HTTP parameters, environment variables, user-provided strings, file content) is incorporated into:
 
@@ -163,7 +163,7 @@ Do NOT flag:
 
 ### Pass S — Secrets exposure
 
-Per the HyperFleet logging specification, the following MUST be redacted or omitted from logs: API tokens and credentials, passwords and secrets, cloud provider access keys, and PII. Per the error model standard, production API responses MUST NOT expose stack traces or internal error messages that may reveal system details.
+Per the HyperFleet logging specification and error model standard (fetched in the data-gathering step), verify that sensitive data is properly redacted from logs and error responses. Check the standards for the specific list of items that MUST be redacted.
 
 List every log statement, error message, HTTP response body, and metric label in the diff. For each, check if it could expose sensitive data:
 
