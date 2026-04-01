@@ -87,13 +87,21 @@ Or using the short format:
 
 ### Interactive Navigation
 
-After the initial recommendation is shown:
+After each recommendation, the skill uses `AskUserQuestion` to prompt for the next action. Available commands depend on the review mode:
 
-| Command | Action |
-|---------|--------|
-| `next` or `n` | Show the next recommendation |
-| `all` or `list` | Show a summary table of all recommendations |
-| `1` to `N` | Jump to a specific recommendation |
+| Command | Mode | Action |
+|---------|------|--------|
+| `next` or `n` | All | Show the next recommendation |
+| `all` or `list` | All | Show a summary table of all recommendations |
+| `1` to `N` | All | Jump to a specific recommendation |
+| `fix` | Self-review only | Apply the suggested fix directly using Edit/Write tools |
+| `comment` | Comment mode only | Post the recommendation as an inline review comment on the PR |
+| `ticket` | After review | Create follow-up JIRA tickets for impact warnings via `jira-ticket-creator` |
+
+### Review Modes
+
+- **Self-review mode**: Activated when the current GitHub user is the PR author AND the current branch matches the PR head branch. Offers the "fix" option to apply changes directly.
+- **Comment mode**: Activated when reviewing someone else's PR. Offers the "comment" option to post inline review comments on the exact file and line in GitHub.
 
 ### Output
 

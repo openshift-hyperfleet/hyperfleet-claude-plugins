@@ -1,7 +1,7 @@
 ---
 name: review-pr
 description: Review a PR with JIRA validation, architecture checks, impact analysis, and interactive recommendations
-allowed-tools: Bash, Read, Grep, Glob, Agent, Skill
+allowed-tools: Bash, Read, Grep, Glob, Agent, Skill, Edit, Write, AskUserQuestion
 argument-hint: <PR-URL-or-owner/repo#number>
 disable-model-invocation: true
 ---
@@ -19,7 +19,8 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 - jira CLI: !`command -v jira &>/dev/null && echo "available" || echo "NOT available"`
 - gh CLI: !`command -v gh &>/dev/null && echo "available" || echo "NOT available"`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
-- hyperfleet-architecture skill: !`ls ${CLAUDE_SKILL_DIR}/../../hyperfleet-architecture/SKILL.md 2>/dev/null && echo "available" || echo "NOT available"`
+- GitHub user: !`gh api user -q '.login' 2>/dev/null || echo "unknown"`
+- hyperfleet-architecture skill: !`[ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md" && echo "available" || echo "NOT available"`
 
 ## Arguments
 
@@ -125,9 +126,51 @@ For patterns that appear more than once across different files in the diff, veri
 
 Issues found by the mechanical checks (step 4d) or intra-PR consistency (step 5) should be assigned the category that best matches the finding.
 
+## Self-review mode (author is reviewer)
+
+Detect whether the current user is the PR author by comparing the GitHub login (see Dynamic context) with the PR author's login from `gh pr view --json author -q '.author.login'`. Also check if the current branch matches the PR's head branch.
+
+If **both** match (same user AND same branch checked out locally), enable **self-review mode**:
+
+- After each recommendation, offer a **"fix"** option alongside "next" and "all"
+- When the user types "fix":
+  - If the recommendation includes a concrete code snippet or patch: apply it directly using Edit/Write tools
+  - If the recommendation does NOT include a literal code snippet: do NOT auto-apply. Instead, generate a patch preview from the problem description, surrounding code context, and HyperFleet standards, show it to the user, and prompt for "apply" to confirm or "next" to skip
+- After fixing, show the next recommendation automatically
+- At the end, remind the user to review the changes before committing
+
+**Guardrail:** Edit and Write tools must NEVER be invoked unless self-review mode is active AND one of the following is true: (1) the user's latest input is exactly "fix" and the recommendation includes a concrete code snippet, or (2) the user's latest input is exactly "apply" and a patch preview was shown in the immediately preceding response. Any other input must be treated as navigation only.
+
+If the user is NOT the author or the branch doesn't match, do NOT offer "fix" — the skill remains read-only as before.
+
+## Comment mode (reviewer is not the author)
+
+Comment mode is enabled only for reviewers who are not the PR author. If the current user IS the author but the branch doesn't match (so self-review is inactive), the UI remains read-only — neither "fix" nor "comment" is offered.
+
+When the current user is **not** the PR author, enable **comment mode**:
+
+- After each recommendation, offer a **"comment"** option alongside "next" and "all"
+- When the user types "comment", post the recommendation as an inline review comment on the exact file and line in GitHub using the `gh` API:
+  ```bash
+  gh api repos/{owner}/{repo}/pulls/{number}/comments \
+    -f body="<GitHub comment content>" \
+    -f path="<file path>" \
+    -f commit_id="$(gh pr view <PR> --json commits --jq '.commits[-1].oid')" \
+    -F line=<line number> \
+    -f side="RIGHT"
+  ```
+- The comment body is the content from the "GitHub comment (ready to copy-paste)" section of the recommendation
+- After commenting, show a confirmation message and then the next recommendation automatically
+- If the API call fails (e.g., line not part of the diff), fall back to posting a regular PR comment with file and line reference:
+  ```bash
+  gh pr comment <PR> --body "<file:line reference + comment content>"
+  ```
+
+**Guardrail:** `gh api` (inline comment) and `gh pr comment` (fallback) must NEVER be called unless the user's latest input is exactly the literal string "comment". Any other input must be treated as navigation only.
+
 ## Output format and interactive behavior
 
-See [output-format.md](output-format.md) for the complete output format, notification behavior, and interactive navigation commands.
+See [output-format.md](output-format.md) for the complete output format, notification behavior, and interactive navigation commands. After all recommendations have been shown, a follow-up ticket creation flow is available for impact warnings — see output-format.md for details.
 
 ## Rules
 
@@ -143,6 +186,7 @@ See [output-format.md](output-format.md) for the complete output format, notific
   gh api "repos/{owner}/{repo}/contents/{path}?ref={branch}" -q '.content' | base64 --decode | grep -n "code_snippet"
   ```
   The number returned by `grep -n` is what GitHub shows in the web UI.
+- **File links**: all file references in recommendations MUST be clickable Markdown links pointing to the PR diff view at the exact line: `[path/to/file.ext:LINE](https://github.com/{owner}/{repo}/pull/{number}/files#diff-{path_sha256}R{LINE})`. Compute `{path_sha256}` with `echo -n "path/to/file.ext" | openssl dgst -sha256 | sed 's/^.* //'`. The `R` prefix means the right side (new file) of the diff. This format opens the PR's "Files changed" tab and scrolls directly to the relevant line, which is more useful for reviewers than a blob link.
 
 ## Checklist
 

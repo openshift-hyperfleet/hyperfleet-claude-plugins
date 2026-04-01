@@ -113,16 +113,18 @@ The skill automatically detects repo type based on:
 | Infrastructure | Helm charts, Terraform files |
 | Tooling | Go CLI without service patterns |
 
-## Comparison with Standards Audit
+## Relationship with Standards Audit
+
+Some checks overlap with the [Standards Audit](../hyperfleet-standards/README.md) plugin (health endpoints, graceful shutdown, metrics). The two plugins are complementary:
 
 | Aspect | Standards Audit | Operational Readiness |
 |--------|----------------|----------------------|
-| Source | Dynamic (architecture repo) | Hardcoded (HYPERFLEET-539) |
+| Source | Dynamic (architecture repo) | Dynamic (architecture repo) |
 | Focus | Code quality & conventions | Production reliability |
 | Checks | Linting, commits, error model | Health probes, PDB, metrics |
-| Changes | Updates as standards evolve | Stable core requirements |
+| Perspective | Does the code follow the standard? | Does it work in production? |
 
-**Use both together** for comprehensive pre-production validation.
+A health probe can pass the standards audit (correct path and port) but fail operational readiness (returns 200 without checking the database). Run both before a release.
 
 ## Contributing
 

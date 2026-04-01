@@ -3,7 +3,7 @@
 ## Check 1: Functional Health Probes
 
 **Severity:** Critical
-**Requirement:** Liveness endpoints must verify process-level health only (event loop, memory, thread count). Readiness endpoints must verify actual dependencies (database, message broker, external services) and gate traffic. Do not probe external services in liveness checks — this causes restart storms when dependencies are temporarily unavailable.
+**Requirement:** The orchestrator (via the `hyperfleet-architecture` skill) provides the health-endpoints standard. The standard defines what liveness and readiness endpoints must verify.
 
 **Applies to:** API, Sentinel, Adapter
 **Does NOT apply to:** Infrastructure, Tooling
@@ -43,7 +43,7 @@ grep -r "healthz\|readyz" --include="*.go" -A 20 2>/dev/null | grep -i "ping\|ch
 ## Check 2: Dead Man's Switch Metrics
 
 **Severity:** Critical (REQUIRED for Sentinel services)
-**Requirement:** Services must emit heartbeat/timestamp metrics that external monitoring can use to detect silent failures.
+**Requirement:** The orchestrator (via the `hyperfleet-architecture` skill) provides the metrics standard. The standard defines what heartbeat/timestamp metrics services must emit.
 
 **Applies to:** Sentinel (CRITICAL), Adapter (Yes), API (Optional)
 **Does NOT apply to:** Infrastructure, Tooling
@@ -80,7 +80,7 @@ grep -r "reconcile.*success\|loop.*completed\|cycle.*finished" --include="*.go" 
 ## Check 3: Retry Logic with Exponential Backoff
 
 **Severity:** Major
-**Requirement:** All HTTP clients and message broker interactions must implement retry logic with exponential backoff and jitter. Retries must enforce idempotency or explicit safe-to-retry guarantees, use bounded retry counts/durations, and include safeguards against retrying side-effectful operations. Non-idempotent operations must either be made idempotent, use at-most-once mechanisms, or surface failures for manual/compensating actions instead of automatic retry.
+**Requirement:** The orchestrator (via the `hyperfleet-architecture` skill) provides the operational readiness requirements. The requirements define retry logic, backoff, and idempotency expectations.
 
 **Applies to:** API, Sentinel, Adapter
 **Does NOT apply to:** Infrastructure, Tooling
@@ -126,7 +126,7 @@ grep -r "http.Client\|http.NewRequest" --include="*.go" -A 5 2>/dev/null | grep 
 ## Check 4: PodDisruptionBudget
 
 **Severity:** Major
-**Requirement:** Helm charts must include PodDisruptionBudget templates to ensure availability during node maintenance and cluster upgrades.
+**Requirement:** The orchestrator (via the `hyperfleet-architecture` skill) provides the operational readiness requirements. The requirements define PodDisruptionBudget expectations for Helm charts.
 
 **Applies to:** API, Sentinel, Adapter, Infrastructure
 **Does NOT apply to:** Tooling
@@ -162,7 +162,7 @@ grep -r "PodDisruptionBudget" charts/*/templates/*.yaml 2>/dev/null
 ## Check 5: Resource Limits
 
 **Severity:** Major
-**Requirement:** Deployment must have CPU and memory requests AND limits defined to ensure proper scheduling and prevent resource exhaustion.
+**Requirement:** The orchestrator (via the `hyperfleet-architecture` skill) provides the operational readiness requirements. The requirements define resource requests and limits expectations.
 
 **Applies to:** API, Sentinel, Adapter, Infrastructure
 **Does NOT apply to:** Tooling
@@ -202,7 +202,7 @@ grep -r "\.Values.resources\|resources:" charts/*/templates/deployment.yaml 2>/d
 ## Check 6: Graceful Shutdown
 
 **Severity:** Critical
-**Requirement:** Services must handle SIGTERM/SIGINT signals, stop accepting new work, drain existing work, and exit cleanly within the termination grace period.
+**Requirement:** The orchestrator (via the `hyperfleet-architecture` skill) provides the graceful-shutdown standard. The standard defines signal handling and shutdown behavior expectations.
 
 **Applies to:** API, Sentinel, Adapter
 **Does NOT apply to:** Infrastructure, Tooling
@@ -241,7 +241,7 @@ grep -r "context.WithCancel\|ctx.Done" --include="*.go" -A 5 2>/dev/null | grep 
 ## Check 7: Reliability Documentation
 
 **Severity:** Minor
-**Requirement:** Services should have operational documentation including runbooks, metrics documentation, and operational guides.
+**Requirement:** The orchestrator (via the `hyperfleet-architecture` skill) provides the operational readiness requirements. The requirements define what operational documentation services should have.
 
 **Applies to:** API, Sentinel, Adapter, Infrastructure (Partial)
 **Does NOT apply to:** Tooling

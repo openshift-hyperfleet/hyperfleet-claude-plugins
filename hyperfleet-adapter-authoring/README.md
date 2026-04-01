@@ -35,15 +35,8 @@ Use any of these phrases:
 | Post-actions | Payload building, CEL expressions, status reporting |
 | Dry-run testing | Mock files and how to interpret the phase-by-phase trace |
 | Live testing | End-to-end workflow from startup to verification |
-| Common gotchas | 16 documented pitfalls with correct patterns |
+| Common gotchas | Fetched dynamically from the adapter authoring guide |
 
-## Templates included
+## Dependencies
 
-1. **Kubernetes Cluster Adapter** — Namespace + ConfigMap via direct Kubernetes transport
-2. **Maestro Cluster Adapter** — ManifestWork delivered to a remote spoke cluster via OCM/Maestro
-3. **NodePool Adapter** — with parent cluster readiness dependency check
-4. **No-Op / Validation Adapter** — preconditions and status reporting only, no resource creation
-
-## Reference material
-
-The full authoring guide is at `references/authoring-guide.md` and is loaded automatically when the skill runs.
+This plugin delegates content retrieval to the `hyperfleet-architecture` plugin and fetches adapter-specific documentation from the `openshift-hyperfleet/hyperfleet-adapter` repo. No content is hardcoded — templates, schemas, gotchas, and testing instructions are always fetched from the source repos.
