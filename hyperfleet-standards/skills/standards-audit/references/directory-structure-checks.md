@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -96,13 +96,55 @@ For each check, verify against the requirements defined in the standard document
 
 #### Check 8: Temporary File Locations
 
-**What to verify:** Compiled binaries, build artifacts, and coverage reports are placed in the locations specified by the standard.
-**How to find:** Check for misplaced files: `ls *.out *.exe *.test 2>/dev/null`
+**What to verify:** Compiled binaries, build artifacts, and coverage reports are placed in the locations specified by the standard. If using on-demand code generation, generated code patterns (`*.gen.go`, `*_generated.go`) MUST be in `.gitignore`.
+**How to find:**
+
+```bash
+# Check for misplaced files
+ls *.out *.exe *.test 2>/dev/null
+
+# Check if repo uses code generation
+grep -rn "go generate\|//go:generate" --include="*.go" . 2>/dev/null | head -5
+
+# If code generation is used, check gitignore for generated patterns
+grep -n "gen.go\|_generated.go" .gitignore 2>/dev/null
+```
 
 #### Check 9: docs/ Structure (Service Repos)
 
 **What to verify:** For service and adapter repos, the `docs/` directory contains the required documentation files listed in the standard.
 **How to find:** Review `docs/` listing from Step 3.
+
+#### Check 10: build/ Directory Gitignore
+
+**What to verify:** If a `build/` directory exists in the repository, it MUST be listed in `.gitignore`. Verify both that the `.gitignore` pattern exists and that the directory is not tracked by git.
+**How to find:**
+
+```bash
+# Check if build/ exists
+ls -d build/ 2>/dev/null
+
+# Check if build/ is in .gitignore
+grep -n "^build/" .gitignore 2>/dev/null
+
+# Check if build/ files are tracked by git
+git ls-files build/ 2>/dev/null | head -5
+```
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Problem Statement | N/A (informational) |
+| Goals | N/A (informational) |
+| Scope | N/A (informational) |
+| Standard Directory Layout | Required Directories & Files |
+| Directory Descriptions | Required Directories & Files, Optional Directories |
+| Required Directories | Required Directories & Files |
+| Optional Directories | Optional Directories |
+| Temporary Files | Temporary File Locations |
+| Gitignore Requirements | bin/ in .gitignore, .gitignore Mandatory Patterns |
+| Mandatory Rules | .gitignore Mandatory Patterns |
 
 ## Output Format
 
@@ -128,6 +170,7 @@ For each check, verify against the requirements defined in the standard document
 | .hyperfleet.yaml Metadata | PASS/PARTIAL/FAIL | 0/N |
 | Temporary File Locations | PASS/PARTIAL/FAIL | 0/N |
 | docs/ Structure | PASS/PARTIAL/FAIL/N/A | 0/N |
+| build/ Gitignore | PASS/FAIL/N/A | 0/N |
 
 **Overall:** X/Y checks passing
 

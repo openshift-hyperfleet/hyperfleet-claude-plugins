@@ -45,6 +45,22 @@ Verify `$1` is a valid PR reference (URL like `https://github.com/org/repo/pull/
   gh api repos/openshift-hyperfleet/architecture/contents/hyperfleet/standards/FILENAME.md --jq '.content' 2>/dev/null | base64 --decode
   ```
 
+### Step 2.1 — Standards drift detection (background)
+
+Launch the drift detector **in the background** (it runs in parallel with all other steps). Do NOT wait for it before proceeding to step 3:
+
+```text
+Skill(hyperfleet-standards:standards-drift-detector ${CLAUDE_SKILL_DIR}/references/)
+```
+
+The drift detector reads the reference files (`error-model-checks.md`, `logging-specification-checks.md`), matches them to their standards by naming convention, and uses the Coverage Map tables to mechanically check which standard sections are covered by the mechanical passes.
+
+Collect the result when it completes. Display the result as follows:
+
+- **Always show the drift status** after all recommendations have been shown (at the very end of the review output), whether drift was detected or not (e.g., `Standards drift: N standards checked, no drift detected.`)
+- If a drift report is returned: append the full drift report after the status line. Drift is strictly informational — it never blocks the review
+- If the drift detection skill fails or times out: proceed silently without a status line
+
 ### Step 3 — JIRA ticket validation
 
 - If there is a JIRA ticket in the PR title (e.g. HYPERFLEET-123):
@@ -194,6 +210,7 @@ Before presenting recommendations, verify all steps were completed:
 
 - [ ] Input validated (`$1` is a valid PR reference)
 - [ ] PR details, diff, existing comments, and HyperFleet standards fetched (step 2, in parallel)
+- [ ] Standards drift detection completed for mechanical passes (step 2.1)
 - [ ] JIRA ticket validated (or skipped if jira CLI unavailable / no ticket in title)
 - [ ] Architecture check run (or skipped if skill unavailable)
 - [ ] Impact and call chain analysis completed

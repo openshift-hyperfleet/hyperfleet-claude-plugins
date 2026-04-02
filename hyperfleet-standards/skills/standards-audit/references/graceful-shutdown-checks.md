@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -87,6 +87,48 @@ For each check, verify the code against the requirements defined in the standard
 **What to verify:** Verify the code follows the component-specific shutdown guidelines defined in the standard for the detected repository type (API, Sentinel, or Adapter).
 **How to find:** Read shutdown/cleanup code in the component's main packages and compare against the standard's requirements for this component type.
 
+#### Check 9: Shutdown Tests
+
+**What to verify:** Verify the existence of tests covering shutdown behavior as required by the standard: signal handling, in-flight request/message completion, timeout expiry, and clean exit code.
+**How to find:**
+
+```bash
+# Find shutdown-related test files
+grep -rl "SIGTERM\|SIGINT\|Shutdown\|GracefulStop\|signal.Notify" --include="*_test.go" 2>/dev/null
+
+# Check for specific test scenarios
+grep -rn "TestShutdown\|TestGraceful\|TestSignal\|TestDrain\|TestTimeout" --include="*_test.go" 2>/dev/null
+
+# Check for clean exit code assertions
+grep -rn "os.Exit\|ExitCode\|wait.*status\|exec.ExitError" --include="*_test.go" 2>/dev/null
+```
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Goals | N/A (informational) |
+| Signal Handling | Signal Handling |
+| Shutdown Sequence | Shutdown Sequence |
+| Phase 1: Mark Not Ready | Shutdown Sequence |
+| Phase 2: Stop Accepting New Work | Shutdown Sequence |
+| Phase 3: Drain In-Flight Work | Shutdown Sequence |
+| Phase 4: Cleanup Resources | Shutdown Sequence |
+| Phase 5: Exit | Shutdown Sequence |
+| Timeout Configuration | Timeout Configuration |
+| HTTP Server Drain Behavior | HTTP Server Drain |
+| Broker Consumer Drain Behavior | Broker Consumer Drain |
+| Background Worker Shutdown | Background Worker Shutdown |
+| Kubernetes Integration | Kubernetes Integration |
+| Upgrade Behavior | N/A (informational) |
+| Component Guidelines | Component-Specific Guidelines |
+| API | HTTP Server Drain, Component-Specific Guidelines |
+| Sentinel | Broker Consumer Drain, Component-Specific Guidelines |
+| Adapters | Broker Consumer Drain, Component-Specific Guidelines |
+| Logging During Shutdown | Shutdown Sequence |
+| Testing Requirements | Shutdown Tests |
+| Summary | N/A (informational) |
+
 ## Output Format
 
 ```markdown
@@ -110,6 +152,7 @@ For each check, verify the code against the requirements defined in the standard
 | Background Worker Shutdown | PASS/PARTIAL/FAIL | 0/N |
 | Kubernetes Integration | PASS/PARTIAL/FAIL | 0/N |
 | Component Guidelines | PASS/PARTIAL/FAIL | 0/N |
+| Shutdown Tests | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 

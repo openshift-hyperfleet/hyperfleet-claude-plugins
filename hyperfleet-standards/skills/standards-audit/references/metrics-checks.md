@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -91,6 +91,36 @@ For each check, verify against the requirements defined in the standard document
 
 **What to verify:** Helm charts include monitoring manifests with correct port, path, interval, and labels as defined in the standard.
 **How to find:** Review monitoring manifests found in Step 3.
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Goals | N/A (informational) |
+| Non-Goals | N/A (informational) |
+| Metric Naming Convention | Naming Convention |
+| Format | Naming Convention |
+| Naming Rules | Naming Convention |
+| Required Labels | Required Labels |
+| Label Best Practices | Label Best Practices |
+| Standard Metrics | Standard Metrics |
+| Process Metrics | Standard Metrics |
+| Build Info | Standard Metrics |
+| Health Status | Standard Metrics |
+| Metric Types and Usage | Metric Types |
+| Counter | Metric Types |
+| Gauge | Metric Types |
+| Histogram | Metric Types |
+| Summary | Metric Types |
+| Histogram Bucket Recommendations | Histogram Buckets |
+| API Request Duration | Histogram Buckets |
+| Event Processing Duration | Histogram Buckets |
+| Database Query Duration | Histogram Buckets |
+| General Guidelines | Histogram Buckets |
+| Metrics Exposition | Metrics Endpoint |
+| Port and Path | Metrics Endpoint |
+| OpenMetrics Compatibility | Metrics Endpoint |
+| Component-Specific Metrics | Standard Metrics |
 
 ## Output Format
 

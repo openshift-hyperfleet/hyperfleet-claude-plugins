@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -99,6 +99,52 @@ grep -rn "disable\|--skip" .golangci.yml .golangci.yaml .golangci.toml Makefile 
 grep -rn "//nolint" --include="*.go" . 2>/dev/null | head -20
 ```
 
+#### Check 10: Run Timeout
+
+**What to verify:** Verify that `run.timeout` is set to at least 5 minutes (`5m`) in the golangci-lint configuration as required by the standard.
+**How to find:** Read the golangci-lint config and check the `run` section for `timeout`.
+
+#### Check 11: Override Comments
+
+**What to verify:** Verify that any overrides or customizations in the golangci-lint configuration (e.g., disabled rules, changed thresholds, path exclusions beyond generated code) include explanatory comments justifying the deviation as required by the standard.
+**How to find:** Read the golangci-lint config and check for overrides without adjacent comments.
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Configuration File | Configuration File Exists |
+| Enabled Linters | Required Linters Enabled |
+| Code Quality | Required Linters Enabled |
+| Code Style | Required Linters Enabled |
+| Formatters | Required Formatters |
+| Security | Required Linters Enabled |
+| Linter Settings | Linter Settings |
+| errcheck | Linter Settings |
+| govet | Linter Settings |
+| goconst | Linter Settings |
+| misspell | Linter Settings |
+| lll | Linter Settings |
+| revive | Linter Settings |
+| unparam | Linter Settings |
+| exhaustive | Linter Settings |
+| Formatter Settings | Required Formatters |
+| gofmt | Required Formatters |
+| Standard Exclusions | Generated Code Exclusions, Test File Relaxations |
+| Generated Code | Generated Code Exclusions |
+| Test Files | Test File Relaxations |
+| Performance Settings | Run Timeout |
+| Output Configuration | N/A (informational) |
+| Repository-Specific Overrides | No Baseline Linters Disabled, Override Comments |
+| Allowed Overrides | Override Comments |
+| Not Allowed | No Baseline Linters Disabled |
+| Documenting Overrides | Override Comments |
+| CI Integration | Make Lint Target |
+| Makefile Target | Make Lint Target |
+| Pre-commit Hook (Optional) | N/A (optional) |
+| Version Requirements | golangci-lint Version |
+| Adopting This Standard | N/A (informational) |
+
 ## Output Format
 
 ```markdown
@@ -123,6 +169,8 @@ grep -rn "//nolint" --include="*.go" . 2>/dev/null | head -20
 | Make Lint Target | PASS/FAIL | 0/N |
 | golangci-lint Version | PASS/FAIL | 0/N |
 | No Baseline Disabled | PASS/FAIL | 0/N |
+| Run Timeout | PASS/FAIL | 0/N |
+| Override Comments | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 

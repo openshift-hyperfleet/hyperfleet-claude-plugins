@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -62,13 +62,46 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 6: Startup and Shutdown Behavior
 
-**What to verify:** Verify that the implementation follows the startup/shutdown contract defined in the standard (health server start order, readiness state transitions, SIGTERM handling of readiness).
-**How to find:** Read the main entrypoint and signal handling code for server startup ordering and shutdown hooks.
+**What to verify:** Verify that the implementation follows the startup/shutdown contract defined in the standard. Specifically:
+- `/healthz` MUST return 200 OK immediately when the process starts (before full initialization completes)
+- `/readyz` MUST return 503 Service Unavailable until all initialization completes, then switch to 200
+- On SIGTERM, the handler MUST change `/readyz` to return 503 before beginning the shutdown sequence
+**How to find:**
+
+```bash
+# Check health server startup ordering (should start before main initialization)
+grep -rn "ListenAndServe\|http.Server" --include="*.go" 2>/dev/null | head -10
+
+# Check readiness state management (flag/atomic that transitions from not-ready to ready)
+grep -rn "ready\|isReady\|readyFlag\|SetReady\|atomic.*ready" --include="*.go" 2>/dev/null | head -10
+
+# Check SIGTERM handler changes readiness state (preserve file:line context)
+grep -rn "SIGTERM\|signal.Notify" --include="*.go" 2>/dev/null | head -10
+grep -rn -A10 "signal.Notify" --include="*.go" 2>/dev/null | grep -i "ready\|readyz" | head -5
+```
 
 #### Check 7: Metrics Endpoint
 
 **What to verify:** Verify that metrics are served on the correct port (separate from probes) using the handler type specified in the standard. Check for ServiceMonitor/PodMonitor in Helm charts if present.
 **How to find:** `grep -rn "metrics\|promhttp\|9090" --include="*.go" --include="*.yaml" 2>/dev/null`
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Goals | N/A (informational) |
+| Port and Endpoint Configuration | Endpoint Paths |
+| Endpoint Specification | Endpoint Paths, Response Format |
+| `/healthz` - Liveness Probe | Response Format, Liveness vs Readiness Separation |
+| `/readyz` - Readiness Probe | Response Format, Component-Specific Readiness Checks |
+| `/metrics` - Prometheus Metrics | Metrics Endpoint |
+| Kubernetes Probe Configuration | Helm Chart Probe Configuration |
+| Probe Timing | Helm Chart Probe Configuration |
+| Helm Values Template | Helm Chart Probe Configuration |
+| Deployment Probe Template | Helm Chart Probe Configuration |
+| Graceful Degradation | Startup and Shutdown Behavior |
+| Startup Behavior | Startup and Shutdown Behavior |
+| Shutdown Behavior | Startup and Shutdown Behavior |
 
 ## Output Format
 

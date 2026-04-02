@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -106,6 +106,47 @@ For each check, verify the code against the requirements defined in the standard
 **What to verify:** Logging is integrated with OpenTelemetry tracing as specified in the standard: W3C traceparent propagation, CloudEvents trace_id, log correlation.
 **How to find:** Review trace correlation code from Step 3.
 
+#### Check 10: Shared Library Logger Context
+
+**What to verify:** Shared libraries (packages used across multiple components) inherit the logging context from the calling component rather than creating their own logger instances. The standard requires that shared code receives a logger or context from the caller so that component, version, and correlation fields are preserved.
+**How to find:**
+
+```bash
+# Find shared/common/library packages (scan all directories, not just pkg/internal)
+find . -not -path './.git/*' -type d \( -name common -o -name shared -o -name lib -o -name pkg \) 2>/dev/null
+
+# Check if shared packages create their own loggers vs accepting them
+grep -rn "slog.New\|slog.Default\|zap.New\|zerolog.New" --include="*.go" 2>/dev/null | grep -v "_test.go" | grep -v "main.go" | head -10
+
+# Check if shared functions accept logger/context parameters
+grep -rn "func.*context.Context\|func.*\*slog.Logger\|func.*\*zap.Logger" --include="*.go" 2>/dev/null | grep -v "_test.go" | grep -v "main.go" | head -10
+```
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Goals | N/A (informational) |
+| Non-Goals | N/A (informational) |
+| Shared Libraries | Shared Library Logger Context |
+| Configuration | Configuration Support |
+| Log Levels | Log Levels |
+| Log Fields | Required Fields |
+| Required Fields | Required Fields |
+| Correlation Fields | Correlation Fields |
+| Resource Fields | Required Fields |
+| Error Fields | Required Fields |
+| Log Formats | JSON Format Support |
+| Text Format | JSON Format Support |
+| JSON Format (Production, Default) | JSON Format Support |
+| Component Guidelines | Component-Specific Fields |
+| API | Component-Specific Fields |
+| Sentinel | Component-Specific Fields |
+| Adapters | Component-Specific Fields |
+| Distributed Tracing | Distributed Tracing Integration |
+| Sensitive Data | Sensitive Data Redaction |
+| Log Size Guidelines | Log Size Guidelines |
+
 ## Output Format
 
 ```markdown
@@ -130,6 +171,7 @@ For each check, verify the code against the requirements defined in the standard
 | Sensitive Data Redaction | PASS/PARTIAL/FAIL | 0/N |
 | Log Size Guidelines | PASS/PARTIAL/FAIL | 0/N |
 | Distributed Tracing | PASS/PARTIAL/FAIL | 0/N |
+| Shared Library Logger | PASS/PARTIAL/FAIL/N/A | 0/N |
 
 **Overall:** X/Y checks passing
 

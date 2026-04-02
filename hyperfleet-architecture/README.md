@@ -22,17 +22,17 @@ The skill instructs Claude to fetch relevant documentation from the [HyperFleet 
 ## Installation
 
 1. Install the HyperFleet plugin marketplace (if not already installed):
-   ```
+   ```text
    /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
 2. Install this skill:
-   ```
+   ```text
    /plugin install hyperfleet-architecture@openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
 3. Update to get the latest version:
-   ```
+   ```text
    /plugin marketplace update hyperfleet-claude-plugins
    ```
 

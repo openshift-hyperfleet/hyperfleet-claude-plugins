@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -71,12 +71,12 @@ For each check, verify the Dockerfile and build configuration against the requir
 
 #### Check 5: Container Labels
 
-**What to verify:** All required OCI labels are present: `title`, `vendor`, `version`, `description` as defined in the standard.
+**What to verify:** All required labels are present as defined in the standard: `name`, `vendor`, `version`, `summary`, `description`. These are plain label names (not OCI-namespaced).
 **How to find:** Check each required label individually:
 
 ```bash
-for key in title vendor version description; do
-  grep -nE '^[[:space:]]*LABEL[[:space:]]+.*org\.opencontainers\.image\.'"${key}"'[= ]' Dockerfile Containerfile 2>/dev/null \
+for key in name vendor version summary description; do
+  grep -nE '^[[:space:]]*LABEL[[:space:]]+(.*[[:space:]]+)?'"${key}"'[= ]' Dockerfile Containerfile 2>/dev/null \
     || echo "MISSING_LABEL:${key}"
 done
 ```
@@ -105,6 +105,35 @@ done
 
 **What to verify:** Container builds specify the target platform as required by the standard.
 **How to find:** `grep -n "PLATFORM\|--platform" Makefile {Dockerfile,Containerfile} 2>/dev/null`
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Goals | N/A (informational) |
+| Scope | N/A (informational) |
+| Base Images | Base Images |
+| Builder Stage | Base Images |
+| Production Runtime | Base Images |
+| Multi-Stage Build Pattern | Multi-Stage Build |
+| Key Practices | Multi-Stage Build |
+| Non-Root Users | Non-Root User |
+| Builder Stage (UBI9 Go Toolset) | Non-Root User |
+| Runtime Stage | Non-Root User |
+| Go Build Parameters | Go Build Parameters |
+| CGO_ENABLED | Go Build Parameters |
+| Build Flags | Go Build Parameters |
+| Platform | Platform Specification |
+| Container Labels | Container Labels |
+| Required Labels | Container Labels |
+| .dockerignore | .dockerignore |
+| Why? | N/A (informational) |
+| Reference Dockerfile | N/A (informational) |
+| APP_VERSION Convention | APP_VERSION Convention |
+| Problem | APP_VERSION Convention |
+| Solution | APP_VERSION Convention |
+| Version Flow | APP_VERSION Convention |
+| Default Version Semantics | APP_VERSION Convention |
 
 ## Output Format
 

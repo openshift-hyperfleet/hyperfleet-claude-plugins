@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -59,18 +59,42 @@ For each check, verify against the requirements defined in the standard document
 
 #### Check 3: Service Name and Resource Attributes
 
-**What to verify:** Resource attributes are set according to the standard's requirements for service identification.
-**How to find:** `grep -rn "resource.New\|semconv\|service.name\|service.version" --include="*.go" 2>/dev/null`
+**What to verify:** Resource attributes are set according to the standard's requirements for service identification. The `service.name` MUST match the component mapping defined in the standard (e.g., API → `hyperfleet-api`, Sentinel → `hyperfleet-sentinel`, Adapter → `adapter-<provider>`). Verify the exact name string matches what the standard specifies for the detected component type.
+**How to find:**
+
+```bash
+# Check service name value
+grep -rn "resource.New\|semconv\|service.name\|service.version\|ServiceName" --include="*.go" 2>/dev/null
+
+# Verify the actual service name string
+grep -rn "hyperfleet-api\|hyperfleet-sentinel\|adapter-" --include="*.go" 2>/dev/null | grep -i "service"
+```
 
 #### Check 4: W3C Trace Context Propagation
 
-**What to verify:** The service implements trace context propagation (HTTP headers, CloudEvents) as required by the standard.
-**How to find:** Review propagation-related code found in Step 3.
+**What to verify:** The service implements trace context propagation (HTTP headers, CloudEvents) as required by the standard. For CloudEvents specifically, verify that `traceparent` and `tracestate` extension attributes are propagated on all emitted events.
+**How to find:**
+
+```bash
+# HTTP propagation
+grep -rn "propagation\|tracecontext\|W3C\|Inject\|Extract" --include="*.go" 2>/dev/null | head -20
+
+# CloudEvents trace context extensions
+grep -rn "traceparent\|tracestate\|SetExtension.*trace" --include="*.go" 2>/dev/null
+```
 
 #### Check 5: Required Spans by Component Type
 
-**What to verify:** The service creates spans for all operations required by the standard for its component type (API, Sentinel, or Adapter).
-**How to find:** Review span creation patterns found in Step 3.
+**What to verify:** The service creates spans for all operations required by the standard for its component type (API, Sentinel, or Adapter). Component-specific spans MUST exist for all required operations listed in the standard per component type. Cross-reference the standard's required-spans list against the actual `tracer.Start` calls in the codebase.
+**How to find:**
+
+```bash
+# All span creation points
+grep -rn "tracer.Start\|StartSpan" --include="*.go" 2>/dev/null
+
+# Cross-reference with component-specific operations
+grep -rn "reconcile\|poll\|sync\|watch\|handler\|endpoint" --include="*.go" 2>/dev/null | grep -i "span\|trace" | head -20
+```
 
 #### Check 6: Span Naming Conventions
 
@@ -79,8 +103,16 @@ For each check, verify against the requirements defined in the standard document
 
 #### Check 7: Standard Span Attributes
 
-**What to verify:** Spans include the required and recommended attributes for their category (HTTP, database, messaging) as listed in the standard.
-**How to find:** `grep -rn "SetAttributes\|attribute\." --include="*.go" 2>/dev/null | head -30`
+**What to verify:** Spans MUST follow OTel Semantic Conventions for attributes. Verify that attribute names and values conform to the OpenTelemetry semantic convention keys for their category (HTTP, database, messaging) as required by the standard. Flag any custom attribute names that duplicate or contradict semantic convention equivalents.
+**How to find:**
+
+```bash
+# Check for semantic convention usage
+grep -rn "semconv\.\|SetAttributes\|attribute\." --include="*.go" 2>/dev/null | head -30
+
+# Check for custom attributes that should use semconv
+grep -rn "http.method\|http.status_code\|db.system\|messaging.system" --include="*.go" 2>/dev/null | head -10
+```
 
 #### Check 8: HyperFleet-Specific Attributes
 
@@ -89,13 +121,94 @@ For each check, verify against the requirements defined in the standard document
 
 #### Check 9: Sampling and OTLP Configuration
 
-**What to verify:** Sampling strategy and OTLP exporter are configured according to the standard's requirements.
-**How to find:** `grep -rn "Sampler\|sampler\|BatchSpan\|SimpleSpan\|otlp" --include="*.go" 2>/dev/null`
+**What to verify:** Sampling strategy and OTLP exporter are configured according to the standard's requirements. MUST support OTLP as the primary export format. Verify that the OTLP exporter is configured (not Jaeger, Zipkin, or other vendor-specific exporters) and that sampling defaults match the standard.
+**How to find:**
+
+```bash
+# Check exporter type
+grep -rn "otlp\|jaeger\|zipkin\|Exporter" --include="*.go" 2>/dev/null | head -15
+
+# Check sampler configuration
+grep -rn "Sampler\|sampler\|BatchSpan\|SimpleSpan" --include="*.go" 2>/dev/null
+```
 
 #### Check 10: Logging Integration and Error Handling
 
-**What to verify:** Trace/span IDs are included in structured logs and errors are properly recorded on spans, as required by the standard.
-**How to find:** Review logging and error handling code found in Step 3.
+**What to verify:** Trace/span IDs are included in structured logs and errors are properly recorded on spans, as required by the standard. Log correlation MUST use specific `trace_id` and `span_id` fields (not alternative names like `traceID` or `spanID`). Verify the exact field names match the standard's specification.
+**How to find:**
+
+```bash
+# Check trace/span ID field names in logs
+grep -rn "trace_id\|span_id\|traceID\|spanID\|TraceID\|SpanID" --include="*.go" 2>/dev/null | head -20
+
+# Check error recording on spans
+grep -rn "RecordError\|SetStatus\|codes.Error" --include="*.go" 2>/dev/null | head -10
+```
+
+#### Check 11: Context Propagation Through Call Chain
+
+**What to verify:** Context MUST be propagated through the entire call chain. After tracing is initialized, functions MUST NOT use `context.Background()` or `context.TODO()` — they must pass the trace-carrying context received from their caller. Flag any `context.Background()` usage outside of initialization/startup code.
+**How to find:**
+
+```bash
+# Find context.Background() usage outside of main/init/bootstrap files
+grep -rn "context.Background()\|context.TODO()" --include="*.go" 2>/dev/null | grep -v "_test.go" | grep -v "main.go" | grep -v "init.go" | grep -v "init_" | grep -v "bootstrap" | grep -v "wire.go" | head -20
+
+# Verify functions accept and pass context
+grep -rn "func.*ctx context.Context" --include="*.go" 2>/dev/null | head -20
+```
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Goals | N/A (informational) |
+| Non-Goals | N/A (informational) |
+| OpenTelemetry Adoption | OpenTelemetry SDK Usage |
+| Why OpenTelemetry | N/A (informational) |
+| SDK Requirements | OpenTelemetry SDK Usage |
+| Configuration | Configuration via Environment Variables |
+| Service Names | Service Name and Resource Attributes |
+| Resource Attributes | Service Name and Resource Attributes |
+| Setting service.version from Build | Service Name and Resource Attributes |
+| Example Configuration | N/A (informational) |
+| Trace Context Propagation | W3C Trace Context Propagation |
+| HTTP Requests | W3C Trace Context Propagation |
+| CloudEvents (Pub/Sub) | W3C Trace Context Propagation |
+| Propagation Flow | W3C Trace Context Propagation |
+| Required Spans | Required Spans by Component Type |
+| Span Naming Convention | Span Naming Conventions |
+| All Components | Required Spans by Component Type |
+| API | Required Spans by Component Type |
+| Sentinel | Required Spans by Component Type |
+| Adapters | Required Spans by Component Type |
+| Standard Span Attributes | Standard Span Attributes |
+| Semantic Conventions | Standard Span Attributes |
+| HTTP Spans | Standard Span Attributes |
+| Database Spans | Standard Span Attributes |
+| Messaging Spans (Pub/Sub) | Standard Span Attributes |
+| Cloud Provider Spans | Standard Span Attributes |
+| HyperFleet-Specific Attributes | HyperFleet-Specific Attributes |
+| Attribute Best Practices | Standard Span Attributes |
+| Sampling Strategy | Sampling and OTLP Configuration |
+| Head-Based vs Tail-Based Sampling | Sampling and OTLP Configuration |
+| Default: Parent-Based Trace ID Ratio | Sampling and OTLP Configuration |
+| Environment-Specific Sampling Rates | Sampling and OTLP Configuration |
+| Configuration Example | N/A (informational) |
+| Always Sample Specific Operations | Sampling and OTLP Configuration |
+| Exporter Configuration | Sampling and OTLP Configuration |
+| OTLP Exporter (Default) | Sampling and OTLP Configuration |
+| Kubernetes Deployment | N/A (informational) |
+| Local Development | N/A (informational) |
+| Integration with Logging | Logging Integration and Error Handling |
+| Adding Trace Context to Logs | Logging Integration and Error Handling |
+| Log Output Example | N/A (informational) |
+| Error Handling in Spans | Logging Integration and Error Handling |
+| Recording Errors | Logging Integration and Error Handling |
+| Error Attributes | Logging Integration and Error Handling |
+| Span Lifecycle Best Practices | Context Propagation Through Call Chain |
+| Starting and Ending Spans | Context Propagation Through Call Chain |
+| Context Propagation | Context Propagation Through Call Chain |
 
 ## Output Format
 
@@ -122,6 +235,7 @@ For each check, verify against the requirements defined in the standard document
 | HyperFleet Attributes | PASS/PARTIAL/FAIL | 0/N |
 | Sampling & OTLP Config | PASS/PARTIAL/FAIL | 0/N |
 | Logging & Error Handling | PASS/PARTIAL/FAIL | 0/N |
+| Context Propagation | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 
