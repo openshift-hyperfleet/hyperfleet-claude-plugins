@@ -6,6 +6,7 @@
 
 1. Use `--body-file` flag — it doesn't exist! Use `-b "$(cat /tmp/file.txt)"` instead
 2. Use raw field IDs like `--custom customfield_10028=3` — silently ignored! Use aliases
+3. Use JIRA wiki markup for links (`[text|url]`) — the `jira-cli` expects Markdown (`[text](url)`) and wiki markup renders as malformed, duplicated links
 
 ### DO
 

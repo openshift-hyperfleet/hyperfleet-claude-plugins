@@ -23,7 +23,7 @@ All JIRA ticket content — summaries, descriptions, comments, and acceptance cr
 
 ## Formatting
 
-The `jira-cli` accepts **Markdown** and converts it to ADF (Atlassian Document Format) for JIRA Cloud. Standard Markdown works correctly — headers, bullets, bold, inline code, fenced code blocks, and curly braces all render as expected.
+The `jira-cli` accepts **Markdown** and converts it to ADF (Atlassian Document Format) for JIRA Cloud. Standard Markdown works correctly — headers, bullets, bold, inline code, fenced code blocks, links, and curly braces all render as expected.
 
 ## References
 

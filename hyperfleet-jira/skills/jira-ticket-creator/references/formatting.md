@@ -1,6 +1,6 @@
 # JIRA Description Formatting Reference
 
-The `jira-cli` accepts **Markdown** (GitHub-flavored and Jira-flavored) and automatically converts it to ADF (Atlassian Document Format) for JIRA Cloud. Use standard Markdown for descriptions — headers, bullets, bold, inline code, fenced code blocks, and curly braces all render correctly.
+The `jira-cli` accepts **Markdown** (GitHub-flavored and Jira-flavored) and automatically converts it to ADF (Atlassian Document Format) for JIRA Cloud. Use standard Markdown for descriptions — headers, bullets, bold, inline code, fenced code blocks, links, and curly braces all render correctly.
 
 ## Markdown Example
 
@@ -24,6 +24,16 @@ Description paragraph.
 
 **Bold text** and `inline code` work as expected.
 ```
+
+## Links
+
+Use standard Markdown link syntax:
+
+```markdown
+[lefthook](https://github.com/evilmartians/lefthook)
+```
+
+**Do NOT use JIRA wiki markup** (`[text|url]`) — the `jira-cli` does not convert it correctly, resulting in malformed, duplicated links.
 
 ## Code Blocks
 
