@@ -112,6 +112,48 @@ Designs black-box E2E test cases for HyperFleet features using systematic test d
 
 See [skills/e2e-test-design/SKILL.md](./skills/e2e-test-design/SKILL.md) for detailed documentation.
 
+---
+
+### ⚙️ E2E Test Automation
+
+**Status**: ✅ Production Ready
+
+Implements E2E test automation code from designed test case documents. Generates Ginkgo/Gomega test code following project conventions.
+
+**What It Does**:
+- Reads designed test case documents (markdown with manual test commands)
+- **Prefers to translate commands to API client calls** (kubectl → client-go, curl → HTTP client, etc.)
+- Generates production-ready Ginkgo/Gomega test code following best practices
+- Uses existing helper utilities and follows project patterns
+- Ensures generated code compiles successfully
+- Handles setup, teardown, assertions, and error handling
+- **Asks user when operations are complex**: create helper, use API directly, or use command
+
+**Usage**:
+
+```bash
+# Implement test from test case document
+"implement test from test-design/testcases/cluster.md"
+
+# Implement specific test by title
+"implement the 'Basic Workflow Validation' test from cluster.md"
+
+# Update existing automated test when test case steps changed
+"update the automated test for 'Basic Workflow Validation' from cluster.md"
+
+# Add test to existing file
+"add the adapter failure test to e2e/cluster/adapter_failure.go"
+```
+
+**Best Practice Workflow**:
+1. Design test cases using `e2e-test-design` skill
+2. Review and approve the test case document
+3. Use this skill to implement the test automation
+4. Review generated code and run tests
+5. Commit both test design and implementation together
+
+See [skills/e2e-test-automation/SKILL.md](./skills/e2e-test-automation/SKILL.md) for detailed documentation.
+
 ## Installation
 
 This plugin is part of the HyperFleet Claude Plugins marketplace and is automatically available when you install the marketplace.
@@ -131,6 +173,7 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 # - hyperfleet-devtools:commit-message
 # - hyperfleet-devtools:architecture-impact
 # - hyperfleet-devtools:e2e-test-design
+# - hyperfleet-devtools:e2e-test-automation
 ```
 
 ## Configuration
@@ -163,7 +206,8 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.4.1 - ✅ Current Release
+### v0.5.0 - Current Release
+- ✅ **E2E Test Automation**: Generate Ginkgo/Gomega test code from designed test case documents
 - ✅ **E2E Test Case Designer**: Systematic E2E test case design with traceability, risk assessment, and coverage verification
 - ✅ **Commit Message Generator**: Auto-generate standardized commit messages with JIRA ticket detection
 - ✅ **Architecture Impact Analyzer**: Detect when code changes require documentation updates
@@ -206,6 +250,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.4.1
-**Last Updated**: 2026-03-25
+**Version**: 0.5.0
+**Last Updated**: 2026-04-02
 **Status**: ✅ Production Ready
