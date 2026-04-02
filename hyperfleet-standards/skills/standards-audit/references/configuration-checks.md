@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -71,8 +71,16 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 3: Command-Line Flag Convention
 
-**What to verify:** Flags use lowercase kebab-case and follow the standard's naming hierarchy (e.g., `--server-port`, `--db-host`).
-**How to find:** Review flag definitions from Step 3.
+**What to verify:** Flags use lowercase kebab-case and follow the standard's naming hierarchy (e.g., `--server-port`, `--db-host`). All flag letters MUST be lowercase — flag names with uppercase letters (e.g., `--Server-Port`, `--VERBOSE`) violate the standard. The `--name` / `-n` flag is REQUIRED for all applications (component name).
+**How to find:**
+
+```bash
+# Review flag definitions
+grep -rn "StringVar\|IntVar\|BoolVar\|Flags()\|PersistentFlags" --include="*.go" . 2>/dev/null | head -20
+
+# Check for required --name flag
+grep -rn "\"name\"\|\"n\".*name\|MarkFlagRequired.*name" --include="*.go" . 2>/dev/null | head -5
+```
 
 #### Check 4: Config File Path Resolution
 
@@ -81,8 +89,20 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 5: Property Naming in Files
 
-**What to verify:** Config properties in YAML files use `snake_case` as required by the standard. **Exception:** Helm values files (`values.yaml`) follow the Helm convention of `camelCase`.
-**How to find:** `cat configs/config.yaml config/config.yaml 2>/dev/null | head -30`
+**What to verify:** Config properties in YAML files use `snake_case` as required by the standard. Also verify that configuration files use YAML format (not JSON, TOML, or other formats). **Exception:** Helm values files (`values.yaml`) follow the Helm convention of `camelCase`.
+**How to find:**
+
+```bash
+# Check config file format (must be YAML)
+ls configs/config.yaml config/config.yaml configs/config.yml config/config.yml 2>/dev/null
+
+# Flag non-YAML config files anywhere in the repo
+find . -not -path './.git/*' \( -iname '*.json' -o -iname '*.toml' \) -path '*/config*' 2>/dev/null
+
+# Discover all YAML config files for property name inspection and check naming
+find . -not -path './.git/*' -not -path '*/charts/*' \( -iname '*.yaml' -o -iname '*.yml' \) -path '*/config*' -print0 2>/dev/null | \
+  xargs -0 -I{} sh -c 'echo "=== {} ===" && head -30 "{}"'
+```
 
 #### Check 6: Configuration Validation
 
@@ -109,6 +129,45 @@ For each check, verify the code against the requirements defined in the standard
 **What to verify:** The application does not implement runtime configuration reloading, following the standard's restart-based approach.
 **How to find:** `grep -rn "WatchConfig\|OnConfigChange\|fsnotify\|reload.*config" --include="*.go" 2>/dev/null`
 
+#### Check 11: Multi-Command Configuration Scoping
+
+**What to verify:** For applications with multiple commands (e.g., `serve` and `migrate`), config options MUST be scoped per command — a command should not require config values unrelated to its purpose (e.g., `migrate` should not require server config). Shared concerns (database, logging) MUST use consistent property names across commands.
+**How to find:**
+
+```bash
+# Check for multiple commands (cobra subcommands)
+ls cmd/*/main.go 2>/dev/null
+grep -rn "AddCommand\|cobra.Command" --include="*.go" . 2>/dev/null | head -10
+
+# Check flag/config scoping per command
+grep -rn "PersistentFlags\|Flags()" --include="*.go" . 2>/dev/null | head -10
+```
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Configuration behavior | Config Sources & Precedence |
+| Config properties syntax | Property Naming in Files |
+| Standard Configuration File Paths | Config File Path Resolution |
+| Environment Variable Convention | Environment Variable Convention |
+| Command-Line Flag Convention | Command-Line Flag Convention |
+| Standard Flags | Command-Line Flag Convention |
+| Configuration Validation | Configuration Validation |
+| Validation Error Handling | Configuration Validation |
+| Unknown Field Handling | Unknown Field Handling |
+| Applications with multiple commands | Multi-Command Configuration Scoping |
+| Configuration Reloading | No Runtime Reloading |
+| Standard Behavior | No Runtime Reloading |
+| Configuration Changes | No Runtime Reloading |
+| Implementation example | N/A (informational) |
+| Displaying configuration | Configuration Display |
+| Change Sentinel to use new configuration standard | N/A (action item) |
+| Change Adapt API to use new configuration standard | N/A (action item) |
+| Change Adapter to use new configuration standard | N/A (action item) |
+| Change Adapter to add a new `config` source to parameter loading | N/A (action item) |
+| Modify the claude plugin | N/A (action item) |
+
 ## Output Format
 
 ```markdown
@@ -134,8 +193,11 @@ For each check, verify the code against the requirements defined in the standard
 | Configuration Documentation | PASS/FAIL | 0/N |
 | Configuration Display | PASS/PARTIAL/FAIL | 0/N |
 | No Runtime Reloading | PASS/FAIL | 0/N |
+| Multi-Command Scoping | PASS/PARTIAL/FAIL/N/A | 0/N |
 
 **Overall:** X/Y checks passing
+
+**Note:** Check 3 includes lowercase flag verification and required `--name` flag. Check 5 includes YAML format verification.
 
 ---
 

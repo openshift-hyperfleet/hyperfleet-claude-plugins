@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -70,8 +70,22 @@ For each check, verify the Makefile against the requirements defined in the stan
 
 #### Check 4: Standard Variables
 
-**What to verify:** Verify that Makefile variables use the names and assignment operators (e.g., `?=` for overridable) specified in the standard.
-**How to find:** `grep -n "?=\|:=" Makefile 2>/dev/null | head -20`
+**What to verify:** Verify that Makefile variables use the names and assignment operators (e.g., `?=` for overridable) specified in the standard. All service Makefiles MUST define these four version variables: `BUILD_DATE`, `GIT_SHA`, `GIT_DIRTY`, `APP_VERSION`. The version variable MUST be named `APP_VERSION` (not `VERSION`) to avoid collision with `ubi9/go-toolset` environment.
+**How to find:**
+
+```bash
+# Check variable assignments
+grep -n "?=\|:=" Makefile 2>/dev/null | head -20
+
+# Verify each of the four required version variables exists individually
+grep -n "BUILD_DATE" Makefile 2>/dev/null || echo "MISSING: BUILD_DATE"
+grep -n "GIT_SHA" Makefile 2>/dev/null || echo "MISSING: GIT_SHA"
+grep -n "GIT_DIRTY" Makefile 2>/dev/null || echo "MISSING: GIT_DIRTY"
+grep -n "APP_VERSION" Makefile 2>/dev/null || echo "MISSING: APP_VERSION"
+
+# Check for incorrect VERSION variable (should be APP_VERSION)
+grep -n "^VERSION\s*[:?]\?=" Makefile 2>/dev/null
+```
 
 #### Check 5: Container Tool Auto-Detection
 
@@ -103,6 +117,69 @@ For each check, verify the Makefile against the requirements defined in the stan
 **What to verify:** For Helm chart repositories, verify that the Makefile uses the Helm-specific target names and omits Go-specific targets as defined in the standard.
 **How to find:** `grep -n "helm-lint\|helm-template\|test-helm" Makefile 2>/dev/null`
 
+#### Check 11: Container Target Guard Dependency
+
+**What to verify:** Verify that container-related targets (e.g., `container-build`, `container-push`) depend on the `check-container-tool` guard target as required by the standard. The guard ensures the container tool is available before attempting container operations.
+**How to find:**
+
+```bash
+# Check if check-container-tool target exists
+grep -n "^check-container-tool:" Makefile 2>/dev/null
+
+# Verify container targets list check-container-tool as a prerequisite
+grep -n "^container-build:.*check-container-tool" Makefile 2>/dev/null || echo "MISSING: container-build does not depend on check-container-tool"
+grep -n "^container-push:.*check-container-tool" Makefile 2>/dev/null || echo "MISSING: container-push does not depend on check-container-tool"
+```
+
+#### Check 12: CGO_ENABLED FIPS Compliance
+
+**What to verify:** For services that require FIPS compliance (those using `GOEXPERIMENT=boringcrypto`), verify that `CGO_ENABLED` is set to `1` as required by the standard.
+**How to find:**
+
+```bash
+# Check for GOEXPERIMENT=boringcrypto usage
+grep -n "GOEXPERIMENT.*boringcrypto" Makefile 2>/dev/null
+
+# Check CGO_ENABLED setting
+grep -n "CGO_ENABLED" Makefile 2>/dev/null
+```
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Scope | N/A (informational) |
+| Problem Statement | N/A (informational) |
+| Goals | N/A (informational) |
+| Standard Targets | Required Targets |
+| Required Targets | Required Targets |
+| Example: Required targets | N/A (informational) |
+| Optional Targets | Optional Targets |
+| Example: Optional targets | N/A (informational) |
+| Target Naming Rules | Required Targets |
+| Binary Output Location | Binary Output Directory |
+| Temporary Files | Binary Output Directory |
+| Repository Type Variations | Helm-Chart Repo Variations |
+| Repository Types | Repo Type Detection |
+| Target Equivalents for Helm-chart Repositories | Helm-Chart Repo Variations |
+| Repository Type Indicator | Repo Type Detection |
+| Supported repository types | Repo Type Detection |
+| Audit Tool Behavior | N/A (informational) |
+| Example: Service repository with Helm charts | N/A (informational) |
+| Example audit output for Helm-chart repository | N/A (informational) |
+| Flag Conventions | Standard Variables |
+| Standard Variables | Standard Variables |
+| Variable Definition Pattern | Standard Variables |
+| Container Tool Auto-Detection | Container Tool Auto-Detection |
+| Version Information and Git Dirty Detection | Git Dirty Detection |
+| Git Dirty Detection | Git Dirty Detection |
+| Standard Version Variables | Standard Variables |
+| Go Build Flags | Go Build Flags |
+| Example build target | N/A (informational) |
+| Container Image Targets | Container Build Args |
+| Required: `image` and `image-push` | Container Build Args |
+| Optional: `image-dev` | Container Build Args |
+
 ## Output Format
 
 ```markdown
@@ -128,6 +205,8 @@ For each check, verify the Makefile against the requirements defined in the stan
 | Container Build Args | PASS/PARTIAL/FAIL/N/A | 0/N |
 | Repo Type Detection | PASS/PARTIAL/FAIL | 0/N |
 | Helm-Chart Variations | PASS/PARTIAL/FAIL/N/A | 0/N |
+| Container Guard Dependency | PASS/PARTIAL/FAIL/N/A | 0/N |
+| CGO_ENABLED FIPS | PASS/FAIL/N/A | 0/N |
 
 **Overall:** X/Y checks passing
 

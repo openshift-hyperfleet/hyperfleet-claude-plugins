@@ -10,6 +10,7 @@ A Claude Code plugin that provides a standardized, interactive PR review workflo
 ### What It Does
 
 - Fetches PR details, diff, existing reviewer comments, and HyperFleet standards in parallel
+- Detects drift between fetched standards and mechanical pass definitions — warns if the plugin's checks are out of date with the architecture repo
 - Validates PR against JIRA ticket requirements (title, description, acceptance criteria, and comment-thread refinements)
 - Checks consistency with HyperFleet architecture documentation
 - Runs impact and call chain analysis to detect breaking changes and verify consistency across the codebase

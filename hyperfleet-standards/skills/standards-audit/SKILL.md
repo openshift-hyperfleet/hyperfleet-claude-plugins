@@ -29,16 +29,34 @@ Activate this skill when the user:
 
 ## Dynamic Standards Discovery
 
-Standards are **dynamically fetched** via the `hyperfleet-architecture` skill — never hardcoded. This ensures the skill stays current as standards evolve and centralizes all architecture repo access in one plugin.
+Standards are **dynamically fetched** from the architecture repo (`openshift-hyperfleet/architecture`) at audit time — never hardcoded. This ensures the skill stays current as standards evolve.
 
 ### Fetch Standards
 
-**This is an internal step — do NOT show intermediate results to the user.** Proceed automatically through both steps without stopping.
+**This is an internal step — do NOT show intermediate results to the user.** Fetch all standards using two Bash commands and proceed directly to metadata extraction.
 
-1. Use the Skill tool to invoke `hyperfleet-architecture` with: "List all standards documents available under `hyperfleet/standards/` in the architecture repo"
-2. **Immediately** (without showing the list to the user or waiting for input), fetch each standard's content by invoking `hyperfleet-architecture` with: "Fetch the full content of `hyperfleet/standards/<filename>.md`" — launch fetches in parallel with bounded concurrency (limit to 4-8 concurrent Skill tool calls to avoid rate-limit failures). Retry transient failures once before reporting the standard as unavailable. Surface any missing files in the final audit summary
+**Step 1 — List standards (single Bash call):**
 
-Each invocation is a separate Skill tool call. The architecture skill handles GitHub access and local fallback transparently. The user should only see the final audit results, not the fetching process.
+```bash
+gh api repos/openshift-hyperfleet/architecture/contents/hyperfleet/standards \
+  --jq '.[] | select(.name | endswith(".md")) | .name' 2>/dev/null
+```
+
+**Step 2 — Fetch all standard contents (single Bash call):**
+
+Using the file names from step 1, fetch all standards in a single Bash command:
+
+```bash
+for file in $(gh api repos/openshift-hyperfleet/architecture/contents/hyperfleet/standards \
+  --jq '.[] | select(.name | endswith(".md")) | .name' 2>/dev/null); do
+  echo "===== $file ====="
+  gh api "repos/openshift-hyperfleet/architecture/contents/hyperfleet/standards/$file" \
+    --jq '.content' 2>/dev/null | base64 --decode 2>/dev/null || echo "Warning: Failed to fetch $file"
+  echo ""
+done
+```
+
+If a file fails to fetch, log a warning and continue — surface any missing files in the final audit summary. Do NOT stop or show intermediate results. Proceed directly to [Extract Metadata](#extract-metadata-from-standard-content) after both commands complete.
 
 ### Extract Metadata from Standard Content
 
@@ -83,6 +101,34 @@ For each standard document, extract checkable requirements by reading the standa
 4. **Commit Message Checks** - Format rules defined in the commit standard
 
 For detailed check methodology per standard, use the corresponding reference file in the [Parallel Standard Checks](#parallel-standard-checks) section.
+
+## Drift Detection
+
+Drift detection runs **in the background**, in parallel with the audit agents. It MUST NOT block or delay the audit flow.
+
+### Launch
+
+When launching the parallel standard check agents (see [Parallel Standard Checks](#parallel-standard-checks)), also launch the drift detector in the **same tool-call block** using `run_in_background: true`:
+
+```text
+Skill(hyperfleet-standards:standards-drift-detector ${CLAUDE_SKILL_DIR}/references/)
+```
+
+The `${CLAUDE_SKILL_DIR}/references/` path points to the directory containing the `*-checks.md` reference files. The drift detector reads all reference files, matches them to standards by naming convention, and reports uncovered requirements.
+
+### Output Handling
+
+Collect the drift detector result when it completes (it runs in background — do not poll or wait for it). Display the result as follows:
+
+- **Always show the drift status** at the bottom of **Page 1** (summary table) and repeat it at the bottom of **Page 2+** (standard detail), whether drift was detected or not (e.g., `Standards drift: N standards checked, no drift detected.`)
+- If a drift report is returned: append the full drift report after the status line. The warning is informational only — it never blocks navigation or offers an abort option
+- If the drift detector fails or times out: proceed silently without a status line
+
+### Important
+
+- Drift detection is **strictly informational** — it never blocks the audit and never offers an abort option
+- The **standard document always prevails** — if a requirement exists in the standard but not in the reference file, it is the reference file that is outdated, not the standard
+- If the drift detection skill fails or times out, log a warning and proceed with the audit normally
 
 ## Repository Type Detection
 
@@ -146,28 +192,28 @@ ls cmd/*.go 2>/dev/null || find pkg -name '*.go' -print -quit 2>/dev/null | grep
 
 ### Parallel Standard Checks
 
-Launch one agent per applicable standard in parallel using a single tool-call block (`subagent_type=general-purpose`). Each agent receives the following inputs: the repository path (mandatory), the detected repository type (mandatory), the standard document content fetched by the orchestrator via the hyperfleet-architecture skill (mandatory), and its corresponding reference file from the table below (optional — not all standards have one). When a reference file exists, the agent follows the review process defined there. When no reference file exists (e.g., Commit Messages, Generated Code Policy), the agent extracts checkable requirements directly from the standard document content:
+Launch one agent per applicable standard in parallel using a single tool-call block (`subagent_type=general-purpose`). Each agent receives the following inputs: the repository path (mandatory), the detected repository type (mandatory), the standard document content fetched from the architecture repo in the [Fetch Standards](#fetch-standards) step (mandatory), and its corresponding reference file from the table below (optional — not all standards have one). When a reference file exists, the agent follows the review process defined there. When no reference file exists (e.g., Commit Messages, Generated Code Policy), the agent extracts checkable requirements directly from the standard document content:
 
 | Standard | Reference File |
 |----------|---------------|
 | Configuration | [configuration-checks.md](references/configuration-checks.md) |
-| Container Image | [container-image-checks.md](references/container-image-checks.md) |
+| Container Image | [container-image-standard-checks.md](references/container-image-standard-checks.md) |
 | Dependency Pinning | [dependency-pinning-checks.md](references/dependency-pinning-checks.md) |
 | Directory Structure | [directory-structure-checks.md](references/directory-structure-checks.md) |
 | Error Model | [error-model-checks.md](references/error-model-checks.md) |
 | Graceful Shutdown | [graceful-shutdown-checks.md](references/graceful-shutdown-checks.md) |
 | Health Endpoints | [health-endpoints-checks.md](references/health-endpoints-checks.md) |
-| Helm Chart | [helm-chart-checks.md](references/helm-chart-checks.md) |
+| Helm Chart | [helm-chart-conventions-checks.md](references/helm-chart-conventions-checks.md) |
 | Linting | [linting-checks.md](references/linting-checks.md) |
-| Logging Specification | [logging-checks.md](references/logging-checks.md) |
-| Makefile Conventions | [makefile-checks.md](references/makefile-checks.md) |
+| Logging Specification | [logging-specification-checks.md](references/logging-specification-checks.md) |
+| Makefile Conventions | [makefile-conventions-checks.md](references/makefile-conventions-checks.md) |
 | Metrics | [metrics-checks.md](references/metrics-checks.md) |
 | Tracing | [tracing-checks.md](references/tracing-checks.md) |
 
 Each agent must:
 
 1. If a reference file was provided, read it and follow the full review process defined there. If no reference file was provided, extract checkable requirements directly from the standard document content
-2. Use the standard document content provided by the orchestrator (fetched via hyperfleet-architecture skill)
+2. Use the standard document content provided by the orchestrator (fetched from the architecture repo)
 3. Execute all checks against the local repository
 4. **Only report gaps for requirements explicitly stated in the standard document.** The reference file defines *how* to check — the standard document defines *what* to check. If a check in the reference file does not have a corresponding requirement in the standard, skip it. Best practices, recommendations, or opinions not present in the standard must NOT be reported as gaps.
 5. Return a JSON object with: `{ "standard": "name", "status": "PASS|PARTIAL|FAIL", "severity": "Critical|Major|Minor", "gaps": [...] }`
@@ -279,8 +325,8 @@ Only generate gap specifications when the user asks to create tickets. Format:
 
 If the skill cannot complete an audit:
 
-1. **hyperfleet-architecture skill returns an error:** Report which standards could not be fetched and suggest the user verify architecture repo access
-2. **hyperfleet-architecture skill is unavailable:** Report that the architecture plugin is not installed and link to installation instructions
+1. **Standards fetch fails via GitHub API:** Report which standards could not be fetched and suggest the user verify GitHub token, repo access (`openshift-hyperfleet/architecture`), and API availability
+2. **`gh` CLI is not available:** Report that the audit cannot proceed because `gh` CLI is required to fetch standards from the architecture repo
 3. **Partial checks:** Report which checks could not be performed
 4. **Unknown repo type:** Ask user to specify or default to "Tooling"
 

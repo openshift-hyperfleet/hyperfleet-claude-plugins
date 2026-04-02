@@ -16,16 +16,17 @@ The **HyperFleet Standards Audit** skill automatically activates when you ask ab
 
 ### Key Capabilities
 
-- **Dynamic Standards Discovery** - Delegates to the `hyperfleet-architecture` plugin to fetch standards, ensuring the skill stays current as standards evolve
+- **Dynamic Standards Discovery** - Fetches standards directly from the architecture repo via `gh api`, ensuring the skill stays current as standards evolve
 - **Repository Type Detection** - Automatically identifies if the repo is an API, Sentinel, Adapter, Infrastructure, or Tooling project
 - **Parallel Deep-Dive** - Runs thorough checks per standard in parallel using dedicated agents
 - **Interactive Output** - Paginated results with AskUserQuestion — never dumps the full report at once
 - **Fix Gaps** - Can fix compliance gaps directly when the user chooses to
+- **Drift Detection** - Before running checks, invokes the `standards-drift-detector` skill (included in this plugin) to compare fetched standards against local reference files. Warns the user if the plugin's check definitions are out of date with the architecture repo
 
 ## Standards Checked
 
 The skill dynamically fetches and audits against all standards in:
-```
+```text
 https://github.com/openshift-hyperfleet/architecture/tree/main/hyperfleet/standards/
 ```
 
@@ -49,12 +50,12 @@ Current standards include:
 ## Installation
 
 1. **Add the HyperFleet marketplace (if not already added):**
-   ```
+   ```text
    /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
 2. **Install the standards plugin:**
-   ```
+   ```text
    /plugin install hyperfleet-standards@openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
@@ -66,7 +67,7 @@ Current standards include:
 
 Navigate to any HyperFleet repository and ask:
 
-```
+```text
 audit this repo against standards
 ```
 

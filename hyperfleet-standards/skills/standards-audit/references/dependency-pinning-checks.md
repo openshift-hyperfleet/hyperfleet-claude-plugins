@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched from the architecture repo). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -80,8 +80,20 @@ For each check, verify against the requirements defined in the standard document
 
 #### Check 5: Required Makefile Targets
 
-**What to verify:** The Makefile includes the required tool management targets defined in the standard.
-**How to find:** `grep -n "^tools-\|^\.PHONY.*tools-" Makefile 2>/dev/null`
+**What to verify:** The Makefile includes the required tool management targets defined in the standard: `tools-install`, `tools-list`, and `tools-update`. All three MUST be present.
+**How to find:**
+
+```bash
+# Verify each required target exists individually (all three must be present)
+grep -n "^tools-install:" Makefile 2>/dev/null || echo "MISSING: tools-install"
+grep -n "^tools-list:" Makefile 2>/dev/null || echo "MISSING: tools-list"
+grep -n "^tools-update:" Makefile 2>/dev/null || echo "MISSING: tools-update"
+
+# Verify .PHONY declarations for each target
+grep -n "\.PHONY" Makefile 2>/dev/null | grep "tools-install" || echo "MISSING .PHONY: tools-install"
+grep -n "\.PHONY" Makefile 2>/dev/null | grep "tools-list" || echo "MISSING .PHONY: tools-list"
+grep -n "\.PHONY" Makefile 2>/dev/null | grep "tools-update" || echo "MISSING .PHONY: tools-update"
+```
 
 #### Check 6: Tool Isolation
 
@@ -97,6 +109,40 @@ For each check, verify against the requirements defined in the standard document
 
 **What to verify:** Tool binaries are not committed to the repository and are properly gitignored as required by the standard.
 **How to find:** `git ls-files .bingo/ 2>/dev/null | grep -v -E '\.(mod|sum|mk|gitignore)$'`
+
+## Coverage Map
+
+| Standard Section | Check(s) |
+|-----------------|----------|
+| Problem | N/A (informational) |
+| Solution: Bingo | .bingo/ Directory Structure |
+| Directory Structure and File Naming | .bingo/ Directory Structure |
+| Standard Directory Layout | .bingo/ Directory Structure |
+| File Naming Conventions | .bingo/ Directory Structure |
+| Quick Start | N/A (informational) |
+| Initialize in a Repository | N/A (informational) |
+| How to Add New Tools | N/A (informational) |
+| Basic Command | N/A (informational) |
+| Complete Workflow | N/A (informational) |
+| Version Options | N/A (informational) |
+| Common Tools Quick Reference | Common Tools Pinned |
+| Makefile Variable Mapping | Makefile Integration |
+| Common Operations | N/A (informational) |
+| Upgrade Tool | N/A (informational) |
+| Remove Tool | N/A (informational) |
+| List Tools | N/A (informational) |
+| Makefile Targets for Tool Installation | Required Makefile Targets |
+| Required Targets | Required Makefile Targets |
+| Target Descriptions | Required Makefile Targets |
+| How It Works | N/A (informational) |
+| CI Integration Pattern | N/A (informational) |
+| GitHub Actions Example | N/A (informational) |
+| Template .bingo Directory | .bingo/.gitignore Configuration |
+| .bingo/.gitignore | .bingo/.gitignore Configuration |
+| Makefile Integration | Makefile Integration |
+| GitHub Actions Integration | N/A (informational) |
+| Documentation | N/A (reference) |
+| Related HyperFleet Standards | N/A (reference) |
 
 ## Output Format
 
