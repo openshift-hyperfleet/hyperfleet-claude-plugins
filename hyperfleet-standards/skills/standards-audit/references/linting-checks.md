@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -99,6 +99,16 @@ grep -rn "disable\|--skip" .golangci.yml .golangci.yaml .golangci.toml Makefile 
 grep -rn "//nolint" --include="*.go" . 2>/dev/null | head -20
 ```
 
+#### Check 10: Run Timeout
+
+**What to verify:** Verify that the `run.timeout` (or equivalent timeout setting) meets the minimum value specified in the standard.
+**How to find:** `grep -n "timeout" .golangci.yml .golangci.yaml .golangci.toml 2>/dev/null`
+
+#### Check 11: Override Comments
+
+**What to verify:** Verify that any linter setting overrides or deviations from the standard's baseline include an inline comment explaining why, as required by the standard.
+**How to find:** Read the golangci-lint config and look for settings that differ from the standard's baseline. Check whether each override has a comment justification.
+
 ## Output Format
 
 ```markdown
@@ -123,6 +133,8 @@ grep -rn "//nolint" --include="*.go" . 2>/dev/null | head -20
 | Make Lint Target | PASS/FAIL | 0/N |
 | golangci-lint Version | PASS/FAIL | 0/N |
 | No Baseline Disabled | PASS/FAIL | 0/N |
+| Run Timeout | PASS/FAIL | 0/N |
+| Override Comments | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 

@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -28,16 +28,16 @@ Search for files that handle errors returned to clients or logged:
 
 ```bash
 # HTTP error responses
-grep -rl "WriteHeader\|http.Error\|JSON.*error\|problem.json\|application/problem" --include="*.go" 2>/dev/null
+grep -rl "WriteHeader\|http.Error\|JSON.*error\|problem.json\|application/problem" --include="*.go" . 2>/dev/null
 
 # Error constructors/types
-grep -rl "ProblemDetails\|NewError\|ErrorResponse\|ErrResponse" --include="*.go" 2>/dev/null
+grep -rl "ProblemDetails\|NewError\|ErrorResponse\|ErrResponse" --include="*.go" . 2>/dev/null
 
 # Error wrapping
-grep -rn "fmt.Errorf\|errors.New\|errors.Wrap" --include="*.go" 2>/dev/null | head -30
+grep -rn "fmt.Errorf\|errors.New\|errors.Wrap" --include="*.go" . 2>/dev/null | head -30
 
-# Error code usage
-grep -rn "HYPERFLEET-" --include="*.go" 2>/dev/null
+# Error code usage — search for the error code prefix defined in the standard
+grep -rn "ErrorCode\|error_code\|ErrCode" --include="*.go" . 2>/dev/null
 ```
 
 ### Step 4: Checks
@@ -52,32 +52,47 @@ For each check, verify the code against the requirements defined in the standard
 #### Check 2: Error Code Taxonomy
 
 **What to verify:** Verify that error codes follow the category format and category-to-HTTP-status mappings defined in the standard. Flag any mismatches between error code categories and HTTP status codes.
-**How to find:** `grep -rn "HYPERFLEET-" --include="*.go" 2>/dev/null`
+**How to find:** Search for the error code prefix pattern defined in the standard.
 
 #### Check 3: HTTP Status Code Usage
 
-**What to verify:** Verify that HTTP status codes follow the usage rules in the standard (e.g., 400 vs 422 distinction, required content type for error responses, no bare status codes without structured bodies).
-**How to find:** `grep -rn "WriteHeader\|http.Error\|StatusCode" --include="*.go" 2>/dev/null`
+**What to verify:** Verify that HTTP status codes follow the usage rules and distinctions defined in the standard (required content type for error responses, no bare status codes without structured bodies).
+**How to find:** `grep -rn "WriteHeader\|http.Error\|StatusCode" --include="*.go" . 2>/dev/null`
 
 #### Check 4: Validation Error Structure (API only)
 
 **What to verify:** For validation errors (400/422), verify the errors array structure and constraint types match what the standard defines.
-**How to find:** `grep -rn "validation\|422\|field.*constraint\|errors.*array" --include="*.go" 2>/dev/null`
+**How to find:** `grep -rn "validation\|422\|field.*constraint\|errors.*array" --include="*.go" . 2>/dev/null`
 
 #### Check 5: Error Wrapping and Propagation
 
-**What to verify:** Verify that errors are wrapped using `%w` (not `%v`) to preserve the error chain, wrapping adds meaningful context, and internal errors are not silently swallowed. Refer to the standard for wrapping conventions.
-**How to find:** `grep -rn "fmt.Errorf\|errors.New\|errors.Wrap" --include="*.go" 2>/dev/null`
+**What to verify:** Verify that errors are wrapped following the conventions defined in the standard (format verb, context requirements, error chain preservation). Internal errors must not be silently swallowed.
+**How to find:** `grep -rn "fmt.Errorf\|errors.New\|errors.Wrap" --include="*.go" . 2>/dev/null`
 
 #### Check 6: Security Anti-Patterns
 
 **What to verify:** Check for security anti-patterns listed in the standard (stack traces in responses, raw internal errors exposed to clients, system paths or query details leaked in error messages).
-**How to find:** `grep -rn "runtime.Stack\|debug.Stack\|err.Error()" --include="*.go" 2>/dev/null`
+**How to find:** `grep -rn "runtime.Stack\|debug.Stack\|err.Error()" --include="*.go" . 2>/dev/null`
 
 #### Check 7: Component-Specific Guidelines
 
 **What to verify:** Verify the code follows the component-specific error handling guidelines defined in the standard for the detected repository type (API, Sentinel, or Adapter).
 **How to find:** Read error handling code in the component's main packages and compare against the standard's requirements for this component type.
+
+#### Check 8: Internal Error Logging
+
+**What to verify:** Verify that full error details (stack traces, internal context) are logged internally before returning a sanitized response to clients, as required by the standard.
+**How to find:** Review error response handlers identified in Step 3 — check that each path that returns an error response also logs the full error.
+
+#### Check 9: Input Sanitization in Error Messages
+
+**What to verify:** Verify that user-supplied input is sanitized before being included in error messages (preventing injection or information leakage), as required by the standard.
+**How to find:** Review error construction code from Step 3 for user input being interpolated into error strings without sanitization.
+
+#### Check 10: Error Response Logging Per Logging Spec
+
+**What to verify:** Verify that error responses are logged following the logging specification standard (structured format, correct log level, correlation fields), as required by the error model standard.
+**How to find:** `grep -rn "Error\|Warn" --include="*.go" . 2>/dev/null | grep -i "log\|slog\|zap" | grep -i "err\|error\|fail" | head -20`
 
 ## Output Format
 
@@ -101,6 +116,9 @@ For each check, verify the code against the requirements defined in the standard
 | Error Wrapping | PASS/PARTIAL/FAIL | 0/N |
 | Security | PASS/PARTIAL/FAIL | 0/N |
 | Component Guidelines | PASS/PARTIAL/FAIL | 0/N |
+| Internal Error Logging | PASS/PARTIAL/FAIL | 0/N |
+| Input Sanitization | PASS/PARTIAL/FAIL | 0/N |
+| Error Response Logging | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 

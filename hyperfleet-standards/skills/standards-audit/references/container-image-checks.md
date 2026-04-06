@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -51,7 +51,7 @@ For each check, verify the Dockerfile and build configuration against the requir
 
 #### Check 1: Base Images
 
-**What to verify:** Builder stage uses `registry.access.redhat.com/ubi9/go-toolset` and runtime stage uses `registry.access.redhat.com/ubi9-micro` (or approved alternatives) as specified in the standard. No unapproved base images (Debian, Alpine, etc.).
+**What to verify:** Builder and runtime stages use the base images specified in the standard. No unapproved base images.
 **How to find:** `grep -n "^FROM\|^ARG BASE_IMAGE" {Dockerfile,Containerfile} 2>/dev/null`
 
 #### Check 2: Multi-Stage Build
@@ -61,24 +61,22 @@ For each check, verify the Dockerfile and build configuration against the requir
 
 #### Check 3: Non-Root User
 
-**What to verify:** Builder stage uses user `1001` (UBI9 convention) and runtime stage uses `65532:65532` as specified in the standard. Root is only used temporarily for package installation.
+**What to verify:** Builder and runtime stages use the user IDs specified in the standard. Root is only used temporarily for package installation.
 **How to find:** `grep -n "^USER" {Dockerfile,Containerfile} 2>/dev/null`
 
 #### Check 4: Go Build Parameters
 
-**What to verify:** Build uses the flags required by the standard: `-trimpath`, `-s -w` ldflags, `-X` for version embedding. `CGO_ENABLED` is set appropriately.
+**What to verify:** Build uses the Go build flags and ldflags required by the standard. CGO setting matches the standard's requirements.
 **How to find:** Review Makefile build targets and Dockerfile RUN commands from Step 3.
 
 #### Check 5: Container Labels
 
-**What to verify:** All required OCI labels are present: `title`, `vendor`, `version`, `description` as defined in the standard.
-**How to find:** Check each required label individually:
+**What to verify:** All required OCI labels defined in the standard are present. The standard specifies which label keys are mandatory — verify each one.
+**How to find:** Extract the list of required label keys from the standard document, then check for each:
 
 ```bash
-for key in title vendor version description; do
-  grep -nE '^[[:space:]]*LABEL[[:space:]]+.*org\.opencontainers\.image\.'"${key}"'[= ]' Dockerfile Containerfile 2>/dev/null \
-    || echo "MISSING_LABEL:${key}"
-done
+# List all LABEL directives to compare against the standard's required labels
+grep -nE '^[[:space:]]*LABEL' Dockerfile Containerfile 2>/dev/null
 ```
 
 #### Check 6: .dockerignore
@@ -88,7 +86,7 @@ done
 
 #### Check 7: CA Certificates
 
-**What to verify:** CA certificates are copied from the builder stage to the runtime stage for TLS support, since `ubi9-micro` doesn't include them.
+**What to verify:** CA certificates are copied from the builder stage to the runtime stage for TLS support, since minimal base images may not include them.
 **How to find:** `grep -n "ca-trust\|ca-certificates\|tls-ca-bundle" {Dockerfile,Containerfile} 2>/dev/null`
 
 #### Check 8: Cache Mounts
@@ -96,10 +94,10 @@ done
 **What to verify:** Go module and build caches use `--mount=type=cache` for efficient rebuilds as recommended by the standard.
 **How to find:** `grep -n "mount=type=cache" {Dockerfile,Containerfile} 2>/dev/null`
 
-#### Check 9: APP_VERSION Convention
+#### Check 9: Version Variable Convention
 
-**What to verify:** The Dockerfile and Makefile use `APP_VERSION` instead of `VERSION` to avoid collision with the UBI9 Go toolset's inherited `VERSION` env var, as required by the standard.
-**How to find:** `grep -n "VERSION\|APP_VERSION" {Dockerfile,Containerfile} Makefile 2>/dev/null`
+**What to verify:** The Dockerfile and Makefile use the version variable name specified in the standard to avoid collision with base image environment variables.
+**How to find:** `grep -n "VERSION" {Dockerfile,Containerfile} Makefile 2>/dev/null`
 
 #### Check 10: Platform Specification
 
@@ -129,7 +127,7 @@ done
 | .dockerignore | PASS/FAIL | 0/N |
 | CA Certificates | PASS/FAIL | 0/N |
 | Cache Mounts | PASS/FAIL | 0/N |
-| APP_VERSION Convention | PASS/FAIL | 0/N |
+| Version Variable Convention | PASS/FAIL | 0/N |
 | Platform Specification | PASS/FAIL | 0/N |
 
 **Overall:** X/Y checks passing

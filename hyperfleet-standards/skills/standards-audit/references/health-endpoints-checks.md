@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -18,17 +18,17 @@ ls charts/ 2>/dev/null && echo "HAS_HELM"
 ### Step 3: Find Relevant Code
 
 ```bash
-# Health/readiness handlers
-grep -rn "healthz\|readyz\|/health\|/ready\|livenessProbe\|readinessProbe" --include="*.go" 2>/dev/null
+# Health/readiness handlers — search for endpoint path patterns; exact paths are defined in the standard
+grep -rn "health\|ready\|alive\|liveness\|readiness" --include="*.go" . 2>/dev/null | grep -i "handler\|route\|mux\|endpoint\|path" | head -20
 
 # Metrics endpoint
-grep -rn "/metrics\|promhttp\|prometheus.*Handler" --include="*.go" 2>/dev/null
+grep -rn "metrics\|promhttp\|prometheus.*Handler" --include="*.go" . 2>/dev/null
 
-# Port configurations
-grep -rn "8080\|9090" --include="*.go" 2>/dev/null | grep -i "port\|listen\|addr"
+# Port configurations — search for port/listen patterns; exact port numbers are defined in the standard
+grep -rn "port\|listen\|addr\|Addr" --include="*.go" . 2>/dev/null | grep -i "server\|http\|metrics" | head -20
 
 # Helm probe configs
-grep -rn "livenessProbe\|readinessProbe\|healthz\|readyz" --include="*.yaml" --include="*.tpl" 2>/dev/null
+grep -rn "livenessProbe\|readinessProbe\|startupProbe" --include="*.yaml" --include="*.tpl" . 2>/dev/null
 ```
 
 ### Step 4: Checks
@@ -42,12 +42,12 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 2: Response Format
 
-**What to verify:** Verify that liveness and readiness endpoint responses match the JSON structure and status codes defined in the standard (including the checks map for readiness).
+**What to verify:** Verify that liveness and readiness endpoint responses match the JSON structure and status codes defined in the standard.
 **How to find:** Read the handler implementations found in Step 3.
 
 #### Check 3: Liveness vs Readiness Separation
 
-**What to verify:** Verify that liveness probes only check process health and do not check external dependencies. The standard defines what belongs in each probe type. Flag liveness probes that check external dependencies, as this causes cascading restarts.
+**What to verify:** Verify that liveness and readiness probes check the correct dependencies as defined in the standard. The standard defines what belongs in each probe type and the rationale for the separation.
 **How to find:** Read liveness handler code and check for any external calls (database, broker, API).
 
 #### Check 4: Component-Specific Readiness Checks
@@ -67,8 +67,8 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 7: Metrics Endpoint
 
-**What to verify:** Verify that metrics are served on the correct port (separate from probes) using the handler type specified in the standard. Check for ServiceMonitor/PodMonitor in Helm charts if present.
-**How to find:** `grep -rn "metrics\|promhttp\|9090" --include="*.go" --include="*.yaml" 2>/dev/null`
+**What to verify:** Verify that metrics are served on the port defined in the standard (separate from probes) using the handler type specified in the standard. Check for ServiceMonitor/PodMonitor in Helm charts if present.
+**How to find:** `grep -rn "metrics\|promhttp\|prometheus" --include="*.go" --include="*.yaml" . 2>/dev/null`
 
 ## Output Format
 

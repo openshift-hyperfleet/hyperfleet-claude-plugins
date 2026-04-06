@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -33,11 +33,11 @@ grep -rl "prometheus\.\|promauto\.\|promhttp\." --include="*.go" 2>/dev/null
 # Metric definitions
 grep -rn "NewCounter\|NewGauge\|NewHistogram\|NewSummary\|NewCounterVec\|NewGaugeVec\|NewHistogramVec" --include="*.go" 2>/dev/null
 
-# Metric names
-grep -rn "hyperfleet_\|Name:\s*\"" --include="*.go" 2>/dev/null | head -30
+# Metric names — search for the metric prefix defined in the standard
+grep -rn "Name:\s*\"" --include="*.go" 2>/dev/null | head -30
 
-# Metrics endpoint
-grep -rn "9090\|/metrics\|promhttp.Handler\|metricsPort" --include="*.go" 2>/dev/null
+# Metrics endpoint — search for metrics serving patterns; exact port and path are defined in the standard
+grep -rn "promhttp\|metricsServer\|ListenAndServe\|metrics.*handler" --include="*.go" 2>/dev/null | head -10
 
 # ServiceMonitor/PodMonitor
 grep -rl "ServiceMonitor\|PodMonitor" --include="*.yaml" --include="*.yml" 2>/dev/null

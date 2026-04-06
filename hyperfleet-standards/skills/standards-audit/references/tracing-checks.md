@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -33,8 +33,8 @@ grep -rl "go.opentelemetry.io/otel" --include="*.go" 2>/dev/null
 # Span creation
 grep -rn "tracer.Start\|otel.Tracer\|span.End\|span.SetAttributes" --include="*.go" 2>/dev/null | head -30
 
-# Tracing configuration
-grep -rn "OTEL_SERVICE_NAME\|OTEL_EXPORTER_OTLP_ENDPOINT\|OTEL_TRACES_SAMPLER\|HYPERFLEET_TRACING_ENABLED" --include="*.go" 2>/dev/null
+# Tracing configuration — search for the env var names defined in the standard
+grep -rn "OTEL_\|otel.*config\|tracing.*enabled\|TracerProvider" --include="*.go" 2>/dev/null | head -20
 
 # Context propagation
 grep -rn "propagation\|traceparent\|tracecontext\|W3C" --include="*.go" 2>/dev/null | head -20
@@ -82,10 +82,10 @@ For each check, verify against the requirements defined in the standard document
 **What to verify:** Spans include the required and recommended attributes for their category (HTTP, database, messaging) as listed in the standard.
 **How to find:** `grep -rn "SetAttributes\|attribute\." --include="*.go" 2>/dev/null | head -30`
 
-#### Check 8: HyperFleet-Specific Attributes
+#### Check 8: Project-Specific Attributes
 
-**What to verify:** HyperFleet-specific span attributes are set on relevant operations as defined in the standard.
-**How to find:** `grep -rn "hyperfleet\." --include="*.go" 2>/dev/null`
+**What to verify:** Project-specific span attributes are set on relevant operations as defined in the standard.
+**How to find:** Search for the span attribute prefix defined in the standard.
 
 #### Check 9: Sampling and OTLP Configuration
 
@@ -119,7 +119,7 @@ For each check, verify against the requirements defined in the standard document
 | Required Spans | PASS/PARTIAL/FAIL | 0/N |
 | Span Naming | PASS/PARTIAL/FAIL | 0/N |
 | Span Attributes | PASS/PARTIAL/FAIL | 0/N |
-| HyperFleet Attributes | PASS/PARTIAL/FAIL | 0/N |
+| Project-Specific Attributes | PASS/PARTIAL/FAIL | 0/N |
 | Sampling & OTLP Config | PASS/PARTIAL/FAIL | 0/N |
 | Logging & Error Handling | PASS/PARTIAL/FAIL | 0/N |
 

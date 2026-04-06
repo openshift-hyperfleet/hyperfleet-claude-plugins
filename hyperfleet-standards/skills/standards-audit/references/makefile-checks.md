@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -103,6 +103,11 @@ For each check, verify the Makefile against the requirements defined in the stan
 **What to verify:** For Helm chart repositories, verify that the Makefile uses the Helm-specific target names and omits Go-specific targets as defined in the standard.
 **How to find:** `grep -n "helm-lint\|helm-template\|test-helm" Makefile 2>/dev/null`
 
+#### Check 11: Container Target Guard Dependency
+
+**What to verify:** Verify that container build targets depend on prerequisite targets (e.g., `build`, `test`) as required by the standard, ensuring that a container image cannot be built without passing compilation and tests first.
+**How to find:** `grep -A3 "^container\|^image\|^docker-build\|^podman-build" Makefile 2>/dev/null`
+
 ## Output Format
 
 ```markdown
@@ -128,6 +133,7 @@ For each check, verify the Makefile against the requirements defined in the stan
 | Container Build Args | PASS/PARTIAL/FAIL/N/A | 0/N |
 | Repo Type Detection | PASS/PARTIAL/FAIL | 0/N |
 | Helm-Chart Variations | PASS/PARTIAL/FAIL/N/A | 0/N |
+| Container Target Guard | PASS/PARTIAL/FAIL/N/A | 0/N |
 
 **Overall:** X/Y checks passing
 

@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -32,14 +32,8 @@ Search for logging-related files and patterns:
 # Logging library usage
 grep -rl "slog\.\|zap\.\|logr\.\|zerolog\.\|logrus\." --include="*.go" 2>/dev/null
 
-# Log level configuration
-grep -rn "log.level\|LOG_LEVEL\|HYPERFLEET_LOG_LEVEL\|log-level\|logLevel" --include="*.go" 2>/dev/null | head -10
-
-# Log format configuration
-grep -rn "log.format\|LOG_FORMAT\|HYPERFLEET_LOG_FORMAT\|log-format\|logFormat" --include="*.go" 2>/dev/null | head -10
-
-# Log output configuration
-grep -rn "log.output\|LOG_OUTPUT\|HYPERFLEET_LOG_OUTPUT\|log-output\|logOutput" --include="*.go" 2>/dev/null | head -10
+# Log configuration — search for generic log config patterns; exact env var names are defined in the standard
+grep -rn "log.*level\|log.*format\|log.*output\|SetLevel\|SetFormatter" --include="*.go" 2>/dev/null | head -20
 
 # Structured logging fields
 grep -rn "\.With(\|\.WithField\|\.WithValues\|slog\.String\|slog\.Int\|slog\.Any" --include="*.go" 2>/dev/null | head -20
@@ -47,14 +41,14 @@ grep -rn "\.With(\|\.WithField\|\.WithValues\|slog\.String\|slog\.Int\|slog\.Any
 # Required fields (component, version, hostname)
 grep -rn "component\|version\|hostname" --include="*.go" 2>/dev/null | grep -i "log\|slog\|zap" | head -10
 
-# Trace correlation
-grep -rn "trace_id\|span_id\|request_id\|event_id" --include="*.go" 2>/dev/null | head -10
+# Trace correlation — search for correlation field patterns; exact field names are defined in the standard
+grep -rn "trace.*id\|span.*id\|request.*id\|event.*id\|TraceID\|SpanID\|correlation" --include="*.go" 2>/dev/null | head -10
 
 # Sensitive data handling
-grep -rn "redact\|REDACTED\|mask\|sanitize" --include="*.go" 2>/dev/null | head -10
+grep -rn "redact\|mask\|sanitize\|scrub" --include="*.go" 2>/dev/null | head -10
 
-# Component-specific fields
-grep -rn "method\|path\|status_code\|duration_ms\|adapter\|job_result\|decision_reason" --include="*.go" 2>/dev/null | grep -i "log\|slog\|zap" | head -10
+# Component-specific fields — search for field names defined in the standard for the detected repo type
+grep -rn "With\|WithField\|WithValues" --include="*.go" 2>/dev/null | grep -i "log\|slog\|zap" | head -10
 ```
 
 ### Step 4: Checks
@@ -63,22 +57,22 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 1: Configuration Support
 
-**What to verify:** The application supports `--log-level` / `HYPERFLEET_LOG_LEVEL`, `--log-format` / `HYPERFLEET_LOG_FORMAT`, and `--log-output` / `HYPERFLEET_LOG_OUTPUT` with the defaults defined in the standard.
+**What to verify:** The application supports the log configuration flags and environment variables defined in the standard, with the correct defaults.
 **How to find:** Review log configuration code from Step 3.
 
 #### Check 2: Log Levels
 
-**What to verify:** The application supports all log levels defined in the standard (`debug`, `info`, `warn`, `error`) and uses them for the appropriate scenarios.
+**What to verify:** The application supports all log levels defined in the standard and uses them for the appropriate scenarios as described in the standard.
 **How to find:** `grep -rn "Debug\|Info\|Warn\|Error" --include="*.go" 2>/dev/null | grep -i "log\|slog\|zap" | head -20`
 
 #### Check 3: Required Fields
 
-**What to verify:** All log entries include the required fields defined in the standard: `timestamp` (RFC3339 UTC), `level`, `message`, `component`, `version`, `hostname`.
+**What to verify:** All log entries include the required fields defined in the standard.
 **How to find:** Review logging initialization and structured field setup from Step 3.
 
 #### Check 4: Correlation Fields
 
-**What to verify:** When available, log entries include correlation fields as defined in the standard: `trace_id`, `span_id`, `request_id`, `event_id`.
+**What to verify:** When available, log entries include the correlation fields defined in the standard.
 **How to find:** Review trace correlation code from Step 3.
 
 #### Check 5: JSON Format Support
@@ -88,23 +82,28 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 6: Component-Specific Fields
 
-**What to verify:** The application includes the additional fields required by the standard for its component type (API: method, path, status_code, duration_ms; Sentinel: decision_reason, topic; Adapter: adapter, job_result).
+**What to verify:** The application includes the additional fields required by the standard for its component type.
 **How to find:** Review component-specific fields from Step 3.
 
 #### Check 7: Sensitive Data Redaction
 
-**What to verify:** Sensitive data (API tokens, passwords, cloud provider keys, PII) is redacted from log output as required by the standard.
+**What to verify:** Sensitive data categories listed in the standard are redacted from log output as required.
 **How to find:** Review sensitive data handling from Step 3 and check for unredacted logging of credentials or tokens.
 
 #### Check 8: Log Size Guidelines
 
-**What to verify:** Log entries follow the size guidelines defined in the standard: messages under 1 KB, stack traces 10-15 frames max, total entry under 64 KB, resource IDs instead of full payloads.
+**What to verify:** Log entries follow the size guidelines defined in the standard (message size, stack trace depth, total entry size, payload handling).
 **How to find:** `grep -rn "Sprintf\|fmt.Sprint\|payload\|body" --include="*.go" 2>/dev/null | grep -i "log\|slog\|zap" | head -10`
 
 #### Check 9: Distributed Tracing Integration
 
-**What to verify:** Logging is integrated with OpenTelemetry tracing as specified in the standard: W3C traceparent propagation, CloudEvents trace_id, log correlation.
+**What to verify:** Logging is integrated with distributed tracing as specified in the standard (propagation format, correlation fields, integration mechanism).
 **How to find:** Review trace correlation code from Step 3.
+
+#### Check 10: Shared Library Logger Context Inheritance
+
+**What to verify:** Verify that shared/library packages accept a logger via context or constructor injection (not global loggers) so that caller context (trace IDs, component fields) is preserved, as required by the standard.
+**How to find:** `grep -rn "func New\|func Init\|slog.Default\|log.Default\|zap.L()\|zap.S()" --include="*.go" 2>/dev/null | head -10`
 
 ## Output Format
 
@@ -130,6 +129,7 @@ For each check, verify the code against the requirements defined in the standard
 | Sensitive Data Redaction | PASS/PARTIAL/FAIL | 0/N |
 | Log Size Guidelines | PASS/PARTIAL/FAIL | 0/N |
 | Distributed Tracing | PASS/PARTIAL/FAIL | 0/N |
+| Logger Context Inheritance | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 

@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -36,8 +36,8 @@ grep -rl "Shutdown\|GracefulStop\|Close\|server.Close\|server.Shutdown" --includ
 # Context cancellation for shutdown
 grep -rn "context.WithTimeout\|context.WithCancel\|ctx.Done()\|<-ctx.Done()" --include="*.go" 2>/dev/null | head -30
 
-# Timeout configuration
-grep -rn "SHUTDOWN_TIMEOUT\|shutdownTimeout\|gracePeriod\|terminationGrace" --include="*.go" 2>/dev/null
+# Timeout configuration — search for the env var and field names defined in the standard
+grep -rn "shutdownTimeout\|gracePeriod\|terminationGrace\|Timeout" --include="*.go" 2>/dev/null | grep -i "shutdown\|grace" | head -10
 
 # Kubernetes readiness
 grep -rn "terminationGracePeriodSeconds\|readinessProbe\|livenessProbe" --include="*.yaml" --include="*.yml" 2>/dev/null
@@ -54,22 +54,22 @@ For each check, verify the code against the requirements defined in the standard
 
 #### Check 2: Shutdown Sequence
 
-**What to verify:** Verify that the shutdown follows the phased sequence defined in the standard (marking not ready, stopping acceptance, draining, cleanup, exit). Flag missing phases, incorrect ordering, or phases combined incorrectly.
+**What to verify:** Verify that the shutdown follows the phased sequence defined in the standard. Flag missing phases, incorrect ordering, or phases combined incorrectly.
 **How to find:** Read the shutdown handler code found in Step 3 and trace the execution order.
 
 #### Check 3: Timeout Configuration
 
 **What to verify:** Verify that the shutdown timeout is read from the environment variable and uses the default value specified in the standard. Check that the timeout is applied via context and is less than the Kubernetes termination grace period.
-**How to find:** `grep -rn "SHUTDOWN_TIMEOUT\|shutdownTimeout\|WithTimeout" --include="*.go" 2>/dev/null`
+**How to find:** Search for the timeout environment variable name defined in the standard: `grep -rn "shutdownTimeout\|gracePeriod\|WithTimeout\|timeout" --include="*.go" 2>/dev/null | grep -i "shutdown\|grace"`
 
 #### Check 4: HTTP Server Drain (API)
 
-**What to verify:** Verify that HTTP server shutdown uses the method and patterns defined in the standard (graceful shutdown vs hard close, context timeout, readiness endpoint behavior during shutdown).
+**What to verify:** Verify that HTTP server shutdown uses the method and patterns defined in the standard.
 **How to find:** `grep -rn "server.Shutdown\|server.Close\|http.Server" --include="*.go" 2>/dev/null`
 
 #### Check 5: Broker Consumer Drain (Sentinel/Adapter)
 
-**What to verify:** Verify that broker consumers follow the drain sequence defined in the standard (stop receiving, complete in-flight, acknowledge pending, close consumer).
+**What to verify:** Verify that broker consumers follow the drain sequence defined in the standard.
 **How to find:** `grep -rn "consumer\|Subscribe\|Unsubscribe\|Ack\|Nack\|Close" --include="*.go" 2>/dev/null`
 
 #### Check 6: Background Worker Shutdown
@@ -86,6 +86,11 @@ For each check, verify the code against the requirements defined in the standard
 
 **What to verify:** Verify the code follows the component-specific shutdown guidelines defined in the standard for the detected repository type (API, Sentinel, or Adapter).
 **How to find:** Read shutdown/cleanup code in the component's main packages and compare against the standard's requirements for this component type.
+
+#### Check 9: Shutdown-Related Tests
+
+**What to verify:** Verify that shutdown logic has test coverage as required by the standard (e.g., tests for signal handling, drain completion, timeout behavior).
+**How to find:** `grep -rn "shutdown\|graceful\|signal\|SIGTERM" --include="*_test.go" 2>/dev/null`
 
 ## Output Format
 
@@ -110,6 +115,7 @@ For each check, verify the code against the requirements defined in the standard
 | Background Worker Shutdown | PASS/PARTIAL/FAIL | 0/N |
 | Kubernetes Integration | PASS/PARTIAL/FAIL | 0/N |
 | Component Guidelines | PASS/PARTIAL/FAIL | 0/N |
+| Shutdown Tests | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 
