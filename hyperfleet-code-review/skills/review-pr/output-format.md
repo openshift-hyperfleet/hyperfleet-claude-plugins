@@ -10,7 +10,7 @@ First, show a brief summary:
 
 ## Impact warnings (optional, only when impact analysis found files outside the PR)
 
-If the impact analysis (step 4b) found files that **should have been updated but are NOT part of the PR**, show them in a separate section **before** the recommendations. These are NOT numbered recommendations — they are informational warnings so the author is aware.
+If the impact analysis (step 4c) found files that **should have been updated but are NOT part of the PR**, show them in a separate section **before** the recommendations. These are NOT numbered recommendations — they are informational warnings so the author is aware.
 
 **GitHub comment:**
 
@@ -18,7 +18,7 @@ If the impact analysis (step 4b) found files that **should have been updated but
 
 The following files are **NOT in this PR** but may need updating due to changes in the diff:
 
-- **`docs/development.md`** (lines 31, 33, 40) — Still references `gcp.json` which was renamed to `nodepool-request.json` in this PR
+- **`docs/development.md`** (lines 31, 33, 40) — Still references `old-name.json` which was renamed to `new-name.json` in this PR
 
 These are outside the PR scope and shown for awareness only.
 

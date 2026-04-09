@@ -4,7 +4,7 @@
 
 ### Step 1: Use the Standard Document
 
-Use the standard document content provided by the orchestrator (fetched via the `hyperfleet-architecture` skill). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
+Use the standard document content provided by the orchestrator (fetched via `gh api`). The orchestrator passes the full standard content to each agent — no additional fetching is needed.
 
 ### Step 2: Detect Repository Type
 
@@ -66,22 +66,22 @@ For each check, verify the chart against the requirements defined in the standar
 
 #### Check 1: Naming Conventions
 
-**What to verify:** values.yaml uses camelCase keys, generated config files use snake_case, env vars use UPPER_SNAKE_CASE with HYPERFLEET_ prefix, Kubernetes resources use kebab-case, helper templates are prefixed with chart name.
+**What to verify:** Naming conventions for values.yaml keys, config files, env vars, Kubernetes resources, and helper templates follow the patterns defined in the standard.
 **How to find:** Review values.yaml and templates from Step 3.
 
 #### Check 2: Mandatory values.yaml Sections
 
-**What to verify:** All mandatory sections defined in the standard are present in values.yaml (image, replicaCount, resources, securityContext, podSecurityContext, serviceAccount, etc.).
+**What to verify:** All mandatory sections defined in the standard are present in values.yaml.
 **How to find:** Review values.yaml structure from Step 3.
 
 #### Check 3: Chart Versioning
 
-**What to verify:** Chart version follows SemVer 2.0, `appVersion` is `"0.0.0-dev"` in source, and `appVersion` is not used as fallback for image tag.
+**What to verify:** Chart version follows SemVer 2.0, `appVersion` uses the source placeholder value defined in the standard, and `appVersion` is not used as fallback for image tag.
 **How to find:** Review Chart.yaml from Step 3.
 
 #### Check 4: Default Security Posture
 
-**What to verify:** Default security context matches the standard: `runAsNonRoot: true`, `runAsUser: 65532`, `allowPrivilegeEscalation: false`, drop ALL capabilities, `readOnlyRootFilesystem: true`, seccomp RuntimeDefault.
+**What to verify:** Default security context matches all values specified in the standard (user IDs, privilege escalation, capabilities, filesystem access, seccomp profile).
 **How to find:** Review security context in values.yaml from Step 3.
 
 #### Check 5: Secret Management
@@ -106,18 +106,28 @@ For each check, verify the chart against the requirements defined in the standar
 
 #### Check 9: Standard Labels
 
-**What to verify:** All Kubernetes resources include the recommended labels defined in the standard. `app.kubernetes.io/version` uses `.Values.image.tag` with `.Chart.AppVersion` as fallback.
+**What to verify:** All Kubernetes resources include the recommended labels defined in the standard. The version label source follows the precedence rules defined in the standard.
 **How to find:** `grep -n "app.kubernetes.io" charts/*/templates/_helpers.tpl 2>/dev/null`
 
 #### Check 10: Image Configuration
 
-**What to verify:** Image config follows the standard structure (registry, repository, tag, pullPolicy), includes a validation guard, and `image.tag` does not fall back to `.Chart.AppVersion`.
-**How to find:** Review image section in values.yaml and deployment template from Step 3.
+**What to verify:** Image config follows the structure defined in the standard, includes the validation guards required by the standard, and follows the image tag resolution rules defined in the standard.
+**How to find:** Review image section in values.yaml and deployment template from Step 3. Check for `fail` or `required` guards: `grep -rn "fail\|required.*image" charts/*/templates/ 2>/dev/null`
 
 #### Check 11: Deprecation Guards
 
 **What to verify:** Breaking changes use `fail` messages for renamed keys as required by the standard.
 **How to find:** `grep -rn "fail\|deprecated\|renamed" charts/*/templates/ 2>/dev/null`
+
+#### Check 12: Broker Configuration Pattern
+
+**What to verify:** For Sentinel and Adapter charts, verify that broker connection configuration follows the pattern defined in the standard (e.g., structured broker config section in values.yaml, support for TLS, authentication).
+**How to find:** `grep -rn "broker\|kafka\|amqp\|nats\|mqtt" charts/*/values.yaml 2>/dev/null`
+
+#### Check 13: Registry and Repository Defaults
+
+**What to verify:** Verify that `image.registry` and `image.repository` default to the placeholder values specified in the standard, preventing accidental deployment of unset images.
+**How to find:** Review the `image` section in values.yaml from Step 3.
 
 ## Output Format
 
@@ -145,6 +155,8 @@ For each check, verify the chart against the requirements defined in the standar
 | Standard Labels | PASS/PARTIAL/FAIL | 0/N |
 | Image Configuration | PASS/PARTIAL/FAIL | 0/N |
 | Deprecation Guards | PASS/PARTIAL/FAIL/N/A | 0/N |
+| Broker Configuration | PASS/PARTIAL/FAIL/N/A | 0/N |
+| Registry/Repository Defaults | PASS/PARTIAL/FAIL | 0/N |
 
 **Overall:** X/Y checks passing
 

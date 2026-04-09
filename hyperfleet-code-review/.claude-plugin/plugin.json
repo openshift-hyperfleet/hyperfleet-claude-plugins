@@ -1,6 +1,6 @@
 {
   "name": "hyperfleet-code-review",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "description": "Standardized PR review workflow with JIRA validation, HyperFleet architecture checks, impact analysis, and interactive recommendations",
   "author": {
     "name": "Rafael Benevides",
