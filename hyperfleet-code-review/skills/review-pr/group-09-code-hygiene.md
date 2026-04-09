@@ -4,7 +4,7 @@ This group is **language-agnostic** and runs for every PR regardless of file typ
 
 ## Pass 9a — TODOs/FIXMEs without ticket
 
-Apply the commit message and code comment requirements from the HyperFleet **Commit Message Standard** fetched in step 4b. The standard defines the expected ticket reference format and TODO conventions. If the standard was not fetched, emit a mandatory finding stating "required Commit Message Standard unavailable" with details and skip this pass.
+Apply the commit message and code comment requirements from the HyperFleet **Commit Message Standard** fetched in step 4b. The standard defines the expected ticket reference format and TODO conventions. If the standard was not fetched, emit a mandatory finding stating "required Commit Message standard unavailable" with details and skip this pass.
 
 List every `TODO`, `FIXME`, `HACK`, and `XXX` comment added or modified in the diff. For each, check whether it references a ticket ID per the format defined in the standards. Flag TODOs that have no ticket reference.
 

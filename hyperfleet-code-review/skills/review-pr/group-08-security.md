@@ -4,13 +4,13 @@ This group is **language-agnostic** and runs for every PR regardless of file typ
 
 ## Pass 8a — Injection vulnerabilities
 
-Apply the injection prevention requirements from the HyperFleet error model standard fetched in step 4b. If the standard was not fetched, emit a mandatory finding stating "required error model standard unavailable" with details and skip this pass.
+Apply the injection prevention requirements from the HyperFleet error model standard fetched in step 4b. If the standard was not fetched, emit a mandatory finding stating "required Error Model standard unavailable" with details and skip this pass.
 
 List every place in the diff where external input (HTTP parameters, environment variables, user-provided strings, file content) is incorporated into SQL queries, shell commands, template rendering, or any other injection vector identified in the standard. For each, check against the sanitization and validation requirements defined in the standard.
 
 ## Pass 8b — Secrets exposure
 
-Apply the data redaction requirements from the HyperFleet logging specification and error model standard fetched in step 4b. These standards define the specific list of items that MUST be redacted and the rules for what can appear in logs, error responses, and metric labels. If the standards were not fetched, emit a mandatory finding stating "required logging/error model standards unavailable" with details and skip this pass.
+Apply the data redaction requirements from the HyperFleet logging specification and error model standard fetched in step 4b. These standards define the specific list of items that MUST be redacted and the rules for what can appear in logs, error responses, and metric labels. If the standards were not fetched, emit a mandatory finding stating "required Logging/Error Model standards unavailable" with details and skip this pass.
 
 List every log statement, error message, HTTP response body, and metric label in the diff. For each, check against the redaction and exposure requirements defined in the standards.
 
