@@ -36,7 +36,7 @@ Verify `$1` is a valid PR reference (URL like `https://github.com/org/repo/pull/
 
 - `gh pr view <PR> --json files,body,title,comments` — PR details
 - `gh pr diff <PR>` — full diff. **If the diff is very large (50+ files or 3000+ lines)**, warn the user and suggest reviewing in batches by directory or component. Proceed with the full review unless the user asks to batch.
-- `gh api repos/{owner}/{repo}/pulls/{number}/comments` — existing comments from CodeRabbit or other reviewers
+- `gh api --paginate repos/{owner}/{repo}/pulls/{number}/comments` — existing comments from CodeRabbit or other reviewers
 
 ### Step 3 — JIRA ticket validation
 
@@ -143,9 +143,56 @@ For patterns that appear more than once across different files in the diff, veri
 
 1. Collect all findings from steps 3-5
 2. Deduplicate (same problem found by multiple steps counts once)
-3. Prioritize by impact (see Prioritization below)
-4. Assign sequential numbers
-5. Show **only the first recommendation** (the most important one)
+3. Classify severity (see Severity classification below)
+4. Classify confidence (see Confidence classification below)
+5. Prioritize by impact (see Categories below), then within the same category sort **blocking before nit**
+6. Assign sequential numbers
+7. Show **only the first recommendation** (the most important one)
+
+## Severity classification
+
+Every recommendation MUST carry a severity level:
+
+- **Blocking** — must fix before merge. The PR should not be merged with this issue unresolved.
+- **nit** — non-blocking suggestion for improvement. The PR can be merged as-is; the suggestion improves quality but is not required.
+
+### Default severity by category
+
+| Category | Default severity | Override when |
+|----------|-----------------|---------------|
+| Bug | Blocking | nit if cosmetic or edge-case-only with no user impact |
+| Security | Blocking | nit if theoretical/defense-in-depth only |
+| Architecture | Blocking | nit if minor style deviation with no structural impact |
+| JIRA | Blocking | nit if the gap is a nice-to-have beyond acceptance criteria |
+| Standards | Blocking | nit if the standard explicitly marks the rule as optional/recommended |
+| Inconsistency | Blocking | nit if both approaches are acceptable and the inconsistency is within a single file |
+| Deprecated | Blocking | nit if the deprecation has no timeline or the replacement is not yet stable |
+| Pattern | nit | Blocking if ignoring the pattern causes concrete bugs or breaks tooling |
+| Improvement | nit | Blocking only if readability is so poor it hides a real bug |
+
+Use the default unless the specific finding clearly matches an override condition. When overriding, the "Problem" section should briefly explain why the severity differs from the default.
+
+## Confidence classification
+
+Every recommendation MUST carry a confidence level indicating how certain the analysis is that the finding is a real problem (as opposed to a false positive):
+
+- **High** — strong evidence directly visible in the diff; the problem is almost certainly real
+- **Medium** — probable issue, but depends on context not fully visible in the diff (e.g., runtime behavior, external configuration, upstream callers)
+- **Low** — possible concern that the reviewer should verify; may be a false positive depending on intent or context the analysis cannot see
+
+### Guidelines for assigning confidence
+
+| Signal | Confidence |
+|--------|------------|
+| Bug is syntactically provable (nil deref, missing return, wrong type) | High |
+| Pattern violates a fetched HyperFleet standard with an exact rule match | High |
+| JIRA acceptance criterion is clearly unmet | High |
+| Issue depends on runtime behavior or external state | Medium |
+| Code looks suspicious but may be intentional (e.g., empty error handler with a comment) | Medium |
+| Style/naming suggestion based on convention rather than a rule | Low |
+| Issue found by analogy ("other places do X, so this should too") without a standard backing it | Low |
+
+When confidence is **Low**, the "Problem" section should explain what would confirm or rule out the issue.
 
 ## Exclusions — DO NOT repeat problems already pointed out by:
 
@@ -183,6 +230,56 @@ If **both** match (same user AND same branch checked out locally), enable **self
 **Guardrail:** Edit and Write tools must NEVER be invoked unless self-review mode is active AND one of the following is true: (1) the user's latest input is exactly "fix" and the recommendation includes a concrete code snippet, or (2) the user's latest input is exactly "apply" and a patch preview was shown in the immediately preceding response. Any other input must be treated as navigation only.
 
 If the user is NOT the author or the branch doesn't match, do NOT offer "fix" — the skill remains read-only as before.
+
+### Responding to existing review comments (self-review mode only)
+
+After all recommendations have been shown, process existing review comments from other reviewers that the author has not yet responded to. This feature is **only available in self-review mode**.
+
+#### Identifying unresponded comments
+
+Using the full comment set fetched in step 2 with pagination (`gh api --paginate repos/{owner}/{repo}/pulls/{number}/comments`), filter comments where:
+
+- `comment.user.login` is **not** the current GitHub user (i.e., comments from reviewers, not the author)
+- The comment thread has **no reply** from the current user (check all replies in the thread — if any `reply.user.login == current_user`, skip)
+
+If no unresponded comments exist, skip this section entirely.
+
+#### Processing each unresponded comment
+
+For each unresponded comment, show the original comment content (reviewer name, file, line, and body), then analyze it:
+
+1. **If the comment requests a code change (fix):**
+   - Present it like a recommendation (file, line, problem description)
+   - Offer "fix" to apply the correction, then draft a reply (e.g., "Fixed — [brief description of the change]")
+   - **Show the reply preview** and ask the user to confirm with "post" before posting, edit with "edit", or skip with "next"
+
+2. **If the analysis determines the comment is not applicable or the author disagrees:**
+   - Draft a reply explaining the reasoning (e.g., "This is intentional because [reason]" or "The standard doesn't require this because [reason]")
+   - **Show the reply preview** and ask the user to confirm with "post", edit with "edit", or skip with "next"
+
+3. **If the comment is an observation or acknowledgement (no action needed):**
+   - Draft a brief acknowledgement (e.g., "Good point, thanks!" or "Acknowledged — addressed in recommendation #N")
+   - **Show the reply preview** and ask the user to confirm with "post", edit with "edit", or skip with "next"
+
+#### Posting replies
+
+Use the GitHub API to reply to the comment thread:
+
+```bash
+gh api -X POST repos/{owner}/{repo}/pulls/{number}/comments \
+  --input - <<'JSON'
+{
+  "body": "<reply content>",
+  "in_reply_to": <original_comment_id>
+}
+JSON
+```
+
+**Guardrail:** `gh api` (reply posting) must NEVER be called unless the user's latest input is exactly the literal string "post" and a reply preview was shown in the immediately preceding response. Any other input must be treated as navigation only. The "edit" option allows the user to provide a custom reply text. The "next" option skips the comment without posting.
+
+#### Idempotency
+
+On subsequent runs of `/review-pr` on the same PR, comments that already have a reply from the current user are automatically skipped. This prevents duplicate responses across iterations.
 
 ## Comment mode (reviewer is not the author)
 
@@ -243,7 +340,9 @@ Before presenting recommendations, verify all steps were completed:
 - [ ] Link and anchor validation done (if applicable)
 - [ ] All applicable mechanical pass groups launched in parallel (groups 8–9 always run; groups 1–7 and 10 are skipped for non-Go diffs)
 - [ ] Intra-PR consistency checked against HyperFleet standards
-- [ ] All findings deduplicated, prioritized, and numbered
+- [ ] Severity classified for each finding (blocking or nit)
+- [ ] Confidence classified for each finding (high, medium, or low)
+- [ ] All findings deduplicated, prioritized (blocking before nit), and numbered
 
 ## Additional resources
 

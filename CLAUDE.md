@@ -35,10 +35,10 @@ hyperfleet-<name>/                <- each plugin
 
 ### Key Plugin: `hyperfleet-code-review`
 
-The most complex plugin. Its review-pr skill has three files that work together:
+The most complex plugin. Its review-pr skill has the following structure:
 - `SKILL.md` — main workflow (6 steps: input validation, data gathering, JIRA check, parallel analysis, consistency check, output)
-- `mechanical-passes.md` — 10 groups of automated code checks (error handling & wrapping, concurrency, exhaustiveness, resource lifecycle, code quality, testing & coverage, naming & organization, security, code hygiene, performance)
 - `output-format.md` — interactive pagination format and notification behavior
+- `group-01-error-handling.md` through `group-10-performance.md` — 10 groups of automated code checks (error handling & wrapping, concurrency, exhaustiveness, resource lifecycle, code quality, testing & coverage, naming & organization, security, code hygiene, performance)
 
 ## Conventions
 

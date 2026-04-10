@@ -96,28 +96,58 @@ After each recommendation, the skill uses `AskUserQuestion` to prompt for the ne
 | `1` to `N` | All | Jump to a specific recommendation |
 | `fix` | Self-review only | Apply the suggested fix directly using Edit/Write tools |
 | `comment` | Comment mode only | Post the recommendation as an inline review comment on the PR |
+| `post` | Self-review only | Post a reply to an existing review comment (after preview) |
+| `edit` | Self-review only | Provide custom reply text for an existing review comment |
 | `ticket` | After review | Create follow-up JIRA tickets for impact warnings via `jira-ticket-creator` |
+
+### Severity Levels
+
+Each recommendation carries a severity:
+
+- **Blocking** — must fix before merge. Default for Bug, Security, Architecture, JIRA, Standards, Inconsistency, Deprecated categories
+- **nit:** — non-blocking suggestion. Default for Pattern, Improvement categories. Prefixed with `nit:` in both terminal output and GitHub comments
+
+Blocking recommendations are always shown before nit recommendations within the same priority level.
+
+### Confidence Levels
+
+Each recommendation also carries a confidence level indicating how certain the analysis is that the finding is a real problem:
+
+- **High** — strong evidence directly visible in the diff; almost certainly a real problem
+- **Medium** — probable issue, but depends on context not fully visible in the diff
+- **Low** — possible concern; reviewer should verify before acting
 
 ### Review Modes
 
-- **Self-review mode**: Activated when the current GitHub user is the PR author AND the current branch matches the PR head branch. Offers the "fix" option to apply changes directly.
+- **Self-review mode**: Activated when the current GitHub user is the PR author AND the current branch matches the PR head branch. Offers the "fix" option to apply changes directly. After all recommendations, processes unresponded review comments from other reviewers — offering to fix, acknowledge, or respond with reasoning.
 - **Comment mode**: Activated when reviewing someone else's PR. Offers the "comment" option to post inline review comments on the exact file and line in GitHub.
 
 ### Output
 
 Each recommendation includes:
 - File path and line number
-- Priority level
+- Severity level (**Blocking** — must fix before merge, or **nit:** — non-blocking suggestion)
+- Confidence level (**High**, **Medium**, or **Low**)
+- Category and priority level
 - Problem description
-- GitHub-ready comment (copy-paste to PR)
+- GitHub-ready comment (copy-paste to PR) with `nit:` prefix for non-blocking items
 
 ## Skill Structure
 
 ```text
 skills/review-pr/
-├── SKILL.md                 # Main instructions and workflow
-├── mechanical-passes.md     # 10 grouped mechanical code pattern checks
-└── output-format.md         # Output format and interactive behavior
+├── SKILL.md                      # Main instructions and workflow
+├── output-format.md              # Output format and interactive behavior
+├── group-01-error-handling.md    # Error handling and wrapping (Go)
+├── group-02-concurrency.md       # Concurrency and goroutine safety (Go)
+├── group-03-exhaustiveness.md    # Exhaustiveness and guards (Go)
+├── group-04-resource-lifecycle.md # Resource and context lifecycle (Go)
+├── group-05-code-quality.md      # Code quality and struct completeness (Go)
+├── group-06-testing.md           # Testing and coverage (Go)
+├── group-07-naming.md            # Naming and code organization (Go)
+├── group-08-security.md          # Security (all languages)
+├── group-09-code-hygiene.md      # Code hygiene (all languages)
+└── group-10-performance.md       # Performance (Go)
 ```
 
 ## Troubleshooting
