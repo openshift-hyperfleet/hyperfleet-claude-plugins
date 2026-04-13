@@ -12,7 +12,9 @@ List every error-logging statement in the diff where execution continues after t
 
 ## HTTP handler missing return after error
 
-List every call to `http.Error()`, `w.WriteHeader()`, or error-response helpers in the diff. For each, verify that execution does not continue to write additional data to `http.ResponseWriter`. Flag missing `return` statements after error responses.
+List every call to `http.Error()`, `w.WriteHeader(<status>)`, or error-response helpers in the diff. For each call where the status code is 4xx or 5xx (or where `http.Error()` is used, which always implies an error), verify that a `return` immediately follows. Flag missing `return` statements after these error responses.
+
+DO NOT flag `w.WriteHeader()` calls for 1xx, 2xx, or 3xx status codes (e.g., `w.WriteHeader(http.StatusCreated)`) — these are valid non-error responses that may be followed by a response body write.
 
 ## Error wrapping and sentinel errors
 

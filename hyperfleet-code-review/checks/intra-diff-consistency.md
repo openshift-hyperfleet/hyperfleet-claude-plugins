@@ -15,7 +15,8 @@ use the same approach **and** that the approach matches the HyperFleet standards
   place, they likely intended to do it everywhere
 - *[standards]* Error handling style (some places check errors, others ignore) — compare against
   **Error Model Standard**
-- *[standards]* Naming conventions, logging patterns, config access patterns — compare against
-  **Logging Specification**
+- *[standards]* Naming conventions — compare against **Naming Standard**
+- *[standards]* Logging patterns — compare against **Logging Specification**
+- *[standards]* Config access patterns — compare against **Config Standard**
 - *[standards]* Flag deviations from team standards — if the diff introduces a pattern that
   contradicts a HyperFleet standard, flag it
