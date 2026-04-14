@@ -185,6 +185,73 @@ For each impact warning, invoke the `jira-ticket-creator` skill (via the Skill t
 
 If there are no impact warnings, skip this section entirely.
 
+## CI mode
+
+When CI mode is enabled (`CI=true` — see SKILL.md Dynamic context), the skill posts results directly to the PR as GitHub comments instead of printing to the terminal. No `AskUserQuestion` prompts are used.
+
+### Posting inline comments
+
+For each recommendation, post an inline review comment on the exact file and line using the `gh` API:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{number}/comments \
+  -f body="<comment body>" \
+  -f path="<file path>" \
+  -f commit_id="$(gh pr view <PR> --json commits --jq '.commits[-1].oid')" \
+  -F line=<line number> \
+  -f side="RIGHT"
+```
+
+The comment body uses the same format as the "GitHub comment (ready to copy-paste)" section of each recommendation — including the `[!WARNING]`/`[!TIP]` alert, category, and suggested fix.
+
+If the inline comment API call fails (e.g., line not part of the diff), fall back to a general PR comment with file and line reference:
+
+```bash
+gh pr comment <PR> --body "<file:line reference + comment content>"
+```
+
+### Posting impact warnings
+
+If impact warnings exist, post them as a single general PR comment (they reference files outside the PR diff, so inline comments are not possible):
+
+```bash
+gh pr comment <PR> --body "<impact warnings markdown>"
+```
+
+### Zero findings
+
+When there are no recommendations and no impact warnings, post a general PR comment:
+
+```bash
+gh pr comment <PR> --body "✅ No issues found — all checks passed."
+```
+
+### Disabled features
+
+The following features are skipped in CI mode:
+
+- Self-review fixes (`fix` command)
+- Comment mode (`comment` command)
+- Review comment responses
+- Follow-up ticket creation
+- Interactive navigation (`next`, `all`, number selection)
+
+### Terminal output
+
+In CI mode, terminal output must use **model text** (not Bash `echo`, which is captured internally and never reaches stdout in pipe mode):
+
+1. A startup line output immediately when the review begins (before any analysis) — see SKILL.md step 1:
+
+```text
+CI review started: reviewing <PR-URL>...
+```
+
+2. A summary line output after all comments have been posted:
+
+```text
+CI review complete: N recommendations posted (X blocking, Y nit) to <PR-URL>
+```
+
 ## Code block rule — rendering and copy-paste
 
 The "GitHub comment" section MUST be wrapped in a **tilde fence** (`~~~markdown`) so the user can copy-paste the raw Markdown directly into GitHub. Inside the tilde fence, use **backtick fences** (` ``` `) with language identifiers for code snippets. This nesting works because tildes and backticks are different delimiters.

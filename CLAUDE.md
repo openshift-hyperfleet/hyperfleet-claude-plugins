@@ -59,7 +59,7 @@ Dynamic context uses `!` backtick syntax to run shell commands at skill load tim
 
 ### Versioning
 
-Each plugin has its own version in `.claude-plugin/plugin.json` following semver. **Always bump the version when making changes to a plugin.** The marketplace registry (`.claude-plugin/marketplace.json`) does not track versions.
+Each plugin has its own version in `.claude-plugin/plugin.json` following semver. **Bump the version only when the PR that changes the plugin is being merged (i.e., on the merge commit or just before merge), not during development on a feature branch.** The marketplace registry (`.claude-plugin/marketplace.json`) does not track versions.
 
 ### Branch Convention
 
@@ -87,3 +87,7 @@ k8s-style OWNERS files control PR approval. Approvers comment `/approve` to merg
 ### Testing a plugin locally
 
 There is no test suite. To test, install the plugin locally in Claude Code and invoke the skill/command manually.
+
+### Testing via fork (for others to test before merge)
+
+After pushing a feature branch, ask the user if they want to force push the changes to `origin/main` (the fork). This allows other team members to install the plugin from the fork (`/plugin install <name>@<fork-owner>/hyperfleet-claude-plugins`) and test it before the PR is accepted upstream. Always reset `origin/main` back to `upstream/main` after the PR is merged.

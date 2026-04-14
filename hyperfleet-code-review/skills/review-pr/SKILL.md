@@ -20,6 +20,7 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 - gh CLI: !`command -v gh &>/dev/null && echo "available" || echo "NOT available"`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 - GitHub user: !`gh api user -q '.login' 2>/dev/null || echo "unknown"`
+- CI mode: !`[ "${CI}" = "true" ] && echo "enabled" || echo "disabled"`
 - hyperfleet-architecture skill: !`[ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md" && echo "available" || echo "NOT available"`
 
 ## Arguments
@@ -28,9 +29,28 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 
 ## Instructions
 
+> **CRITICAL — Mode guards (check CI mode in Dynamic context before proceeding):**
+>
+> **If CI mode is enabled**, the following rules apply to the ENTIRE execution and override any conflicting instructions below:
+>
+> 1. **No `AskUserQuestion`** — never prompt the user; the skill must complete autonomously
+> 2. **No interactive features** — skip self-review fixes, comment mode, review comment responses, follow-up ticket creation, and interactive navigation (`next`, `all`, `fix`, `comment`, number selection)
+> 3. **All output goes to GitHub** — post findings as inline PR comments; do not format recommendations for terminal display
+> 4. **Terminal output via model text only** — in pipe mode (`-p`), only model text goes to stdout; Bash tool output (including `echo`) is captured internally and never reaches the terminal
+> 5. See [output-format.md](output-format.md) § CI mode for the posting format
+>
+> **If CI mode is disabled (interactive)**, the following rules apply:
+>
+> 1. **Always use `AskUserQuestion`** — every time you need user input (next, all, fix, comment, number), you MUST call the `AskUserQuestion` tool. Never write the prompt options as plain text output — that does not pause for input
+> 2. Show only ONE recommendation at a time, then call `AskUserQuestion` to wait for the user's choice
+
 ### Step 1 — Validate input
 
 Verify `$1` is a valid PR reference (URL like `https://github.com/org/repo/pull/123` or shorthand like `owner/repo#123`). If it doesn't match either format, ask the user for clarification.
+
+If CI mode is enabled (see Dynamic context), **immediately** output the startup line as model text before proceeding to any analysis — in pipe mode (`-p`), model text is the only output that reaches stdout (Bash tool output is captured internally):
+
+CI review started: reviewing \<PR-URL\>...
 
 ### Step 2 — Gather data (run all 3 commands in parallel)
 
@@ -147,7 +167,9 @@ For patterns that appear more than once across different files in the diff, veri
 4. Classify confidence (see Confidence classification below)
 5. Prioritize by impact (see Categories below), then within the same category sort **blocking before nit**
 6. Assign sequential numbers
-7. Show **only the first recommendation** (the most important one)
+7. Present results based on mode:
+   - **CI mode** (see Dynamic context): post all findings as inline comments on the PR and exit — see [output-format.md](output-format.md) § CI mode
+   - **Interactive mode** (default): show **only the first recommendation** (the most important one)
 
 ## Severity classification
 
@@ -213,6 +235,19 @@ When confidence is **Low**, the "Problem" section should explain what would conf
 9. **Improvement** — Clarity and maintainability improvements
 
 Issues found by the mechanical checks (step 4e) or intra-PR consistency (step 5) should be assigned the category that best matches the finding.
+
+## CI mode (non-interactive)
+
+When CI mode is enabled (see Dynamic context), the skill runs non-interactively:
+
+- **Minimal terminal output** — all results are posted directly to the PR; terminal output is limited to a startup line (see step 1) and a final summary line (see [output-format.md](output-format.md) § Terminal output), both as model text (not Bash `echo`)
+- **Inline comments** — each recommendation is posted as an inline review comment on the exact file and line in the PR diff
+- **Impact warnings** — posted as a single general PR comment (since they reference files outside the diff)
+- **Zero findings** — a general PR comment is posted: "✅ No issues found — all checks passed."
+- **Disabled features** — self-review fixes, comment mode, review comment responses, follow-up ticket creation, and interactive navigation are all skipped
+- **No `AskUserQuestion`** — the skill completes without any interactive prompts
+
+See [output-format.md](output-format.md) § CI mode for the posting logic and format.
 
 ## Self-review mode (author is reviewer)
 
