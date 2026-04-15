@@ -37,12 +37,6 @@ Record for the summary:
     - Unstaged:  `git diff --name-only` is non-empty
   List only the types that are present, e.g. "committed + staged" or "unstaged only"
 
-## Large diff guard
-
-If the diff is large (50+ files or 3000+ lines), emit a warning in the setup summary:
-"Large diff detected — consider re-running with a specific directory for faster results."
-Proceed with the full review automatically.
-
 ## Empty diff
 
 If the diff is empty and no untracked files exist:
