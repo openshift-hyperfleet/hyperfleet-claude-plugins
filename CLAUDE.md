@@ -24,7 +24,7 @@ hyperfleet-<name>/                <- each plugin
 
 | Plugin | Purpose | Has Skills | Has Commands | Has Agents |
 |--------|---------|:---:|:---:|:---:|
-| `hyperfleet-code-review` | PR review workflow | `/review-pr` | - | - |
+| `hyperfleet-code-review` | Local and PR review workflows | `/review-pr, /review-local` | - | - |
 | `hyperfleet-jira` | JIRA integration | 3 skills | 5 commands | - |
 | `hyperfleet-architecture` | Architecture docs Q&A | 1 skill | - | - |
 | `hyperfleet-standards` | Standards audit with deep-dive reviews | 1 skill | - | - |
@@ -36,9 +36,12 @@ hyperfleet-<name>/                <- each plugin
 ### Key Plugin: `hyperfleet-code-review`
 
 The most complex plugin. Its review-pr skill has the following structure:
+
 - `SKILL.md` — main workflow (6 steps: input validation, data gathering, JIRA check, parallel analysis, consistency check, output)
 - `output-format.md` — interactive pagination format and notification behavior
 - `group-01-error-handling.md` through `group-10-performance.md` — 10 groups of automated code checks (error handling & wrapping, concurrency, exhaustiveness, resource lifecycle, code quality, testing & coverage, naming & organization, security, code hygiene, performance)
+
+Its review-local skill produces a structured local branch review report. It uses check definitions from `checks/` and reference data from `config/`.
 
 ## Conventions
 

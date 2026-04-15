@@ -33,7 +33,7 @@
     {
       "name": "hyperfleet-code-review",
       "source": "./hyperfleet-code-review",
-      "description": "Standardized PR review workflow with JIRA validation, HyperFleet architecture checks, impact analysis, and interactive recommendations"
+      "description": "Code review skills for HyperFleet: /review-local reviews local branch changes against HyperFleet standards, architecture checks, and mechanical code patterns. /review-pr provides full PR review with JIRA validation, impact analysis, and interactive recommendations."
     },
     {
       "name": "hyperfleet-bugs-triage",
