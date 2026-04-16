@@ -145,13 +145,19 @@ Each recommendation includes:
 
 ## `/review-local` — Local Review
 
-Reviews all committed and uncommitted changes on the current branch against the upstream main branch.
+Reviews changes on the current branch against HyperFleet standards.
 
 ```text
-/review-local
+/review-local [all|committed|uncommitted]
 ```
 
-No arguments needed — run from the repo you want to review.
+The optional scope argument controls which changes are reviewed:
+
+| Scope | What's reviewed | When to use |
+|-------|----------------|-------------|
+| `all` (default) | Committed + uncommitted changes | Full picture of everything on the branch |
+| `committed` | Only committed changes against remote/main | Review what you've committed so far |
+| `uncommitted` | Only staged and unstaged changes | Fast feedback on work in progress |
 
 ### What It Does
 

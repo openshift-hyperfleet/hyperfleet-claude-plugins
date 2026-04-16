@@ -19,23 +19,31 @@ If the fetch fails (e.g. offline), tell the user and stop.
 
 ## Fetching and diffing
 
-Fetch main from the resolved remote and diff all changes:
+Fetch main from the resolved remote, then diff based on the SCOPE argument:
 
-  git fetch REMOTE main
-  git diff REMOTE/main
+- `all` (default):
+    git fetch REMOTE main
+    git diff REMOTE/main
+    Also check for untracked files: git ls-files --others --exclude-standard
+    Include any untracked files as new files in the review.
 
-Also check for untracked files with: git ls-files --others --exclude-standard
-If any exist, read them directly and include them in the review as new files.
+- `committed`:
+    git fetch REMOTE main
+    git diff REMOTE/main HEAD    (committed changes only — staged and unstaged excluded)
+    Only include files from: git diff --name-only REMOTE/main HEAD
+
+- `uncommitted`:
+    git diff HEAD        (staged + unstaged changes against last commit)
+    Do NOT fetch or diff against REMOTE/main.
+    Do NOT include untracked files.
 
 Record for the summary:
-- REMOTE
-- Commit count: `git rev-list REMOTE/main..HEAD --count`
-- Lines changed: `git diff REMOTE/main --shortstat`
-- Scope: which change types are present (used as a sanity check in the summary):
-    - Committed: commit count > 0
-    - Staged:    `git diff --cached --name-only` is non-empty
-    - Unstaged:  `git diff --name-only` is non-empty
-  List only the types that are present, e.g. "committed + staged" or "unstaged only"
+- REMOTE (not applicable for uncommitted scope)
+- SCOPE (the resolved argument: all, committed, or uncommitted)
+- Lines changed:
+    - `all`:         git diff REMOTE/main --shortstat
+    - `committed`:   git diff REMOTE/main HEAD --shortstat
+    - `uncommitted`: git diff HEAD --shortstat
 
 ## Empty diff
 
@@ -43,6 +51,7 @@ If the diff is empty and no untracked files exist:
 
 Print the summary box from output-format.md with Findings: 0, Warnings: 0, and this
 note below the box:
-  "No changes found against <remote>/main. Branch is clean."
+  For `all` or `committed`: "No changes found against <remote>/main. Branch is clean."
+  For `uncommitted`: "No uncommitted changes found. Working tree is clean."
 
 Stop after printing.

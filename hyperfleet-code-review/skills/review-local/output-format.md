@@ -27,7 +27,7 @@ lines changed, and check results into one unified block.
 ```
 Review setup
   ✓  gh CLI available
-  ✓  upstream/main reachable
+  ✓  <remote>/main reachable
   ✓  Scope    committed + staged  (+523 / -35)
   ✓  Standards loaded (8 files)
   ❌  CodeRabbit — not installed
@@ -41,7 +41,7 @@ The Review setup block has exactly these lines — no more, no less:
 | Line | When to print |
 |------|---------------|
 | `✓  gh CLI available` | Always |
-| `✓  upstream/main reachable` | Always |
+| `✓  <remote>/main reachable` | Always |
 | `✓  Scope    <types>  (<+N> / <-N>)` | Once diff is computed |
 | `✓  Standards loaded (N files)` | When fetch succeeds |
 | `❌  Standards — fetch failed (run gh auth login)` | When fetch fails |
@@ -60,15 +60,20 @@ or finding blocks.
 Otherwise, list all findings grouped by category, ordered by category priority (see
 config/categories.md). Within each category, sort blocking before nit.
 
+Severity levels (**Blocking** = must fix, **nit** = non-blocking suggestion).
+See config/categories.md for default severity by category and override rules.
+For CodeRabbit-sourced findings, preserve CodeRabbit's own severity instead of applying
+category defaults: Critical/Major/Minor → Blocking, Trivial/Info → nit.
+
 ```
 ─── Bug (1) ─────────────────────────────────────────
 
-── Finding 1/N ── Bug | Standards | path/to/file.go:42 ──────────────
+── Finding 1/N ── Bug | Standards | Blocking | path/to/file.go:42 ──────────────
 
 ─── Security (2) ────────────────────────────────────
 
-── Finding 2/N ── Security | CodeRabbit | path/to/file.go:88 ─────────
-── Finding 3/N ── Security | Standards | path/to/file.go:101 ─────────
+── Finding 2/N ── Security | CodeRabbit | Blocking | path/to/file.go:88 ─────────
+── Finding 3/N ── Security | Standards | nit | path/to/file.go:101 ─────────
 ```
 
 Source labels:
@@ -77,12 +82,13 @@ Source labels:
 - `CodeRabbit` — found by CodeRabbit only
 - `CodeRabbit + Standards` — found by both; counts as CodeRabbit in the summary
 
-Before rendering, validate every finding has all three header fields populated (Category,
-Source, Location). If any field is missing, infer it and append `(inferred)` to the
+Before rendering, validate every finding has all four header fields populated (Category,
+Source, Severity, Location). If any field is missing, infer it and append `(inferred)` to the
 inferred value so it is visible to the user:
 
 - Missing category → infer from the check name (e.g. security agent → `Security (inferred)`); if the check name does not map to a known category, default to `Pattern (inferred)`
 - Missing source → use `Standards (inferred)`
+- Missing severity → use the category default above with `(inferred)`
 - Missing location → use the file/line from the finding object, or `unknown (inferred)`
 Never render a finding with a blank or missing header field.
 
@@ -90,7 +96,7 @@ For each finding, show ALL four parts in order — never omit any part, never ou
 prompt block without the header and body above it:
 
 1. **Header line** (required — always first)
-   `── Finding N/N ── Category | Source | path/to/file:line ──`
+   `── Finding N/N ── Category | Source | Severity | path/to/file:line ──`
 2. Current code with a few lines of context, always in a fenced code block (even for
    markdown or text files — show the raw content, not rendered output)
 3. **Problem:** clear description of the issue
