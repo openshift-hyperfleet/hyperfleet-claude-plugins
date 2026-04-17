@@ -1,11 +1,49 @@
 # HyperFleet Code Review Plugin
 
-A Claude Code plugin that provides a standardized, interactive PR review workflow for the HyperFleet team.
+A Claude Code plugin that provides standardized code review workflows for the HyperFleet team — review local branch changes at any point in development, and review PRs with interactive recommendations.
 
 ## Features
 
 ### Skills
-- **`/review-pr <PR>`** - Comprehensive PR review with interactive recommendations
+
+- **`/review-pr <PR>`** - Comprehensive PR review with interactive recommendations — use when a PR is already open on GitHub
+- **`/review-local`** - Reviews local branch changes against HyperFleet standards — use at any point during development, before or after opening a PR
+
+## Prerequisites
+
+### Required Tools
+
+- **[GitHub CLI (`gh`)](https://cli.github.com/)** - Must be installed and authenticated
+- **[jira-cli](https://github.com/ankitpokhrel/jira-cli)** - Required for `/review-pr` JIRA ticket validation
+- **[CodeRabbit CLI](https://coderabbit.ai/)** - Recommended for `/review-local` — runs automatically if installed
+
+### Required Plugins
+
+- **`hyperfleet-architecture`** - Used for architecture documentation validation. Install it from the same marketplace:
+
+  ```text
+  /plugin install hyperfleet-architecture@openshift-hyperfleet/hyperfleet-claude-plugins
+  ```
+
+## Installation
+
+1. **Add the HyperFleet marketplace (if not already added):**
+
+   ```text
+   /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
+   ```
+
+2. **Install the code review plugin:**
+
+   ```text
+   /plugin install hyperfleet-code-review@openshift-hyperfleet/hyperfleet-claude-plugins
+   ```
+
+3. **Restart Claude Code** to load the plugin.
+
+---
+
+## `/review-pr` — PR Review
 
 ### What It Does
 
@@ -43,37 +81,7 @@ A Claude Code plugin that provides a standardized, interactive PR review workflo
 9. Mechanical checks and intra-PR consistency findings
 10. Clarity and maintainability improvements
 
-## Prerequisites
-
-### Required Tools
-
-- **[GitHub CLI (`gh`)](https://cli.github.com/)** - Must be installed and authenticated
-- **[jira-cli](https://github.com/ankitpokhrel/jira-cli)** - Required for JIRA ticket validation
-
-### Required Plugins
-
-- **`hyperfleet-architecture`** - Used for architecture documentation validation. Install it from the same marketplace:
-  ```text
-  /plugin install hyperfleet-architecture@openshift-hyperfleet/hyperfleet-claude-plugins
-  ```
-
-## Installation
-
-1. **Add the HyperFleet marketplace (if not already added):**
-   ```text
-   /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
-   ```
-
-2. **Install the code review plugin:**
-   ```text
-   /plugin install hyperfleet-code-review@openshift-hyperfleet/hyperfleet-claude-plugins
-   ```
-
-3. **Restart Claude Code** to load the plugin.
-
-## Usage
-
-### Basic Usage
+### Usage
 
 ```text
 /review-pr https://github.com/org/repo/pull/123
@@ -125,12 +133,42 @@ Each recommendation also carries a confidence level indicating how certain the a
 ### Output
 
 Each recommendation includes:
+
 - File path and line number
 - Severity level (**Blocking** — must fix before merge, or **nit:** — non-blocking suggestion)
 - Confidence level (**High**, **Medium**, or **Low**)
 - Category and priority level
 - Problem description
 - GitHub-ready comment (copy-paste to PR) with `nit:` prefix for non-blocking items
+
+---
+
+## `/review-local` — Local Review
+
+Reviews changes on the current branch against HyperFleet standards.
+
+```text
+/review-local [all|committed|uncommitted]
+```
+
+The optional scope argument controls which changes are reviewed:
+
+| Scope | What's reviewed | When to use |
+|-------|----------------|-------------|
+| `all` (default) | Committed + uncommitted changes | Full picture of everything on the branch |
+| `committed` | Only committed changes against remote/main | Review what you've committed so far |
+| `uncommitted` | Only staged and unstaged changes | Fast feedback on work in progress |
+
+### What It Does
+
+Runs a comprehensive review of all local branch changes and produces a structured report. Checks include HyperFleet standards, architecture consistency,
+mechanical code patterns (see `checks/`), impact analysis, doc/code cross-referencing,
+and CodeRabbit if installed.
+
+Output: a review setup block, findings grouped by category with AI-ready prompts,
+warnings with inline context, and a review summary box.
+
+---
 
 ## Skill Structure
 
@@ -148,28 +186,42 @@ skills/review-pr/
 ├── group-08-security.md          # Security (all languages)
 ├── group-09-code-hygiene.md      # Code hygiene (all languages)
 └── group-10-performance.md       # Performance (Go)
+
+skills/review-local/              # Local review skill
+└── ...
+
+checks/             # Check definitions
+config/             # Reference data
 ```
 
 ## Troubleshooting
 
 ### "gh: command not found"
+
 Install GitHub CLI following the [official instructions](https://cli.github.com/).
 
 ### "jira: command not found"
+
 Install jira-cli:
+
 ```bash
 brew install ankitpokhrel/jira-cli/jira-cli
 ```
+
 Then configure it for HyperFleet — see the [hyperfleet-jira README](../hyperfleet-jira/README.md#configure-jira-cli) for the setup command.
 
 ### "Permission denied" or "Not Found" on PR
+
 Ensure `gh` is authenticated and has access to the repository:
+
 ```bash
 gh auth status
 ```
 
 ### Architecture checks not running
+
 Ensure the `hyperfleet-architecture` plugin is installed:
+
 ```text
 /plugin install hyperfleet-architecture@openshift-hyperfleet/hyperfleet-claude-plugins
 ```
@@ -180,5 +232,6 @@ See the main [HyperFleet Claude Plugins README](../README.md) for contribution g
 
 ## Maintainers
 
+- Phuongnhat Nguyen (@pnguyen44)
 - Rafael Benevides (@rafabene)
 - Ciaran Roche (@ciaranRoche)

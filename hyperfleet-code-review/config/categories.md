@@ -12,3 +12,25 @@ sources, use the highest-priority category.
 7. **Deprecated** — Outdated or deprecated versions
 8. **Pattern** — Project patterns not followed
 9. **Improvement** — Clarity and maintainability improvements
+
+## Default severity by category
+
+**Blocking** (must fix):
+
+| Category | Override to nit when |
+|----------|---------------------|
+| Bug | cosmetic or edge-case with no user impact |
+| Security | theoretical/defense-in-depth only |
+
+**nit** (non-blocking suggestion):
+
+| Category | Override to Blocking when |
+|----------|--------------------------|
+| Pattern | ignoring it causes bugs or breaks tooling |
+| Improvement | readability is so poor it hides a real bug |
+
+Only categories with deterministic rules are listed. Categories like Architecture, JIRA,
+Standards, Inconsistency, and Deprecated depend on context an agent cannot reliably assess
+(e.g., whether a JIRA criterion is a hard requirement or a nice-to-have, whether a standard
+is mandatory or recommended). For these, the agent assigns severity based on the specific
+finding. Rules will be added here as patterns emerge from real review output.
