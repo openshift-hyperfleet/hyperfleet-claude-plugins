@@ -28,7 +28,7 @@ lines changed, and check results into one unified block.
 Review setup
   ✓  gh CLI available
   ✓  <remote>/main reachable
-  ✓  Scope    committed + staged  (+523 / -35)
+  ✓  Scope    all  (+523 / -35)
   ✓  Standards loaded (8 files)
   ❌  CodeRabbit — not installed
   ❌  Standards — fetch failed (run gh auth login)
@@ -112,7 +112,9 @@ prompt block without the header and body above it:
      original suggestion block exactly as provided in its output. Do not rewrite it.
    - Otherwise: generate the prompt using the template below. Use `@file` syntax so the AI
      loads the file automatically. Map category to a label:
-     Bug/Security → `Critical comment`, Standards/Pattern → `Inline comment`,
+     Bug/Security → `Critical comment`,
+     Architecture/Inconsistency/Deprecated → `Inline comment`,
+     Standards/Pattern → `Inline comment`,
      Improvement → `Nitpick comment`.
 
 ~~~
