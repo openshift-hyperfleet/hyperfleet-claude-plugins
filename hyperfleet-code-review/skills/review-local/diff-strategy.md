@@ -35,7 +35,6 @@ Fetch main from the resolved remote, then diff based on the SCOPE argument:
 - `uncommitted`:
     git diff HEAD        (staged + unstaged changes against last commit)
     Do NOT fetch or diff against REMOTE/main.
-    Do NOT include untracked files.
 
 Record for the summary:
 - REMOTE (not applicable for uncommitted scope)
