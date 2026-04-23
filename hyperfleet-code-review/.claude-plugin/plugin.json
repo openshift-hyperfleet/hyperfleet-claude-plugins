@@ -3,13 +3,6 @@
   "version": "0.6.0",
   "description": "Code review skills for HyperFleet: /review-local reviews local branch changes against HyperFleet standards, architecture checks, and mechanical code patterns. /review-pr provides full PR review with JIRA validation, impact analysis, and interactive recommendations.",
   "author": {
-    "name": "Rafael Benevides",
-    "email": "rbenevid@redhat.com"
-  },
-  "contributors": [
-    {
-      "name": "Phuongnhat Nguyen",
-      "email": "phunguye@redhat.com"
-    }
-  ]
+    "name": "HyperFleet Team"
+  }
 }
