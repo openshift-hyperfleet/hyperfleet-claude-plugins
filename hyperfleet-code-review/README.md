@@ -6,8 +6,8 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 
 ### Skills
 
-- **`/review-pr <PR>`** - Comprehensive PR review with interactive recommendations — use when a PR is already open on GitHub
-- **`/review-local`** - Reviews local branch changes against HyperFleet standards — use at any point during development, before or after opening a PR
+- **`/review-pr <PR>`** - Comprehensive PR review with interactive recommendations — use when a PR is already open on GitHub (author: @rafabene)
+- **`/review-local`** - Reviews local branch changes against HyperFleet standards — use at any point during development, before or after opening a PR (author: @pnguyen44)
 
 ## Prerequisites
 
