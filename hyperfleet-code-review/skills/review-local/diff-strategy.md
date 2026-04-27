@@ -19,9 +19,11 @@ If the fetch fails (e.g. offline), tell the user and stop.
 
 ## Fetching and diffing
 
-Fetch main from the resolved remote, then diff based on SCOPE.
+If SCOPE is not `uncommitted`, fetch main from the resolved remote:
 
     git fetch REMOTE main
+
+Skip the fetch entirely for `uncommitted` scope — no remote contact is needed.
 
 ### Main branch guard (skip for `uncommitted` scope)
 
