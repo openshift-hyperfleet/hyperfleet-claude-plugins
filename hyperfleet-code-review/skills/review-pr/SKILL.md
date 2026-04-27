@@ -290,13 +290,25 @@ When the current user is **not** the PR author, enable **comment mode**:
 - After each recommendation, offer a **"comment"** option alongside "next" and "all"
 - When the user types "comment", post the recommendation as an inline review comment on the exact file and line in GitHub using the `gh` API:
   ```bash
+  # Single-line comment (suggestion replaces one line)
   gh api repos/{owner}/{repo}/pulls/{number}/comments \
     -f body="<GitHub comment content>" \
     -f path="<file path>" \
-    -f commit_id="$(gh pr view <PR> --json commits --jq '.commits[-1].oid')" \
+    -f commit_id="$(gh pr view <PR> --json headRefOid -q '.headRefOid')" \
     -F line=<line number> \
     -f side="RIGHT"
+
+  # Multi-line comment (suggestion replaces a range of lines)
+  gh api repos/{owner}/{repo}/pulls/{number}/comments \
+    -f body="<GitHub comment content>" \
+    -f path="<file path>" \
+    -f commit_id="$(gh pr view <PR> --json headRefOid -q '.headRefOid')" \
+    -F start_line=<first line of range> \
+    -f start_side="RIGHT" \
+    -F line=<last line of range> \
+    -f side="RIGHT"
   ```
+  Use the multi-line form when the recommendation contains a ` ```suggestion ` block that replaces more than one line. The `start_line` is the first line being replaced and `line` is the last. Both are file line numbers (right side of the diff) and must fall within the PR diff range — GitHub returns a 422 error if they don't.
 - The comment body is the content from the "GitHub comment (ready to copy-paste)" section of the recommendation
 - After commenting, show a confirmation message and then the next recommendation automatically
 - If the API call fails (e.g., line not part of the diff), fall back to posting a regular PR comment with file and line reference:
@@ -314,7 +326,7 @@ See [output-format.md](output-format.md) for the complete output format, notific
 
 - **SCOPE: diff only** — Only recommend problems on lines that were **added or modified** in the PR (lines with `+` in the diff). Pre-existing code that was not changed by the PR is **out of scope**, even if it has problems. Files that are NOT in the PR's file list are **never** valid targets for recommendations — even if a change in the diff makes them stale or broken. Impact analysis (step 4c) may discover such files, but they must go in the **Impact warnings** section (see [output-format.md](output-format.md)), never as numbered recommendations.
 - DO NOT repeat problems already pointed out (by bots, reviewers, or the user in the conversation)
-- Include concrete suggestions for fixes (code or text) when possible. The "GitHub comment" section MUST be wrapped in a tilde fence (`~~~markdown`) so the user can copy-paste raw Markdown. Code snippets inside MUST use backtick fences (` ```go `) with language identifiers — see [output-format.md](output-format.md) for the full rule
+- Include concrete suggestions for fixes (code or text) when possible. The "GitHub comment" section MUST be wrapped in a tilde fence (`~~~markdown`) — copy only the content inside the fence, not the fence markers. Use ` ```suggestion ` blocks for code that directly replaces the commented line(s), and language-specific backtick fences (` ```go `, ` ```yaml `) for context or examples — see [output-format.md](output-format.md) for the full rule
 - Adapt N to the actual number of recommendations (can be 0, 1, 5, 15, etc.)
 - **Line numbers**: always use the line from the **new file** that corresponds to what GitHub shows in the right column of the diff in the web UI. **DO NOT manually calculate** from the `@@` headers of the diff — this is error-prone. Instead, fetch the file directly from the PR branch and find the exact line:
   ```bash

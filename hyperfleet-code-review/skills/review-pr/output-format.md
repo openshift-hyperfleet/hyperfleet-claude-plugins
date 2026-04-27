@@ -56,7 +56,7 @@ After the summary (and impact warnings, if any), show "Showing recommendation 1 
 
 **Category:** [same category value from above]
 
-[comment written as a human (casual and direct tone, not AI-generated sounding), formatted in Markdown ready to copy and paste on GitHub, with suggested fix when applicable. Use backtick fenced code blocks (` ``` `) with language identifiers for all code snippets.]
+[comment written as a human (casual and direct tone, not AI-generated sounding), formatted in Markdown ready to copy and paste on GitHub, with suggested fix when applicable. Use ` ```suggestion ` blocks for code that directly replaces the commented line(s) — see "Suggestion blocks" section below. Use backtick fenced code blocks (` ```go `, ` ```yaml `, etc.) with language identifiers for code that is context, examples, or not a direct replacement.]
 ~~~
 
 ### nit variant
@@ -74,7 +74,7 @@ For **nit** (non-blocking) recommendations, apply these differences:
 
 **Category:** [same category value from above]
 
-[comment content]
+[comment content — use ` ```suggestion ` blocks for direct replacements, ` ```go `/` ```yaml `/etc. for context or examples]
 ~~~
 
 ---
@@ -112,7 +112,7 @@ When the recommendation is a Doc <-> Code mismatch (from step 4c), use this form
 
 **Category:** Inconsistency
 
-[comment written as a human, referencing both files so the reviewer can cross-check. Use backtick fenced code blocks (` ``` `) with language identifiers for all code snippets.]
+[comment written as a human, referencing both files so the reviewer can cross-check. Use ` ```suggestion ` blocks for code that directly replaces the commented line(s), and backtick fenced code blocks (` ```go `, ` ```yaml `, etc.) with language identifiers for context or examples.]
 ~~~
 
 (For **nit** items, apply the same nit variant rules: prefix the title with `nit:`, set severity to `nit`, and use `[!TIP]` alert with `**nit** — non-blocking suggestion` instead of `[!WARNING]` alert in the GitHub comment.)
@@ -185,11 +185,33 @@ For each impact warning, invoke the `jira-ticket-creator` skill (via the Skill t
 
 If there are no impact warnings, skip this section entirely.
 
+## Suggestion blocks
+
+GitHub supports native ` ```suggestion ` code blocks in PR review comments. When the reviewer applies the suggestion, GitHub replaces the commented line(s) with the suggested code in a single click — no manual editing needed.
+
+Use ` ```suggestion ` when **all** of these are true:
+
+1. The comment proposes a concrete code change (not just an explanation or example)
+2. The suggested code is a **direct replacement** for the line(s) the comment is attached to
+3. The suggestion is **complete and self-contained** — applying it should not break the code
+
+Use regular language-specific code blocks (` ```go `, ` ```yaml `, etc.) when:
+
+- The code is for **context or illustration** (e.g., showing what the current code does wrong)
+- The suggestion involves lines **outside** the commented range
+- The suggestion is a **partial example** that requires additional changes elsewhere
+
+A single comment can mix both: use a regular code block to show the problem, then a ` ```suggestion ` block with the fix.
+
+### Multi-line suggestions
+
+When the suggestion replaces multiple lines, the inline comment must be posted with a `start_line` parameter (see Comment mode in SKILL.md) so that the suggestion covers the full range. The ` ```suggestion ` block content replaces all lines from `start_line` to `line`.
+
 ## Code block rule — rendering and copy-paste
 
 The "GitHub comment" section MUST be wrapped in a **tilde fence** (`~~~markdown`) so the user can copy-paste the raw Markdown directly into GitHub. Inside the tilde fence, use **backtick fences** (` ``` `) with language identifiers for code snippets. This nesting works because tildes and backticks are different delimiters.
 
-### Example of correct output
+### Example: comment with suggestion block
 
 **GitHub comment (ready to copy-paste):**
 
@@ -201,16 +223,39 @@ The "GitHub comment" section MUST be wrapped in a **tilde fence** (`~~~markdown`
 
 `Default.New()` has a nil guard on `tx.DB` but `Test.New()` skips it. Add the same guard:
 
-```go
-if tx.DB == nil {
-    panic("transaction context contains nil DB handle")
+```suggestion
+func (t *Test) New(tx Transaction) *Test {
+    if tx.DB == nil {
+        panic("transaction context contains nil DB handle")
+    }
+    return &Test{db: tx.DB}
 }
+```
+~~~
+
+### Example: comment with regular code block (context only)
+
+**GitHub comment (ready to copy-paste):**
+
+~~~markdown
+> [!TIP]
+> **nit** — non-blocking suggestion
+
+**Category:** Pattern
+
+This retry loop doesn't use exponential backoff. Consider using the shared `retry.WithBackoff` helper that other adapters already use:
+
+```go
+retry.WithBackoff(ctx, func() error {
+    return client.Send(req)
+})
 ```
 ~~~
 
 ### Rules
 
 1. The outer fence for GitHub comments MUST use tildes (`~~~markdown`)
-2. Code snippets inside MUST use backtick fences (` ```go `, ` ```yaml `, etc.)
-3. Always include a language identifier — never use bare ` ``` `
-4. Every opening fence MUST have a matching closing fence
+2. Code that **directly replaces** the commented line(s) MUST use ` ```suggestion ` blocks
+3. Code for context, illustration, or examples MUST use language-specific backtick fences (` ```go `, ` ```yaml `, etc.)
+4. Always include an identifier on backtick fences — never use bare ` ``` ` (except ` ```suggestion ` which is its own identifier)
+5. Every opening fence MUST have a matching closing fence
