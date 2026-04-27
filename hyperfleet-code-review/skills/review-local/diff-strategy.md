@@ -19,29 +19,56 @@ If the fetch fails (e.g. offline), tell the user and stop.
 
 ## Fetching and diffing
 
-Fetch main from the resolved remote, then diff based on the SCOPE argument:
+If SCOPE is not `uncommitted`, fetch main from the resolved remote:
+
+    git fetch REMOTE main
+
+Skip the fetch entirely for `uncommitted` scope — no remote contact is needed.
+
+### Main branch guard (skip for `uncommitted` scope)
+
+Before diffing, check if the current branch is main:
+
+    CURRENT=$(git branch --show-current)
+
+If CURRENT is `main` or `master`, stop the review immediately and print:
+
+    ❌  Cannot review main. Check out a feature branch and try again.
+
+Do not proceed with the review.
+
+### Branch staleness check (skip for `uncommitted` scope)
+
+Before diffing, check how far behind the branch is:
+
+    BEHIND=$(git rev-list --count HEAD..REMOTE/main)
+
+If BEHIND > 0, print the following warning and continue with the review:
+
+    ⚠️  Branch is N commits behind REMOTE/main — rebase before merging.
+
+### Diff by scope
 
 - `all` (default):
-    git fetch REMOTE main
-    git diff REMOTE/main
+    MERGE_BASE=$(git merge-base REMOTE/main HEAD)
+    git diff "$MERGE_BASE"
     Also check for untracked files: git ls-files --others --exclude-standard
     Include any untracked files as new files in the review.
 
 - `committed`:
-    git fetch REMOTE main
-    git diff REMOTE/main HEAD    (committed changes only — staged and unstaged excluded)
-    Only include files from: git diff --name-only REMOTE/main HEAD
+    git diff REMOTE/main...HEAD    (committed changes only — staged and unstaged excluded)
+    Only include files from: git diff --name-only REMOTE/main...HEAD
 
 - `uncommitted`:
     git diff HEAD        (staged + unstaged changes against last commit)
     Do NOT fetch or diff against REMOTE/main.
 
-Record for the summary:
-- REMOTE (not applicable for uncommitted scope)
-- SCOPE (the resolved argument: all, committed, or uncommitted)
-- Lines changed:
-    - `all`:         git diff REMOTE/main --shortstat
-    - `committed`:   git diff REMOTE/main HEAD --shortstat
+## Lines changed
+
+Record lines changed for the Review setup block:
+
+    - `all`:         git diff "$MERGE_BASE" --shortstat
+    - `committed`:   git diff REMOTE/main...HEAD --shortstat
     - `uncommitted`: git diff HEAD --shortstat
 
 ## Empty diff
