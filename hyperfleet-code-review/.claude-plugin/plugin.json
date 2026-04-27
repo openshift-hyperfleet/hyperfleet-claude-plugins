@@ -1,6 +1,6 @@
 {
   "name": "hyperfleet-code-review",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Code review skills for HyperFleet: /review-local reviews local branch changes against HyperFleet standards, architecture checks, and mechanical code patterns. /review-pr provides full PR review with JIRA validation, impact analysis, and interactive recommendations.",
   "author": {
     "name": "HyperFleet Team"
