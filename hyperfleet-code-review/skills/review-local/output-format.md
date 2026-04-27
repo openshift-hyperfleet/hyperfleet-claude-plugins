@@ -42,6 +42,7 @@ The Review setup block has exactly these lines — no more, no less:
 |------|---------------|
 | `✓  gh CLI available` | Always |
 | `✓  <remote>/main reachable` | Always |
+| `⚠️  Branch is N commits behind <remote>/main — rebase before merging.` | BEHIND > 0 (skip for `uncommitted` scope) |
 | `✓  Scope    <types>  (<+N> / <-N>)` | Once diff is computed |
 | `✓  Standards loaded (N files)` | When fetch succeeds |
 | `❌  Standards — fetch failed (run gh auth login)` | When fetch fails |
