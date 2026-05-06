@@ -275,6 +275,7 @@ For each PR, compute:
 3. Any PR with confirmed merge conflicts (`mergeable: CONFLICTING`) → Tier 4 (needs rebase) — even Blockers, because the code will change after conflict resolution. Note: `UNKNOWN` is NOT a conflict — do not override for `UNKNOWN`.
 4. Any draft PR → Tier 4, unless it has a JIRA Blocker/Critical ticket
 5. Any PR linked to a JIRA Blocker ticket (that did NOT match rules 1-4) → Tier 1 regardless of score
+6. Any PR with no JIRA ticket linked in the title → capped at Tier 3 maximum ("When You Have Time"). Even if the score is ≥ 75, a PR without a JIRA ticket cannot reach Tier 1 or Tier 2 — if the work isn't tracked, it's not team-prioritized
 
 **Detecting "waiting on author":** Fetch the latest commit date:
 ```bash

@@ -381,7 +381,7 @@ Do the independent factors agree on the PR's priority level?
 | Factors split roughly evenly between high and low priority | 40 |
 | Factors strongly contradict each other | 20 |
 
-**Example of contradiction:** JIRA says Blocker, but PR is a tiny docs change with no reviews requested. The JIRA priority might be misset, or the docs change IS critical — hard to tell.
+**Example of contradiction:** JIRA says Blocker, but PR is a tiny docs change with zero engagement. The JIRA priority might be misset, or the docs change IS critical — hard to tell.
 
 #### Clarity (0-100, contributes 20% to confidence)
 

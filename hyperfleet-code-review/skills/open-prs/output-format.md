@@ -230,9 +230,6 @@ No scoring table. Group by reason:
 
 **Merge conflicts** (author needs to rebase):
 - [repo#XX](url) — TICKET-KEY: PR title (conflicts detected)
-
-**Blocked by other PRs:**
-- [repo#XX](url) — TICKET-KEY: PR title (blocked by repo#YY)
 ```
 
 If there are no Tier 4 PRs, omit this section entirely.
