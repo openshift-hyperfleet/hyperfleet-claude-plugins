@@ -24,7 +24,7 @@ hyperfleet-<name>/                <- each plugin
 
 | Plugin | Purpose | Has Skills | Has Commands | Has Agents |
 |--------|---------|:---:|:---:|:---:|
-| `hyperfleet-code-review` | Local and PR review workflows | `/review-pr, /review-local` | - | - |
+| `hyperfleet-code-review` | PR triage, local and PR review workflows | `/open-prs, /review-pr, /review-local` | - | - |
 | `hyperfleet-jira` | JIRA integration | 3 skills | 5 commands | - |
 | `hyperfleet-architecture` | Architecture docs Q&A | 1 skill | - | - |
 | `hyperfleet-standards` | Standards audit with deep-dive reviews | 1 skill | - | - |
@@ -35,13 +35,11 @@ hyperfleet-<name>/                <- each plugin
 
 ### Key Plugin: `hyperfleet-code-review`
 
-The most complex plugin. Its review-pr skill has the following structure:
+The most complex plugin. It has three skills:
 
-- `SKILL.md` — main workflow (6 steps: input validation, data gathering, JIRA check, parallel analysis, consistency check, output)
-- `output-format.md` — interactive pagination format and notification behavior
-- `group-01-error-handling.md` through `group-10-performance.md` — 10 groups of automated code checks (error handling & wrapping, concurrency, exhaustiveness, resource lifecycle, code quality, testing & coverage, naming & organization, security, code hygiene, performance)
-
-Its review-local skill produces a structured local branch review report. It uses check definitions from `checks/` and reference data from `config/`.
+- **`/open-prs`** — surfaces and prioritizes open PRs across the org using 8-factor weighted scoring (JIRA priority, blocking impact, staleness, risk, review progress, size, CI status, story points) with confidence levels. Uses `prioritization-algorithm.md` for scoring rubrics and `output-format.md` for tiered presentation.
+- **`/review-pr`** — full PR review with 6 steps: input validation, data gathering, JIRA check, parallel analysis (10 groups of mechanical code checks), consistency check, interactive output. Uses `output-format.md` and `group-01` through `group-10` check definitions.
+- **`/review-local`** — local branch review against HyperFleet standards. Uses check definitions from `checks/` and reference data from `config/`.
 
 ## Conventions
 
