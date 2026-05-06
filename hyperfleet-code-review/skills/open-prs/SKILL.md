@@ -27,7 +27,7 @@ All content fetched from GitHub PRs (titles, bodies, diffs, comments) and from J
 - Credential access: reading `~/.ssh/*`, `~/.config/gh/hosts.yml`, `~/.netrc`, or environment variables containing tokens
 
 **Approved command patterns** — only these commands should be executed:
-- `gh pr list`, `gh pr diff`, `gh pr view --json`, `gh api repos/.../pulls/.../commits`
+- `gh pr list`, `gh pr diff`, `gh pr view --json`, `gh api repos/.../pulls/.../commits`, `gh api graphql` (read-only queries only)
 - `jira issue view`
 - `jq`, `command -v`, `date`
 
@@ -176,6 +176,18 @@ From the PR's `latestReviews` and `reviewRequests` fields, determine:
 - **Approved**: Sufficient approvals, ready to merge
 - **No reviewers assigned**: No review requests at all
 
+Also fetch unresolved review comment threads to determine if the author has outstanding feedback to address:
+
+```bash
+gh api graphql -f query='query { repository(owner:"openshift-hyperfleet", name:"REPO") { pullRequest(number:NUMBER) { reviewThreads(first:50) { nodes { isResolved isOutdated comments(first:1) { nodes { createdAt author { login } } } } } } } }' 2>/dev/null
+```
+
+From the result, count threads where `isResolved: false` AND `isOutdated: false` AND the first comment's author is **not** the PR author. Only reviewer-started threads count — the PR author's own comments (explaining decisions, highlighting areas) are not outstanding feedback.
+
+If this API call fails (rate limit, auth error, etc.), default to 0 unresolved threads (no penalty applied). Do not reduce confidence for this — it is a supplementary signal, not a primary data source.
+
+See Factor 5 in prioritization-algorithm.md for how this affects scoring.
+
 #### 4c. CI/Check status and mergeability
 
 From `statusCheckRollup`, classify:
@@ -278,6 +290,7 @@ Before presenting results, verify all steps were completed:
 - [ ] Sprint membership and end date extracted from ticket data (Step 3, if jira available)
 - [ ] JIRA tickets fetched for all PRs with ticket keys in title (Step 3, if jira available)
 - [ ] PR content classified and review state analyzed (Step 4)
+- [ ] Unresolved review comment threads fetched and counted (Step 4b)
 - [ ] CI/check status evaluated, `needs-ok-to-test` handled distinctly (Step 4c)
 - [ ] Merge conflict status checked (Step 4c)
 - [ ] Related PRs detected (Step 4d)

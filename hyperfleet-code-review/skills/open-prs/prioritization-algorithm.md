@@ -214,6 +214,30 @@ gh api repos/openshift-hyperfleet/REPO/pulls/NUMBER/commits --jq '.[-1].commit.c
 ```
 Compare against the timestamp of the `CHANGES_REQUESTED` review in `latestReviews`. If the latest commit is newer → author has responded (score 6). If older → author has NOT responded (score 1, Tier 4 override).
 
+### Unresolved comment modifier
+
+After computing the base Factor 5 score from the rubric above, apply a penalty if the PR has unresolved review comment threads that the author has not addressed.
+
+**How to determine unresolved comments:** Use the GraphQL API to fetch review threads (see Step 4b in SKILL.md). Count threads where ALL of the following are true:
+1. `isResolved: false` — thread has not been marked resolved
+2. `isOutdated: false` — the code near the comment has not changed since it was posted
+3. First comment's author is **not** the PR author — only reviewer-started threads count as outstanding feedback
+
+If the API call fails, default to 0 (no penalty applied).
+
+| Unresolved Threads (non-outdated) | Modifier | Rationale |
+|-----------------------------------|----------|-----------|
+| 0 | +0 | No outstanding feedback |
+| 1-2 | -1 | Minor feedback pending — review can still proceed |
+| 3-5 | -2 | Significant feedback unaddressed — author should respond before requesting more review time |
+| 6+ | -3 | Heavy unresolved discussion — PR is not ready for additional reviewers |
+
+**Floor:** The modified Factor 5 score cannot go below **1** (which represents "waiting on author"). A score of 0 is reserved for "fully approved, ready to merge."
+
+**Interaction with "waiting on author" override:** If `reviewDecision` is `CHANGES_REQUESTED` AND the author has not pushed new commits, the Tier 4 override already applies regardless of this modifier. The modifier matters most for PRs where the reviewer left comments (COMMENTED state) without formally requesting changes — the unresolved threads signal that work remains even though no formal block was raised.
+
+**In `--explain` mode:** When the modifier is applied (non-zero penalty), mention the unresolved thread count in the per-PR reasoning. E.g., "3 unresolved review threads pending author response — review priority reduced."
+
 ### Override: Waiting on author
 
 If `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review was submitted, this PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. The reviewer has done their job; the author needs to respond. See [SKILL.md](SKILL.md) override precedence order.
