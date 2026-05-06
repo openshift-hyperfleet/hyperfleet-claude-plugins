@@ -89,10 +89,10 @@ registry-credentials-service
 
 ```bash
 for repo in hyperfleet-api hyperfleet-sentinel hyperfleet-adapter hyperfleet-broker hyperfleet-e2e hyperfleet-infra hyperfleet-api-spec hyperfleet-credential-provider hyperfleet-claude-plugins architecture hyperfleet-release hyperfleet-logger kartograph hypershift management-cluster-reconciler maestro-cli registry-credentials-service; do
-  gh pr list --repo "openshift-hyperfleet/$repo" --state open \
+  (gh pr list --repo "openshift-hyperfleet/$repo" --state open \
     --limit 100 \
     --json number,title,author,createdAt,updatedAt,additions,deletions,changedFiles,reviewDecision,labels,isDraft,reviewRequests,url,headRefName,statusCheckRollup,latestReviews \
-    2>/dev/null | jq -c --arg repo "$repo" '.[] | . + {repo: $repo}' &
+    2>&1 | jq -c --arg repo "$repo" '.[] | . + {repo: $repo}' 2>/dev/null) || echo "REPO_ERROR:$repo" &
 done
 wait
 ```
