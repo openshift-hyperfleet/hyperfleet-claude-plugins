@@ -216,7 +216,7 @@ Compare against the timestamp of the `CHANGES_REQUESTED` review in `latestReview
 
 ### Override: Waiting on author
 
-If `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review was submitted, this PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. The reviewer has done their job; the author needs to respond. See SKILL.md override precedence order.
+If `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review was submitted, this PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. The reviewer has done their job; the author needs to respond. See [SKILL.md](SKILL.md) override precedence order.
 
 ---
 
@@ -282,7 +282,7 @@ From `statusCheckRollup`:
 
 ### Override: All CI failing
 
-If ALL CI checks are failing, the PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. A reviewer cannot meaningfully review code that doesn't compile or pass tests. The author needs to fix CI first. See SKILL.md override precedence order.
+If ALL CI checks are failing, the PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. A reviewer cannot meaningfully review code that doesn't compile or pass tests. The author needs to fix CI first. See [SKILL.md](SKILL.md) override precedence order.
 
 ---
 

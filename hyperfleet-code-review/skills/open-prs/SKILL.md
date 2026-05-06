@@ -113,14 +113,14 @@ And stop.
 
 For each PR, extract the JIRA ticket key from the PR title. The team convention is: `JIRA-KEY - type: description` or `JIRA-KEY: description`. Recognized project keys: `HYPERFLEET`, `ROSAENG`, `AIHCM`.
 
-**Pattern:** Match **all** occurrences of `(HYPERFLEET|ROSAENG|AIHCM)-\d+` in the PR title. If multiple tickets are found, fetch all of them and use the highest-priority ticket for scoring (see edge cases in prioritization-algorithm.md).
+**Pattern:** Match **all** occurrences of `(HYPERFLEET|ROSAENG|AIHCM)-\d+` in the PR title. If multiple tickets are found, fetch all of them and use the highest-priority ticket for scoring (see edge cases in [prioritization-algorithm.md](prioritization-algorithm.md)).
 
 **Validation:** After extraction, verify each key matches the exact pattern `^(HYPERFLEET|ROSAENG|AIHCM)-[0-9]+$` with no additional characters. Discard any key that does not match. This prevents shell injection via crafted PR titles.
 
 **For each unique ticket key found, fetch ticket details in parallel:**
 
 ```bash
-jira issue view TICKET-KEY --raw 2>/dev/null
+jira issue view 'TICKET-KEY' --raw 2>/dev/null
 ```
 
 From the JSON response, extract:
@@ -221,7 +221,7 @@ For each PR, compute:
 | 1 — Immediate Attention | ≥ 75 OR JIRA Blocker/Critical | Drop what you're doing |
 | 2 — Should Review Soon | 50-74 | Today or tomorrow |
 | 3 — When You Have Time | 25-49 | This week |
-| 4 — Informational | < 25 OR draft/waiting-on-author/CI-failing | Not actionable for reviewers right now |
+| 4 — Informational | < 25 OR draft/waiting-on-author/CI-failing/merge-conflicts | Not actionable for reviewers right now |
 
 **Sorting within tiers:** Sort by priority score descending. Break ties by age (older first).
 

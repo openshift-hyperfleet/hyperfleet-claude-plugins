@@ -85,13 +85,19 @@ Filter by JIRA component:
 /open-prs --component Adapter
 ```
 
+Show detailed output with per-PR reasoning, factor breakdowns, and summary statistics:
+
+```text
+/open-prs --explain
+```
+
 ### Graceful Degradation
 
 If `jira` CLI is not available, the skill runs in **GitHub-only mode**: JIRA-dependent factors (ticket priority, story points, blocking relationships) default to neutral scores, and confidence is reduced. The skill never stops — it always produces results with whatever data is available.
 
 ### GitHub Actions Integration
 
-This skill can also be run as a scheduled GitHub Actions cron job using the [Claude Code Action](https://github.com/anthropics/claude-code-action). The SKILL.md serves as the system prompt, and the output is posted to Slack via an incoming webhook. See the GitHub Actions workflow documentation for setup details.
+This skill can also be run as a scheduled GitHub Actions cron job using the [Claude Code Action](https://github.com/anthropics/claude-code-action). The SKILL.md serves as the system prompt, and the output is posted to Slack via an incoming webhook. See [HYPERFLEET-1030](https://redhat.atlassian.net/browse/HYPERFLEET-1030) for the planned GitHub Actions integration.
 
 ---
 
