@@ -164,7 +164,7 @@ After the table, show a detailed block for each PR:
 ---
 
 #### #1: repo#number — PR title
-**Author:** @login | **Requested reviewers:** @reviewer1, @reviewer2
+**Author:** @login | **Assigned reviewers:** @reviewer1, @reviewer2
 **JIRA:** [TICKET-KEY](jira-url) | **Type:** Bug | **Story Points:** 5 | **Component:** API
 **Domain:** Security fix | Bug fix
 
@@ -222,8 +222,8 @@ No scoring table. Group by reason:
 **Draft PRs:**
 - [repo#XX](url) — TICKET-KEY: PR title (draft since Xd ago)
 
-**Waiting on author** (changes requested, author has not responded):
-- [repo#XX](url) — TICKET-KEY: PR title (changes requested Xd ago)
+**Waiting on author** (reviewer feedback not addressed — formal changes requested OR unresolved reviewer comments with no author response):
+- [repo#XX](url) — TICKET-KEY: PR title (feedback pending Xd ago)
 
 **CI failing** (fix CI before requesting review):
 - [repo#XX](url) — TICKET-KEY: PR title (X checks failing since Xd ago)
@@ -323,14 +323,15 @@ If ALL PRs are Tier 4 (no actionable PRs in Tiers 1-3):
 
 ### Review status formatting
 
+Note: Reviewers are auto-assigned. Status is based on actual engagement, not assignment.
+
 | State | Display |
 |-------|---------|
-| No reviewers requested | `No reviewers` |
-| Reviewers requested, none responded | `No reviews` |
+| Zero engagement — no one has reviewed or commented | `No reviews` |
 | N of M reviewers approved | `N/M approved` |
-| Changes requested by reviewer(s) | `Changes requested` |
+| Changes requested (formally or via unresolved comments) | `Changes requested` |
 | All required approvals received | `Approved` |
-| Active discussion | `In discussion` |
+| Active discussion between author and reviewer | `In discussion` |
 
 ### CI status formatting
 

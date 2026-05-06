@@ -186,27 +186,30 @@ Measures where the PR is in the review lifecycle and whether it needs reviewer a
 
 ### Scoring Rubric
 
+**Note:** Reviewers are auto-assigned in this organization, so `reviewRequests` being populated does NOT mean someone consciously asked for a review. The key signal is whether anyone has actually **engaged** (commented, reviewed, approved) — not whether reviewers are assigned.
+
 | Score | Criteria |
 |-------|----------|
-| 10 | Reviewers requested, zero reviews received, PR open >2 days |
-| 9 | Reviewers requested, zero reviews received, PR open 1-2 days |
-| 8 | Reviewers requested, zero reviews received, PR open <1 day |
+| 10 | Zero engagement — no reviews or comments from anyone (not counting bots), PR open >2 days |
+| 9 | Zero engagement, PR open 1-2 days |
+| 8 | Zero engagement, PR open <1 day |
 | 7 | Has reviews but needs more approvals to meet merge requirements |
 | 6 | Re-review needed — author pushed new commits after changes were requested |
 | 5 | Approved by some reviewers, needs one more approval |
-| 4 | No reviewers explicitly requested (author may not have assigned anyone) |
-| 3 | Has active review discussion (comments going back and forth) — in progress |
-| 2 | Partially reviewed — some reviewers commented but haven't approved or requested changes |
-| 1 | Changes requested, author has NOT pushed new commits yet — waiting on author |
+| 4 | Active review discussion — comments going back and forth between author and reviewer |
+| 3 | Has reviewer comments, author has responded or resolved all threads — re-review needed |
+| 2 | Has reviewer comments, author has responded to some but not all threads |
+| 1 | Has unresolved reviewer comments with no author response — waiting on author (Tier 4 override applies, see below) |
 | 0 | Fully approved, ready to merge — no reviewer action needed |
 
 ### Review state detection
 
-Determine review state from **all three fields together** — no single field is sufficient:
+Determine review state from `latestReviews` and `reviewDecision` — these show what reviewers actually did.
 
-1. `latestReviews`: State of each reviewer's latest review (APPROVED, CHANGES_REQUESTED, COMMENTED). This is the most reliable signal — it shows what reviewers actually did.
+1. `latestReviews`: State of each reviewer's latest review (APPROVED, CHANGES_REQUESTED, COMMENTED). This is the most reliable signal.
 2. `reviewDecision`: Overall decision (APPROVED, REVIEW_REQUIRED, CHANGES_REQUESTED). This is the aggregate status.
-3. `reviewRequests`: Who is **currently** pending to review. **Important:** GitHub clears entries from this list after a reviewer submits a review. So `reviewRequests: []` does NOT mean "no one was asked" — it could mean "everyone asked has already reviewed." Always check `latestReviews` first.
+
+**Do NOT rely on `reviewRequests`** for determining whether a PR needs review attention. Reviewers are auto-assigned in this organization, so this field is always populated for new PRs. It does not indicate a conscious request for review.
 
 **To detect "author addressed changes":** Fetch the latest commit date via:
 ```bash
@@ -214,33 +217,34 @@ gh api repos/openshift-hyperfleet/REPO/pulls/NUMBER/commits --jq '.[-1].commit.c
 ```
 Compare against the timestamp of the `CHANGES_REQUESTED` review in `latestReviews`. If the latest commit is newer → author has responded (score 6). If older → author has NOT responded (score 1, Tier 4 override).
 
-### Unresolved comment modifier
+### Unresolved reviewer comments → Waiting on author
 
-After computing the base Factor 5 score from the rubric above, apply a penalty if the PR has unresolved review comment threads that the author has not addressed.
+If a reviewer (not the PR author, not a bot) has left comments on the PR and those comments are unresolved and not responded to by the author, the PR has already received review attention. The ball is in the author's court. This PR should be **deprioritized** in favor of PRs that have received zero attention.
 
 **How to determine unresolved comments:** Use the GraphQL API to fetch review threads (see Step 4b in SKILL.md). Count threads where ALL of the following are true:
 1. `isResolved: false` — thread has not been marked resolved
 2. `isOutdated: false` — the code near the comment has not changed since it was posted
-3. First comment's author is **not** the PR author — only reviewer-started threads count as outstanding feedback
+3. First comment's author is **not** the PR author and **not** a known bot — only human reviewer-started threads count. Known bots to exclude: `coderabbitai`, `openshift-ci[bot]`, `openshift-ci`, `dependabot[bot]`, `renovate[bot]`, `github-actions[bot]`
 
 If the API call fails, default to 0 (no penalty applied).
 
-| Unresolved Threads (non-outdated) | Modifier | Rationale |
-|-----------------------------------|----------|-----------|
-| 0 | +0 | No outstanding feedback |
-| 1-2 | -1 | Minor feedback pending — review can still proceed |
-| 3-5 | -2 | Significant feedback unaddressed — author should respond before requesting more review time |
-| 6+ | -3 | Heavy unresolved discussion — PR is not ready for additional reviewers |
+**Determining if author has responded:** Compare the author's latest activity on the PR (most recent commit date OR most recent comment by the author) against the date of the newest unresolved reviewer comment. If the author's latest activity is OLDER than the newest unresolved reviewer comment, the author has NOT responded.
 
-**Floor:** The modified Factor 5 score cannot go below **1** (which represents "waiting on author"). A score of 0 is reserved for "fully approved, ready to merge."
+**Scoring impact:**
+- If there are **any** unresolved reviewer comments with no author response → score **1** (waiting on author) and the **Tier 4 override** applies (see below)
+- If there are unresolved reviewer comments but the author HAS responded (posted a comment or pushed a commit after) → score **2-3** depending on how many threads remain open
+- If all reviewer comments are resolved or responded to → score based on the standard rubric above
 
-**Interaction with "waiting on author" override:** If `reviewDecision` is `CHANGES_REQUESTED` AND the author has not pushed new commits, the Tier 4 override already applies regardless of this modifier. The modifier matters most for PRs where the reviewer left comments (COMMENTED state) without formally requesting changes — the unresolved threads signal that work remains even though no formal block was raised.
-
-**In `--explain` mode:** When the modifier is applied (non-zero penalty), mention the unresolved thread count in the per-PR reasoning. E.g., "3 unresolved review threads pending author response — review priority reduced."
+**In `--explain` mode:** Mention the unresolved thread count and the fact that the author hasn't responded. E.g., "1 unresolved review thread from @rafabene (May 4) with no author response — PR deprioritized, waiting on author."
 
 ### Override: Waiting on author
 
-If `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review was submitted, this PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. The reviewer has done their job; the author needs to respond. See [SKILL.md](SKILL.md) override precedence order.
+This PR moves to **Tier 4** regardless of other scores — even for Blocker tickets — if EITHER of these conditions is true:
+
+1. `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review was submitted
+2. There are unresolved, non-outdated, reviewer-started comment threads AND the author has not responded (no commits or comments after the most recent unresolved reviewer comment)
+
+In both cases, the reviewer has done their job; the author needs to respond. See [SKILL.md](SKILL.md) override precedence order.
 
 ---
 
@@ -285,28 +289,31 @@ PRs with passing CI are ready for review. PRs with failing CI should fix checks 
 
 ### Scoring Rubric
 
+Any CI failure triggers a Tier 4 override, so the rubric is binary:
+
 | Score | Criteria |
 |-------|----------|
-| 10 | All checks passing, CI is green — ready for human review |
-| 8 | Most checks passing, only optional/non-blocking checks failing |
-| 6 | Checks still pending/running — may resolve soon |
-| 4 | Some required checks failing, but they're known flaky tests |
-| 2 | Required checks failing — PR cannot merge until fixed |
-| 0 | All checks failing or CI not triggered — likely has fundamental issues |
+| 10 | All checks passing — CI is green, ready for human review |
+| 6 | Checks pending/running or no checks configured — may resolve soon |
+| 0 | Any check failing — Tier 4 override applies (see below) |
 
 ### Check status detection
 
-From `statusCheckRollup`:
-- Group checks by state: `SUCCESS`, `FAILURE`, `PENDING`, `ERROR`
-- Count required vs optional checks
-- If all checks are `SUCCESS`: score 10
-- If any `FAILURE`: look at the check name to determine if it's required or optional
+Gather all checks and statuses from **both** `statusCheckRollup` (GitHub Checks) and the commit status API (Prow, external CI) — see Step 4c in SKILL.md for commands. Combine into one list.
 
-**Special case — `needs-ok-to-test` label:** If the PR has this label, CI hasn't run because it needs `/ok-to-test` approval first. This is a process gate, NOT a code quality failure. Score as 6 (pending), not 0-2 (failing). The PR may be perfectly reviewable — it just needs someone to approve the test run.
+**Exclusions:** Do not count `tide` (merge-readiness gate) or all-null entries (checks not configured). Do not count PRs with `needs-ok-to-test` label as failing (process gate, score as pending).
 
-### Override: All CI failing
+Then classify:
+- All passing → score 10
+- All pending → score 6
+- **Any failure → score 0 and Tier 4 override** (see below)
+- No checks at all → score 6 (pending)
 
-If ALL CI checks are failing, the PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. A reviewer cannot meaningfully review code that doesn't compile or pass tests. The author needs to fix CI first. See [SKILL.md](SKILL.md) override precedence order.
+**Special case — `needs-ok-to-test` label:** CI hasn't run because the PR needs `/ok-to-test` approval first. This is a process gate, NOT a code quality failure. Score as 6 (pending), not 0 (failing). Do not trigger the Tier 4 override.
+
+### Override: Any CI failing
+
+If **any** CI check or commit status is failing, the PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. One failing check is enough. The author needs to fix CI before reviewers spend time on it. See [SKILL.md](SKILL.md) override precedence order.
 
 ---
 
