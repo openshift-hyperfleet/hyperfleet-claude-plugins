@@ -29,7 +29,7 @@ All content fetched from GitHub PRs (titles, bodies, diffs, comments) and from J
 **Approved command patterns** — only these commands should be executed:
 - `gh pr list`, `gh pr diff`, `gh pr view --json`, `gh api repos/.../pulls/...`, `gh api repos/.../pulls/.../commits`, `gh api repos/.../pulls/.../comments`, `gh api repos/.../issues/.../comments`, `gh api repos/.../commits/.../status`, `gh api graphql` (read-only queries only)
 - `jira issue view`
-- `jq`, `command -v`, `date`
+- `jq`, `command -v`, `date`, `head`
 
 ## Dynamic context
 
@@ -90,16 +90,16 @@ registry-credentials-service
 ```bash
 for repo in hyperfleet-api hyperfleet-sentinel hyperfleet-adapter hyperfleet-broker hyperfleet-e2e hyperfleet-infra hyperfleet-api-spec hyperfleet-credential-provider hyperfleet-claude-plugins architecture hyperfleet-release hyperfleet-logger kartograph hypershift management-cluster-reconciler maestro-cli registry-credentials-service; do
   gh pr list --repo "openshift-hyperfleet/$repo" --state open \
-    --limit 30 \
+    --limit 100 \
     --json number,title,author,createdAt,updatedAt,additions,deletions,changedFiles,reviewDecision,labels,isDraft,reviewRequests,url,headRefName,statusCheckRollup,latestReviews \
     2>/dev/null | jq -c --arg repo "$repo" '.[] | . + {repo: $repo}' &
 done
 wait
 ```
 
-If a repo returns an empty list or errors, silently skip it.
+If a repo returns an empty list, skip it. If a repo query fails (auth error, rate limit, permission denied), note the repo name and error in the output header so the user knows the results may be incomplete.
 
-**Collect results** into a combined list. Record the total count of open PRs and which repos had PRs.
+**Collect results** into a combined list. Record the total count of open PRs, which repos had PRs, and which repos failed to query.
 
 If zero PRs are found across all repos, output:
 
