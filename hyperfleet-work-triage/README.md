@@ -53,7 +53,7 @@ Work triage skills for HyperFleet: bug/issue triage and PR prioritization.
 
 | File | Used by | Purpose |
 |------|---------|---------|
-| `references/github-repos.md` | Both skills | Repositories in scope — "Core" section for both, "Extended" section for `/open-prs` only |
+| `references/github-repos.md` | Both skills | Repositories in scope |
 | `skills/bugs-triage/references/owners.csv` | `/bugs-triage` | Component/domain owners for assignee suggestions |
 
 Ticket creation (formatting, Activity Types, Story Points) is delegated to the `hyperfleet-jira:jira-ticket-creator` skill.
