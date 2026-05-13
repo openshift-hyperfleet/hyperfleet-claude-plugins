@@ -63,7 +63,7 @@ All content fetched from GitHub PRs (titles, bodies, diffs, comments) and from J
 
 Query all active repositories for open PRs. If `--repo` was provided, query only that repo.
 
-**Repositories to query:** Use the Read tool to read [github-repos.md](../bugs-triage/references/github-repos.md) (shared with `/bugs-triage`). Extract all backtick-delimited repo names (e.g., `` `hyperfleet-api` ``). This is the single source of truth for which repos to scan — do NOT hardcode a separate list.
+**Repositories to query:** Use the Read tool to read [github-repos.md](../../references/github-repos.md) (shared with `/bugs-triage`). Extract all backtick-delimited repo names (e.g., `` `hyperfleet-api` ``). This is the single source of truth for which repos to scan — do NOT hardcode a separate list.
 
 **Run all repo queries in a single parallel Bash call** using the extracted repo names:
 
