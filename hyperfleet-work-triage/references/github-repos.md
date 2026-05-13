@@ -1,10 +1,7 @@
 # GitHub Repositories in Scope
 
 Repositories in the `openshift-hyperfleet` organization that are actively maintained.
-
-## Core Repositories
-
-Used by **both** `/bugs-triage` and `/open-prs`.
+Used by `/bugs-triage` (issue triage) and `/open-prs` (PR prioritization).
 
 - `hyperfleet-api`
 - `hyperfleet-adapter`
@@ -18,14 +15,4 @@ Used by **both** `/bugs-triage` and `/open-prs`.
 - `maestro-cli`
 - `architecture`
 - `hyperfleet-claude-plugins`
-
-## Extended Repositories
-
-Used by `/open-prs` only — these are scanned for open PRs but are NOT in scope for `/bugs-triage` issue triage.
-
 - `hyperfleet-api-spec`
-- `hyperfleet-release`
-- `kartograph`
-- `hypershift`
-- `management-cluster-reconciler`
-- `registry-credentials-service`

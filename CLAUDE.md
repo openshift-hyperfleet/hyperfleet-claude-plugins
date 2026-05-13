@@ -31,7 +31,7 @@ hyperfleet-<name>/                <- each plugin
 | `hyperfleet-operational-readiness` | Operational readiness audit | 1 skill | - | - |
 | `hyperfleet-devtools` | Dev productivity | 1 skill | 1 command | 1 agent |
 | `hyperfleet-adapter-authoring` | Adapter authoring | 1 skill | - | - |
-| `hyperfleet-work-triage` | Work triage (bugs, issues, PR prioritization) | `/bugs-triage, /open-prs` | - | - |
+| `hyperfleet-work-triage` | Work triage (bugs, issues, PR prioritization) | 2 skills | - | - |
 
 ### Key Plugin: `hyperfleet-code-review`
 
