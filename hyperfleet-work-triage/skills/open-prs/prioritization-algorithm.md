@@ -6,7 +6,7 @@ This document defines the 8-factor weighted scoring system used to rank open PRs
 
 Each PR is scored on 8 independent factors, each producing a raw score from 0-10. Factors are weighted to produce a composite **Priority Score** from 0-100. A separate **Confidence Score** (0-100%) indicates how certain the ranking is.
 
-```
+```text
 Priority Score = Σ (factor_raw_score × factor_weight × 10)
 ```
 
@@ -135,7 +135,7 @@ Measures how long the PR has been waiting for review attention, combining both a
 
 ### Age calculation
 
-```
+```text
 age_days = (current_utc_time - PR.createdAt) / 86400
 ```
 
@@ -145,7 +145,7 @@ Instead, use `createdAt` (PR age) as the primary staleness signal, combined with
 
 ### SLA breach detection
 
-The team's target is first review within **3 business days** (derived from industry benchmarks and Critical/Major SLA). When calculating business days, exclude weekends (Saturday and Sunday). A PR opened Friday at 5pm and checked Monday at 9am is ~0.5 business days, NOT 2.5 calendar days. Flag any PR exceeding 3 business days without a review as an SLA breach.
+Flag any PR that has been open for an extended period without a review. The default threshold is **3 business days** (a reasonable starting point based on industry benchmarks — the team has not yet defined an official SLA target). When calculating business days, exclude weekends (Saturday and Sunday). A PR opened Friday at 5pm and checked Monday at 9am is ~0.5 business days, NOT 2.5 calendar days.
 
 ---
 
@@ -178,6 +178,8 @@ Measures the actual risk and urgency of the changes based on reading the PR cont
 5. **PR diff content**: If diff touches security-sensitive files (auth, crypto, permissions), boost score
 6. **JIRA description**: Read for urgency signals ("production issue", "customer-facing", "blocking release")
 
+**Non-determinism note:** This factor relies on LLM judgment to classify diff content, which may produce slightly different scores across runs. PRs near tier boundaries (e.g., score 74 vs 76) could shift between tiers on consecutive runs. The override rules (CI failing, waiting on author, Blocker boost, etc.) are fully deterministic and not affected. If this skill runs as a scheduled GitHub Action (HYPERFLEET-1030), minor ranking fluctuations between runs are expected and acceptable.
+
 ---
 
 ## Factor 5: Review Progress (Weight: 12%)
@@ -197,8 +199,8 @@ Measures where the PR is in the review lifecycle and whether it needs reviewer a
 | 6 | Re-review needed — author pushed new commits after changes were requested |
 | 5 | Approved by some reviewers, needs one more approval |
 | 4 | Active review discussion — comments going back and forth between author and reviewer |
-| 3 | Has reviewer comments, author has responded or resolved all threads — re-review needed |
-| 2 | Has reviewer comments, author has responded to some but not all threads |
+| 3 | Has reviewer comments, author has responded (committed or commented after) — re-review needed |
+| 2 | Has reviewer comments, author has partially responded — some feedback may still be outstanding |
 | 1 | Has unresolved reviewer comments with no author response — waiting on author (Tier 4 override applies, see below) |
 | 0 | Fully approved, ready to merge — no reviewer action needed |
 
@@ -217,32 +219,33 @@ gh api repos/openshift-hyperfleet/REPO/pulls/NUMBER/commits --jq '.[-1].commit.c
 ```
 Compare against the timestamp of the `CHANGES_REQUESTED` review in `latestReviews`. If the latest commit is newer → author has responded (score 6). If older → author has NOT responded (score 1, Tier 4 override).
 
-### Unresolved reviewer comments → Waiting on author
+### Reviewer comments with no author response → Waiting on author
 
-If a reviewer (not the PR author, not a bot) has left comments on the PR and those comments are unresolved and not responded to by the author, the PR has already received review attention. The ball is in the author's court. This PR should be **deprioritized** in favor of PRs that have received zero attention.
+If a reviewer (not the PR author, not a bot) has left comments on the PR and the author has not responded, the PR has already received review attention. The ball is in the author's court. This PR should be **deprioritized** in favor of PRs that have received zero attention.
 
-**How to determine unresolved comments:** Use the GraphQL API to fetch review threads (see Step 4b in SKILL.md). Count threads where ALL of the following are true:
-1. `isResolved: false` — thread has not been marked resolved
-2. `isOutdated: false` — the code near the comment has not changed since it was posted
-3. First comment's author is **not** the PR author and **not** a known bot — only human reviewer-started threads count. Known bots to exclude: `coderabbitai`, `openshift-ci[bot]`, `openshift-ci`, `dependabot[bot]`, `renovate[bot]`, `github-actions[bot]`
+**How to detect outstanding reviewer feedback:** Use the REST API to fetch review comments and general PR comments (see Step 4b in [SKILL.md](SKILL.md)). From the combined results:
+1. Filter out comments by the PR author and known bots (`coderabbitai`, `openshift-ci[bot]`, `openshift-ci`, `dependabot[bot]`, `renovate[bot]`, `github-actions[bot]`)
+2. Find the most recent reviewer comment date
+3. Find the author's latest activity (most recent commit date OR most recent comment by the author)
+4. If the most recent reviewer comment is NEWER than the author's latest activity → author has NOT responded
 
-If the API call fails, default to 0 (no penalty applied).
+If the API calls fail, default to "no outstanding feedback" (no penalty applied).
 
-**Determining if author has responded:** Compare the author's latest activity on the PR (most recent commit date OR most recent comment by the author) against the date of the newest unresolved reviewer comment. If the author's latest activity is OLDER than the newest unresolved reviewer comment, the author has NOT responded.
+**Note:** The REST API does not expose per-thread `isResolved` or `isOutdated` status (those require GraphQL, which is excluded from approved commands for security — it allows mutations). Instead, we use timestamp comparison: if the author has been active after the reviewer's comment, they have effectively responded. When PreToolUse hooks are implemented (HYPERFLEET-1066), GraphQL can be re-enabled with deterministic mutation blocking.
 
 **Scoring impact:**
-- If there are **any** unresolved reviewer comments with no author response → score **1** (waiting on author) and the **Tier 4 override** applies (see below)
-- If there are unresolved reviewer comments but the author HAS responded (posted a comment or pushed a commit after) → score **2-3** depending on how many threads remain open
-- If all reviewer comments are resolved or responded to → score based on the standard rubric above
+- Reviewer comments exist AND author has NOT responded → score **1** (waiting on author) and the **Tier 4 override** applies (see below)
+- Reviewer comments exist AND author HAS responded (comment or commit after the reviewer's comment) → score **2-3** depending on the recency and volume of feedback
+- No reviewer comments, or all feedback addressed → score based on the standard rubric above
 
-**In `--explain` mode:** Mention the unresolved thread count and the fact that the author hasn't responded. E.g., "1 unresolved review thread from @rafabene (May 4) with no author response — PR deprioritized, waiting on author."
+**In `--explain` mode:** Mention the reviewer comment and the fact that the author hasn't responded. E.g., "Reviewer comment from @rafabene (May 4) with no author response — PR deprioritized, waiting on author."
 
 ### Override: Waiting on author
 
 This PR moves to **Tier 4** regardless of other scores — even for Blocker tickets — if EITHER of these conditions is true:
 
 1. `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review was submitted
-2. There are unresolved, non-outdated, reviewer-started comment threads AND the author has not responded (no commits or comments after the most recent unresolved reviewer comment)
+2. A reviewer (non-bot, non-author) has commented on the PR AND the author's latest activity (commit or comment) is older than the most recent reviewer comment
 
 In both cases, the reviewer has done their job; the author needs to respond. See [SKILL.md](SKILL.md) override precedence order.
 
@@ -270,7 +273,7 @@ Smaller PRs should generally be reviewed first — they're quick wins that reduc
 
 ### Size calculation
 
-```
+```text
 total_lines_changed = PR.additions + PR.deletions
 ```
 
@@ -299,7 +302,7 @@ Any CI failure triggers a Tier 4 override, so the rubric is binary:
 
 ### Check status detection
 
-Gather all checks and statuses from **both** `statusCheckRollup` (GitHub Checks) and the commit status API (Prow, external CI) — see Step 4c in SKILL.md for commands. Combine into one list.
+Gather all checks and statuses from **both** `statusCheckRollup` (GitHub Checks) and the commit status API (Prow, external CI) — see Step 4c in [SKILL.md](SKILL.md) for commands. Combine into one list.
 
 **Exclusions:** Do not count `tide` (merge-readiness gate) or all-null entries (checks not configured). Do not count PRs with `needs-ok-to-test` label as failing (process gate, score as pending).
 
@@ -346,7 +349,7 @@ The confidence score is a separate metric (0-100%) that indicates how reliable t
 
 ### Formula
 
-```
+```text
 confidence = (data_completeness × 0.4) + (signal_agreement × 0.4) + (clarity × 0.2)
 ```
 
@@ -409,8 +412,8 @@ Is the priority determination clear-cut or a judgment call?
 
 ### Tiebreakers (when two PRs have the same priority score)
 
-1. **Age**: Older PR wins (FIFO within the same score)
-2. **Fewer reviews**: PR with fewer existing reviews wins (needs more attention)
+1. **Higher confidence**: PR with higher confidence score wins (more reliable ranking should appear first)
+2. **Age**: Older PR wins (FIFO within the same score and confidence)
 3. **Smaller size**: Smaller PR wins (quicker to clear)
 
 ### Special cases

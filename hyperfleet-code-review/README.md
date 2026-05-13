@@ -6,7 +6,6 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 
 ### Skills
 
-- **`/open-prs`** - Surface and prioritize open PRs across the openshift-hyperfleet org using GitHub + JIRA context, multi-factor scoring, and confidence levels (author: @tirthct)
 - **`/review-pr <PR>`** - Comprehensive PR review with interactive recommendations — use when a PR is already open on GitHub (author: @rafabene)
 - **`/review-local`** - Reviews local branch changes against HyperFleet standards — use at any point during development, before or after opening a PR (author: @pnguyen44)
 
@@ -15,7 +14,7 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 ### Required Tools
 
 - **[GitHub CLI (`gh`)](https://cli.github.com/)** - Must be installed and authenticated
-- **[jira-cli](https://github.com/ankitpokhrel/jira-cli)** - Required for `/review-pr` JIRA ticket validation; optional for `/open-prs` (enables JIRA enrichment)
+- **[jira-cli](https://github.com/ankitpokhrel/jira-cli)** - Required for `/review-pr` JIRA ticket validation
 - **[CodeRabbit CLI](https://coderabbit.ai/)** - Recommended for `/review-local` — runs automatically if installed
 
 ### Required Plugins
@@ -41,63 +40,6 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
    ```
 
 3. **Restart Claude Code** to load the plugin.
-
----
-
-## `/open-prs` — Intelligent PR Review Queue
-
-Surfaces all open PRs across the `openshift-hyperfleet` GitHub organization, cross-references with JIRA tickets, analyzes PR content and context, and produces a prioritized review queue with per-PR reasoning and confidence scores.
-
-### What It Does
-
-- Queries all active repos in the org for open PRs via `gh` CLI
-- Extracts JIRA ticket keys from PR titles and fetches ticket details (priority, story points, status, components, blocking relationships, description)
-- Reads PR content to classify domain (security fix, bug, feature, refactor, etc.)
-- Analyzes review state, CI status, PR age, and size
-- Applies an 8-factor weighted scoring algorithm:
-  1. JIRA Priority & Urgency (20%)
-  2. Blocking Impact (18%)
-  3. Staleness & Age (16%)
-  4. Risk & Content Analysis (14%)
-  5. Review Progress (12%)
-  6. PR Size & Complexity (8%)
-  7. CI/Check Status (7%)
-  8. Story Points & Impact (5%)
-- Computes a confidence score for each ranking based on data completeness, signal agreement, and clarity
-- Groups PRs into 4 tiers: Immediate Attention, Should Review Soon, When You Have Time, Informational
-- Provides detailed reasoning for each PR's position explaining why it should be reviewed next
-
-### Usage
-
-```text
-/open-prs
-```
-
-Filter by repository:
-
-```text
-/open-prs --repo hyperfleet-api
-```
-
-Filter by JIRA component:
-
-```text
-/open-prs --component Adapter
-```
-
-Show detailed output with per-PR reasoning, factor breakdowns, and summary statistics:
-
-```text
-/open-prs --explain
-```
-
-### Graceful Degradation
-
-If `jira` CLI is not available, the skill runs in **GitHub-only mode**: JIRA-dependent factors (ticket priority, story points, blocking relationships) default to neutral scores, and confidence is reduced. The skill never stops — it always produces results with whatever data is available.
-
-### GitHub Actions Integration
-
-This skill can also be run as a scheduled GitHub Actions cron job using the [Claude Code Action](https://github.com/anthropics/claude-code-action). The SKILL.md serves as the system prompt, and the output is posted to Slack via an incoming webhook. See [HYPERFLEET-1030](https://redhat.atlassian.net/browse/HYPERFLEET-1030) for the planned GitHub Actions integration.
 
 ---
 
@@ -231,11 +173,6 @@ warnings with inline context, and a review summary box.
 ## Skill Structure
 
 ```text
-skills/open-prs/
-├── SKILL.md                       # Main skill — discovery, enrichment, scoring, output
-├── prioritization-algorithm.md    # 8-factor weighted scoring rubric with confidence scoring
-└── output-format.md               # Tiered output format specification
-
 skills/review-pr/
 ├── SKILL.md                      # Main instructions and workflow
 ├── output-format.md              # Output format and interactive behavior

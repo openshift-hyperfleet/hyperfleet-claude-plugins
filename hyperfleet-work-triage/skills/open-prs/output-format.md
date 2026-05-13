@@ -14,7 +14,7 @@ This document defines the output format for the `/open-prs` skill. There are two
 ```text
 ## Open PRs — openshift-hyperfleet
 
-**Generated:** YYYY-MM-DD HH:MM UTC | **N PRs** across M repos | `/open-prs --explain` for full analysis
+**Generated:** YYYY-MM-DD HH:MM UTC | **N PRs** across M repos | Sorted by priority score | `/open-prs --explain` for full analysis
 ```
 
 If `--repo` or `--component` filters were applied, add:
@@ -34,26 +34,26 @@ If JIRA is unavailable:
 Show each non-empty tier as a compact table. Omit empty tiers entirely.
 
 ```text
-### Immediate Attention (N PRs)
+### Tier 1 (N PRs)
 
 | # | PR | JIRA | Confidence |
 |---|----|------|------------|
 | 1 | [repo#number](url) — PR title | TICKET-KEY | Very High (92%) |
 | 2 | [repo#number](url) — PR title | TICKET-KEY | High (78%) |
 
-### Should Review Soon (N PRs)
+### Tier 2 (N PRs)
 
 | # | PR | JIRA | Confidence |
 |---|----|------|------------|
 | 3 | [repo#number](url) — PR title | TICKET-KEY | High (80%) |
 
-### When You Have Time (N PRs)
+### Tier 3 (N PRs)
 
 | # | PR | JIRA | Confidence |
 |---|----|------|------------|
 | 6 | [repo#number](url) — PR title | No ticket | Medium (55%) |
 
-### Informational (N PRs)
+### Tier 4 (N PRs)
 
 | PR | JIRA | Status |
 |----|------|--------|
@@ -98,10 +98,10 @@ If ALL PRs are Tier 4 (no actionable PRs in Tiers 1-3):
 When the user passes `--explain`, show the full output with all 8 sections:
 
 1. Header
-2. Tier 1 — Immediate Attention
-3. Tier 2 — Should Review Soon
-4. Tier 3 — When You Have Time
-5. Tier 4 — Informational
+2. Tier 1
+3. Tier 2
+4. Tier 3
+5. Tier 4
 6. Flags & Warnings
 7. Summary Statistics
 8. Recommendation
@@ -129,12 +129,12 @@ If `--repo` or `--component` filters were applied, add:
 
 ---
 
-### 2. Tier 1 — Immediate Attention (Score ≥ 75 or JIRA Blocker/Critical)
+### 2. Tier 1 (Score ≥ 75 or JIRA Blocker/Critical)
 
 #### Tier table
 
 ```text
-### Immediate Attention (N PRs)
+### Tier 1 (N PRs)
 
 | # | PR | JIRA | Priority | Age | Size | Reviews | CI | Score | Confidence |
 |---|----|----- |----------|-----|------|---------|----|-------|------------|
@@ -192,18 +192,18 @@ After the table, show a detailed block for each PR:
 
 ---
 
-### 3. Tier 2 — Should Review Soon (Score 50-74)
+### 3. Tier 2 (Score 50-74)
 
 Same format as Tier 1: table first, then per-PR detail blocks with reasoning and factor breakdown.
 
 ---
 
-### 4. Tier 3 — When You Have Time (Score 25-49)
+### 4. Tier 3 (Score 25-49)
 
 Condensed format — table only, with a brief one-line reasoning per PR instead of full detail blocks.
 
 ```text
-### When You Have Time (N PRs)
+### Tier 3 (N PRs)
 
 | # | PR | JIRA | Age | Size | Reviews | Score | Confidence | Reason |
 |---|----|----- |-----|------|---------|-------|------------|--------|
@@ -212,12 +212,12 @@ Condensed format — table only, with a brief one-line reasoning per PR instead 
 
 ---
 
-### 5. Tier 4 — Informational
+### 5. Tier 4
 
 No scoring table. Group by reason:
 
 ```text
-### Informational — Not Prioritized for Review
+### Tier 4 — Not Actionable Right Now
 
 **Draft PRs:**
 - [repo#XX](url) — TICKET-KEY: PR title (draft since Xd ago)
@@ -241,7 +241,7 @@ If there are no Tier 4 PRs, omit this section entirely.
 ```text
 ### Flags & Warnings
 
-- **SLA breaches:** N PRs have exceeded the 3-day first-review target
+- **Review wait:** N PRs have been open >3 business days without a review
   - [repo#XX](url) — Xd without review
   - [repo#YY](url) — Xd without review
 
@@ -280,7 +280,7 @@ Only show flag categories that have at least one entry. If no flags, omit the se
 | PRs with no reviews | N (XX%) |
 | PRs with passing CI | N (XX%) |
 | PRs with failing CI | N (XX%) |
-| SLA breach rate (>3d no review) | XX% (target: <10%) |
+| PRs waiting >3d for first review | N (XX%) |
 | JIRA-linked PRs | N/N (XX%) |
 | Avg confidence score | XX% |
 ```
