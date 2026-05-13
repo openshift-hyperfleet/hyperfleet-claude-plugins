@@ -23,7 +23,7 @@ argument-hint: "[jira|github] (default: both)"
 Load these files as needed during triage:
 
 - `references/owners.csv` — Component/domain owners for assignee suggestions
-- `../../references/github-repos.md` — GitHub repositories in triage scope (use "Core Repositories" section only — skip issues from unlisted repos)
+- `../../references/github-repos.md` — GitHub repositories in triage scope (skip issues from unlisted repos)
 
 ## Ticket Creation
 
@@ -150,7 +150,7 @@ Present in a table and ask the user to re-evaluate or close each one:
 
 ### Step 1: Fetch untriaged issues
 
-Read `../../references/github-repos.md` and use only the **"Core Repositories"** section to get the list of repos in scope. For each repo name, build a `repo:openshift-hyperfleet/<name>` token and include all of them in the `-f q=` parameter. Fetch issues that are either unlabeled or have `hf-needs-triage` but NOT already triaged labels:
+Read `../../references/github-repos.md` to get the list of repos in scope. For each repo name, build a `repo:openshift-hyperfleet/<name>` token and include all of them in the `-f q=` parameter. Fetch issues that are either unlabeled or have `hf-needs-triage` but NOT already triaged labels:
 
 ```bash
 gh api search/issues -X GET \
