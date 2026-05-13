@@ -69,10 +69,14 @@ Query all active repositories for open PRs. If `--repo` was provided, query only
 
 ```bash
 for repo in <REPOS_FROM_GITHUB_REPOS_MD>; do
-  (gh pr list --repo "openshift-hyperfleet/$repo" --state open \
-    --limit 100 \
-    --json number,title,author,createdAt,updatedAt,additions,deletions,changedFiles,reviewDecision,labels,isDraft,reviewRequests,url,headRefName,statusCheckRollup,latestReviews \
-    2>&1 | jq -c --arg repo "$repo" '.[] | . + {repo: $repo}' 2>/dev/null) || echo "REPO_ERROR:$repo" &
+  (
+    out="$(gh pr list --repo "openshift-hyperfleet/$repo" --state open \
+      --limit 100 \
+      --json number,title,author,createdAt,updatedAt,additions,deletions,changedFiles,reviewDecision,labels,isDraft,reviewRequests,url,headRefName,statusCheckRollup,latestReviews \
+      2>/tmp/open-prs-$repo.err)" \
+      && jq -c --arg repo "$repo" '.[] | . + {repo: $repo}' <<<"$out" \
+      || printf 'REPO_ERROR:%s:%s\n' "$repo" "$(cat /tmp/open-prs-$repo.err)"
+  ) &
 done
 wait
 ```
@@ -243,7 +247,7 @@ For each PR, compute:
 | Tier 3 | 25-49 | This week |
 | Tier 4 | < 25 OR draft/waiting-on-author/CI-failing/merge-conflicts | Not actionable for reviewers right now |
 
-**Sorting within tiers:** Sort by priority score descending. Break ties in order: (1) higher confidence first, (2) older PR first (FIFO).
+**Sorting within tiers:** Sort by priority score descending. Break ties in order: (1) higher confidence first, (2) older PR first (FIFO), (3) smaller PR size.
 
 **Override rules (applied in this order — first matching rule wins):**
 1. Any PR with **any** CI check failing → Tier 4 (fix CI first) — even Blockers. One failing check is enough — the author needs to fix CI before reviewers spend time on it
@@ -251,7 +255,7 @@ For each PR, compute:
    - **Formal:** `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review
    - **Informal:** A reviewer (non-bot, non-author) has commented on the PR AND the author has not posted a comment or pushed a commit after the most recent reviewer comment
 3. Any PR with confirmed merge conflicts (`mergeable: CONFLICTING`) → Tier 4 (needs rebase) — even Blockers, because the code will change after conflict resolution. Note: `UNKNOWN` is NOT a conflict — do not override for `UNKNOWN`.
-4. Any draft PR → Tier 4, unless it has a JIRA Blocker/Critical ticket
+4. Any draft PR → Tier 4 — the author is saying "not ready for review." If they want review, they should un-draft it
 5. Any PR linked to a JIRA Blocker or Critical ticket (that did NOT match rules 1-4) → Tier 1 regardless of score
 6. Any PR with no JIRA ticket linked in the title → capped at Tier 3 maximum. Even if the score is ≥ 75, a PR without a JIRA ticket cannot reach Tier 1 or Tier 2 — if the work isn't tracked, it's not team-prioritized
 

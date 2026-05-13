@@ -76,7 +76,7 @@ After computing the base score from the rubric above, apply a sprint proximity b
 
 ### When JIRA is unavailable
 
-If jira CLI is not available, this factor defaults to a score of **3** for all PRs (neutral). Sprint proximity boost is not applied. Confidence is reduced (see Confidence Score section).
+If jira CLI is not available, this factor defaults to a score of **5** for all PRs (midpoint — truly neutral, no bias toward high or low urgency). Sprint proximity boost is not applied. Confidence is reduced (see Confidence Score section).
 
 ---
 
