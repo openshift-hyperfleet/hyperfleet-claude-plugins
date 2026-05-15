@@ -73,12 +73,15 @@ Query all active repositories for open PRs. If `--repo` was provided, query only
 ```bash
 for repo in <REPOS_FROM_GITHUB_REPOS_MD>; do
   (
-    out="$(gh pr list --repo "openshift-hyperfleet/$repo" --state open \
+    result="$(gh pr list --repo "openshift-hyperfleet/$repo" --state open \
       --limit 100 \
       --json number,title,author,createdAt,updatedAt,additions,deletions,changedFiles,reviewDecision,labels,isDraft,reviewRequests,url,headRefName,statusCheckRollup,latestReviews \
-      2>/tmp/open-prs-$repo.err)" \
-      && jq -c --arg repo "$repo" '.[] | . + {repo: $repo}' <<<"$out" \
-      || printf 'REPO_ERROR:%s:%s\n' "$repo" "$(cat /tmp/open-prs-$repo.err)"
+      2>&1)"
+    if [ $? -eq 0 ]; then
+      jq -c --arg repo "$repo" '.[] | . + {repo: $repo}' <<<"$result"
+    else
+      printf 'REPO_ERROR:%s:%s\n' "$repo" "$result"
+    fi
   ) &
 done
 wait
@@ -278,7 +281,7 @@ Format the output according to [output-format.md](output-format.md). There are t
 - If total PRs > 10: show only Tier 1 and Tier 2 (unless neither has PRs — then show Tier 3)
 - If total PRs ≤ 10: show Tiers 1-3
 - NEVER show Tier 4 — not actionable, adds noise
-- End with a summary line showing how many PRs were omitted
+- End with a summary line showing how many PRs were omitted — only if PRs were actually omitted (skip if all PRs are shown)
 - Wrap the ENTIRE output in a single code block (triple backticks) in your response — this preserves the Slack formatting characters through Claude Code's terminal rendering
 - The output is optimized for Slack webhook delivery (HYPERFLEET-1030). For manual paste, bold/italic render correctly but `<url|text>` inline links show as raw text
 
