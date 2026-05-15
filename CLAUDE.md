@@ -31,17 +31,17 @@ hyperfleet-<name>/                <- each plugin
 | `hyperfleet-operational-readiness` | Operational readiness audit | 1 skill | - | - |
 | `hyperfleet-devtools` | Dev productivity | 1 skill | 1 command | 1 agent |
 | `hyperfleet-adapter-authoring` | Adapter authoring | 1 skill | - | - |
-| `hyperfleet-bugs-triage` | Bug & issue triage | 1 skill | - | - |
+| `hyperfleet-work-triage` | Work triage (bugs, issues, PR prioritization) | 2 skills | - | - |
 
 ### Key Plugin: `hyperfleet-code-review`
 
-The most complex plugin. Its review-pr skill has the following structure:
+- **`/review-pr`** — full PR review with 6 steps: input validation, data gathering, JIRA check, parallel analysis (10 groups of mechanical code checks), consistency check, interactive output. Uses `output-format.md` and `group-01` through `group-10` check definitions.
+- **`/review-local`** — local branch review against HyperFleet standards. Uses check definitions from `checks/` and reference data from `config/`.
 
-- `SKILL.md` — main workflow (6 steps: input validation, data gathering, JIRA check, parallel analysis, consistency check, output)
-- `output-format.md` — interactive pagination format and notification behavior
-- `group-01-error-handling.md` through `group-10-performance.md` — 10 groups of automated code checks (error handling & wrapping, concurrency, exhaustiveness, resource lifecycle, code quality, testing & coverage, naming & organization, security, code hygiene, performance)
+### Key Plugin: `hyperfleet-work-triage`
 
-Its review-local skill produces a structured local branch review report. It uses check definitions from `checks/` and reference data from `config/`.
+- **`/bugs-triage`** — interactive JIRA bug triage (New→Backlog) and GitHub issue triage for openshift-hyperfleet repositories. Uses shared `references/github-repos.md` for repo scope.
+- **`/open-prs`** — surfaces and prioritizes open PRs across the org using 8-factor weighted scoring (JIRA priority, blocking impact, staleness, risk, review progress, size, CI status, story points) with confidence levels. Uses `prioritization-algorithm.md` for scoring rubrics and `output-format.md` for tiered presentation. Shares `references/github-repos.md` with `/bugs-triage`.
 
 ## Conventions
 

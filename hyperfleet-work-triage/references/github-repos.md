@@ -1,7 +1,7 @@
-# GitHub Repositories in Triage Scope
+# GitHub Repositories in Scope
 
-Only issues from these `openshift-hyperfleet` repositories should be triaged.
-Issues from repos not listed here should be skipped.
+Repositories in the `openshift-hyperfleet` organization that are actively maintained.
+Used by `/bugs-triage` (issue triage) and `/open-prs` (PR prioritization).
 
 ## Core Components
 
@@ -21,6 +21,10 @@ Issues from repos not listed here should be skipped.
 
 - `hyperfleet-e2e`
 - `maestro-cli`
+
+## API & Specifications
+
+- `hyperfleet-api-spec`
 
 ## Documentation & Tooling
 
