@@ -123,10 +123,15 @@ When the user passes `--slack`, produce Slack mrkdwn output with inline links fo
 - Tier 2: `🟡 *Tier 2 — Should Review Soon (N PRs)*`
 - Tier 3: `🟢 *Tier 3 — This Week (N PRs)*`
 
+**Header emoji** — varies based on the highest tier with PRs:
+- 🚨 if Tier 1 PRs exist
+- 🟡 if Tier 2 is the highest
+- 🟢 if only Tier 3
+
 ### Full template
 
 ```text
-🔴 *Open PRs — openshift-hyperfleet*
+HEADER_EMOJI *Open PRs — openshift-hyperfleet*
 _YYYY-MM-DD HH:MM UTC | N PRs across M repos_
 
 🟡 *Tier 2 — Should Review Soon (N PRs)*
