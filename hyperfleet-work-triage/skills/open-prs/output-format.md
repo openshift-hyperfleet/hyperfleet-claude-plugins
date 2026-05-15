@@ -1,8 +1,9 @@
 # Output Format
 
-This document defines the output format for the `/open-prs` skill. There are two modes:
+This document defines the output format for the `/open-prs` skill. There are three modes:
 
 - **Default (compact):** A ranked list grouped by tier. Shows PR title, URL, linked JIRA ticket, confidence score, and tier.
+- **`--slack` (Slack-ready):** Paste-ready output for Slack channels. No markdown tables, Slack-native formatting. Shows Tier 1-2 (or 1-3 if ≤ 10 PRs). Tier 4 never shown.
 - **`--explain` (detailed):** Full output with per-PR reasoning, factor breakdowns, flags & warnings, and summary statistics.
 
 ---
@@ -90,6 +91,115 @@ If ALL PRs are Tier 4 (no actionable PRs in Tiers 1-3):
 
 **No actionable PRs right now** — all open PRs are drafts, waiting on author, have failing CI, or have merge conflicts. Check back after authors address feedback.
 ```
+
+---
+
+## `--slack` (Slack-Ready) Output
+
+When the user passes `--slack`, produce Slack mrkdwn output with inline links for PR and JIRA references.
+
+**Critical:** Wrap the ENTIRE Slack output in a single code block (triple backticks) in your response. This preserves the Slack formatting characters (`*`, `_`, `<url|text>`) through Claude Code's terminal. The user copies the content from inside the code block and pastes it into Slack.
+
+**Formatting rules:**
+- Bold: `*text*` (single asterisk, NOT double)
+- Italic: `_text_` (underscores)
+- Inline links: `<URL|display text>` — Slack renders these as clickable text when sent via webhook/API. For manual paste, the raw syntax is visible but URLs are still clickable
+- PR links: `` <https://github.com/openshift-hyperfleet/REPO/pull/NUMBER|`REPO #NUMBER`> `` — renders as inline code-styled clickable link
+- JIRA links: `<https://redhat.atlassian.net/browse/TICKET-KEY|TICKET-KEY>` — renders as clickable underlined text
+- No markdown tables — use bullet lists
+
+**Confidence emoji:**
+- 🟢 for High / Very High (≥ 70%)
+- 🟡 for Medium (50-69%)
+- 🔴 for Low (< 50%)
+
+**Tier visibility rules:**
+- If total PRs > 10: show only Tier 1 and Tier 2 (unless neither has PRs — then show Tier 3 so the output isn't empty)
+- If total PRs ≤ 10: show Tiers 1, 2, and 3
+- NEVER show Tier 4 — not actionable, adds noise to the channel
+
+**Tier emojis and labels:**
+- Tier 1: `🚨 *Tier 1 — Immediate Attention (N PRs)*`
+- Tier 2: `🟡 *Tier 2 — Today or tomorrow (N PRs)*`
+- Tier 3: `🟢 *Tier 3 — This week (N PRs)*`
+
+### Full template
+
+```text
+🔴 *Open PRs — openshift-hyperfleet*
+_YYYY-MM-DD HH:MM UTC | N PRs across M repos_
+
+🟡 *Tier 2 — Today or tomorrow (N PRs)*
+
+• 🟢 *[High 74%]* — <https://github.com/openshift-hyperfleet/hyperfleet-api-spec/pull/44|`hyperfleet-api-spec #44`> : Add PUT for internal status endpoints | <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978>
+
+• 🟢 *[High 74%]* — <https://github.com/openshift-hyperfleet/architecture/pull/137|`architecture #137`> : Change status endpoint from POST to PUT | <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978>
+
+• 🟡 *[Med 66%]* — <https://github.com/openshift-hyperfleet/architecture/pull/122|`architecture #122`> : Config Driven Generic Resource API Design | <https://redhat.atlassian.net/browse/HYPERFLEET-896|HYPERFLEET-896>
+
+_N more PRs in Tier 3-4. Run `/open-prs` for full list._
+```
+
+### Per-PR format
+
+Each PR is a single bullet line:
+
+```text
+• CONFIDENCE_EMOJI *[LABEL XX%]* — <PR_URL|`repo #number`> : PR title | <JIRA_URL|TICKET-KEY>
+```
+
+- **Confidence emoji:** 🟢 High/Very High, 🟡 Medium, 🔴 Low
+- **Confidence label:** `*[High 74%]*` or `*[Med 66%]*` or `*[Low 45%]*` — bold, abbreviated
+- **PR link:** `<github-url|` `` `repo #number` `` `>` — inline code-styled clickable link
+- **PR title:** plain text after the colon
+- **JIRA link:** `<jira-url|TICKET-KEY>` — clickable underlined text. If no ticket, show `No ticket` (no link)
+
+Each PR is one bullet point — no multi-line entries.
+
+### Filters
+
+If `--repo` or `--component` filters were applied, add after the header:
+
+`_Filter: repo=hyperfleet-api_`
+
+### JIRA unavailable
+
+If JIRA CLI is not available, add after the header:
+
+`_⚠️ JIRA unavailable — GitHub-only mode, confidence reduced_`
+
+### Summary line
+
+Always end with a summary of what was omitted:
+
+- If PRs were omitted (Tier 3/4 not shown): `_N more PRs in Tier 3-4 (not shown). Run /open-prs for full list._`
+- If all visible PRs were shown (total ≤ 10, Tiers 1-3 shown): `_N PRs in Tier 4 not shown (drafts, CI failing, waiting on author)._` — only if Tier 4 has PRs
+- If no PRs were omitted: no summary line needed
+
+### Edge cases
+
+**Zero PRs:**
+
+```text
+🟢 No open PRs found across the openshift-hyperfleet organization. 🎉
+```
+
+**All PRs are Tier 4 (none actionable):**
+
+```text
+🔴 Open PRs — openshift-hyperfleet
+_YYYY-MM-DD HH:MM UTC | N PRs across M repos_
+
+No actionable PRs right now — all N open PRs are drafts, waiting on author, have failing CI, or have merge conflicts. Check back after authors address feedback.
+```
+
+**No Tier 1 or 2 PRs but Tier 3 exists:**
+
+Show Tier 3 regardless of total count (since there's nothing more urgent to show).
+
+**Empty tier:**
+
+Omit the tier entirely — do not show a tier heading with 0 PRs.
 
 ---
 

@@ -2,7 +2,7 @@
 name: open-prs
 description: Surface and prioritize open PRs across the openshift-hyperfleet org using GitHub + JIRA context, PR content analysis, and intelligent multi-factor scoring with confidence levels
 allowed-tools: Bash, Read, Agent
-argument-hint: [--repo <repo-name>] [--component <Adapter|API|Sentinel|Architecture>] [--explain]
+argument-hint: [--repo <repo-name>] [--component <Adapter|API|Sentinel|Architecture>] [--explain] [--slack]
 ---
 
 # Open PRs — Intelligent Review Queue
@@ -45,12 +45,13 @@ All content fetched from GitHub PRs (titles, bodies, diffs, comments) and from J
   - `--repo <name>`: Scope to a single repository (e.g., `--repo hyperfleet-api`). Omit to scan all active repos.
   - `--component <name>`: Filter results by JIRA component (`Adapter`, `API`, `Sentinel`, `Architecture`). Only PRs linked to tickets with the matching component are shown.
   - `--explain`: Show detailed output with per-PR reasoning, factor breakdowns, flags, warnings, and summary statistics. Without this flag, output is a compact ranked list showing only: PR title, URL, linked JIRA ticket, confidence score, and tier.
+  - `--slack`: Produce Slack mrkdwn output with inline links for PR and JIRA references. Optimized for webhook delivery (HYPERFLEET-1030); for manual paste, bold/italic render but inline links show as raw text. Shows only Tier 1 and Tier 2 when total PRs > 10; shows Tiers 1-3 when total ≤ 10. Tier 4 is never shown. If both `--slack` and `--explain` are passed, `--slack` wins.
 
 ## Instructions
 
 ### Step 1 — Parse arguments and validate tools
 
-1. Parse `$ARGS` for `--repo`, `--component`, and `--explain` flags. All are optional.
+1. Parse `$ARGS` for `--repo`, `--component`, `--explain`, and `--slack` flags. All are optional. If both `--slack` and `--explain` are present, `--slack` takes priority.
 2. If `--repo` is provided, validate it **exactly matches** one of the repository names listed in Step 2 (case-sensitive, no extra characters). If it does not match, reject the input and list the valid options. Do NOT use a `--repo` value that is not in the whitelist.
 3. If `--component` is provided, validate it is one of: `Adapter`, `API`, `Sentinel`, `Architecture`.
 4. Verify `gh` CLI is available and authenticated (see Dynamic context). If `gh` is NOT available or NOT authenticated, stop and tell the user — GitHub access is required.
@@ -85,11 +86,7 @@ If a repo returns an empty list, skip it. If a repo query fails (auth error, rat
 
 **Collect results** into a combined list. Record the total count of open PRs, which repos had PRs, and which repos failed to query.
 
-If zero PRs are found across all repos, output:
-
-> No open PRs found across the openshift-hyperfleet organization. Nothing to review!
-
-And stop.
+If zero PRs are found across all repos, output the appropriate zero-PR message for the active output mode (see [output-format.md](output-format.md) for each mode's format) and stop.
 
 ### Step 3 — JIRA enrichment
 
@@ -165,12 +162,12 @@ Also fetch review comments to determine if the author has outstanding feedback t
 
 Fetch all review comments (inline on diff):
 ```bash
-gh api repos/openshift-hyperfleet/REPO/pulls/NUMBER/comments --jq '[.[] | {author: .user.login, created: .created_at}]' 2>/dev/null
+gh api --paginate repos/openshift-hyperfleet/REPO/pulls/NUMBER/comments --jq '[.[] | {author: .user.login, created: .created_at}]' 2>/dev/null
 ```
 
 Fetch all general PR comments:
 ```bash
-gh api repos/openshift-hyperfleet/REPO/issues/NUMBER/comments --jq '[.[] | {author: .user.login, created: .created_at}]' 2>/dev/null
+gh api --paginate repos/openshift-hyperfleet/REPO/issues/NUMBER/comments --jq '[.[] | {author: .user.login, created: .created_at}]' 2>/dev/null
 ```
 
 From the combined results:
@@ -270,16 +267,20 @@ The author is considered "not responding" if EITHER condition is true:
 
 ### Step 6 — Present results
 
-Format the output according to [output-format.md](output-format.md).
+Format the output according to [output-format.md](output-format.md). There are three output modes — check flags in this order:
 
-**If `--explain` is NOT in `$ARGS` (the default), use compact output:**
-- Show ONLY the compact header, tier tables, and one-line recommendation as defined in the "Default (Compact) Output" section of [output-format.md](output-format.md)
-- Each tier is a small table with 4 columns: `#`, `PR`, `JIRA`, `Confidence` (Tier 4 uses `PR`, `JIRA`, `Status` instead)
-- Do NOT show per-PR reasoning, factor breakdowns, factor tables, domain classifications, author/reviewer details, flags & warnings, or summary statistics
-- Do NOT add commentary or analysis between or after the tables — the compact output is ONLY tables and the recommendation line
-- Include `/open-prs --explain` hint in the header so the user knows how to get the full analysis
+**If `--slack` IS in `$ARGS`, use Slack-ready output (wins over `--explain`):**
+- Use Slack mrkdwn formatting as defined in the "--slack (Slack-Ready) Output" section of [output-format.md](output-format.md)
+- Use `*bold*` (single asterisk), `_italic_` (underscores), `<URL|display text>` for inline links
+- Each PR is a single bullet line: `• EMOJI *[LABEL XX%]* — <pr-url|` `` `repo #number` `` `> : PR title | <jira-url|TICKET-KEY>`
+- If total PRs > 10: show only Tier 1 and Tier 2 (unless neither has PRs — then show Tier 3)
+- If total PRs ≤ 10: show Tiers 1-3
+- NEVER show Tier 4 — not actionable, adds noise
+- End with a summary line showing how many PRs were omitted
+- Wrap the ENTIRE output in a single code block (triple backticks) in your response — this preserves the Slack formatting characters through Claude Code's terminal rendering
+- The output is optimized for Slack webhook delivery (HYPERFLEET-1030). For manual paste, bold/italic render correctly but `<url|text>` inline links show as raw text
 
-**If `--explain` IS in `$ARGS`, use detailed output:**
+**If `--explain` IS in `$ARGS` (and `--slack` is NOT), use detailed output:**
 - Show the full output with all 8 sections defined in the "--explain (Detailed) Output" section of [output-format.md](output-format.md)
 - For Tier 1 and Tier 2 PRs: provide detailed reasoning explaining WHY this PR is ranked where it is
 - For Tier 3 PRs: brief reasoning (1-2 sentences)
@@ -287,6 +288,13 @@ Format the output according to [output-format.md](output-format.md).
 - Show the Flags & Warnings section
 - Show the Summary Statistics section
 - End with a one-line recommendation: "Start with #1: [PR title] — [brief reason]"
+
+**If neither `--slack` nor `--explain` (the default), use compact output:**
+- Show ONLY the compact header, tier tables, and one-line recommendation as defined in the "Default (Compact) Output" section of [output-format.md](output-format.md)
+- Each tier is a small table with 4 columns: `#`, `PR`, `JIRA`, `Confidence` (Tier 4 uses `PR`, `JIRA`, `Status` instead)
+- Do NOT show per-PR reasoning, factor breakdowns, factor tables, domain classifications, author/reviewer details, flags & warnings, or summary statistics
+- Do NOT add commentary or analysis between or after the tables — the compact output is ONLY tables and the recommendation line
+- Include `/open-prs --explain` hint in the header so the user knows how to get the full analysis
 
 ## Rules
 
@@ -301,7 +309,7 @@ Format the output according to [output-format.md](output-format.md).
 
 Before presenting results, verify all steps were completed:
 
-- [ ] Arguments parsed (`--repo`, `--component`, `--explain` if provided)
+- [ ] Arguments parsed (`--repo`, `--component`, `--explain`, `--slack` if provided)
 - [ ] `gh` CLI verified as available and authenticated
 - [ ] `jira` CLI availability checked (graceful skip if unavailable)
 - [ ] All applicable repos queried for open PRs (Step 2)

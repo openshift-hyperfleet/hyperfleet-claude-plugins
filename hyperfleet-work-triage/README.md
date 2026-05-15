@@ -48,6 +48,7 @@ Work triage skills for HyperFleet: bug/issue triage and PR prioritization.
 
 - [GitHub CLI](https://cli.github.com/) (`gh`) — authenticated with access to openshift-hyperfleet repos (required)
 - [jira-cli](https://github.com/ankitpokhrel/jira-cli) — configured for the HYPERFLEET project (required for `/bugs-triage`, optional for `/open-prs`)
+- [jq](https://jqlang.github.io/jq/) — JSON processor (required for `/open-prs`). Install via `brew install jq` or `apt-get install jq`
 
 ## Shared Reference Data
 
