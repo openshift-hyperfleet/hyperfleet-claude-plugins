@@ -215,7 +215,7 @@ Determine review state from `latestReviews` and `reviewDecision` — these show 
 
 **To detect "author addressed changes":** Fetch the latest commit date via:
 ```bash
-gh api repos/openshift-hyperfleet/REPO/pulls/NUMBER/commits --jq '.[-1].commit.committer.date' 2>/dev/null
+gh api --paginate repos/openshift-hyperfleet/REPO/pulls/NUMBER/commits --jq '.[-1].commit.committer.date' 2>/dev/null
 ```
 Compare against the timestamp of the `CHANGES_REQUESTED` review in `latestReviews`. If the latest commit is newer → author has responded (score 6). If older → author has NOT responded (score 1, Tier 4 override).
 

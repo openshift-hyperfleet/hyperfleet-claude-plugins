@@ -41,7 +41,7 @@ Work triage skills for HyperFleet: bug/issue triage and PR prioritization.
 - Checks CI status from all sources (GitHub Actions + Prow)
 - Detects unresolved reviewer comments and author responsiveness
 - Applies 8-factor weighted scoring with confidence levels
-- Groups PRs into 4 tiers: Immediate Attention, Should Review Soon, When You Have Time, Informational
+- Groups PRs into 4 tiers: Immediate Attention, Should Review Soon, This Week, Informational
 - Works without JIRA CLI (graceful degradation with reduced confidence)
 
 ## Prerequisites

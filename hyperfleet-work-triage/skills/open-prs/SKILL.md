@@ -239,10 +239,10 @@ For each PR, compute:
 
 | Tier | Score Range | Meaning |
 |------|------------|---------|
-| Tier 1 | ≥ 75 OR JIRA Blocker/Critical | Drop what you're doing |
-| Tier 2 | 50-74 | Today or tomorrow |
-| Tier 3 | 25-49 | This week |
-| Tier 4 | < 25 OR draft/waiting-on-author/CI-failing/merge-conflicts | Not actionable for reviewers right now |
+| Tier 1 — Immediate Attention | ≥ 75 OR JIRA Blocker/Critical | Drop what you're doing |
+| Tier 2 — Should Review Soon | 50-74 | Today or tomorrow |
+| Tier 3 — This Week | 25-49 | This week |
+| Tier 4 — Informational | < 25 OR draft/waiting-on-author/CI-failing/merge-conflicts | Not actionable for reviewers right now |
 
 **Sorting within tiers:** Sort by priority score descending. Break ties in order: (1) higher confidence first, (2) older PR first (FIFO), (3) smaller PR size.
 
@@ -258,7 +258,7 @@ For each PR, compute:
 
 **Detecting "waiting on author":** Fetch the latest commit date:
 ```bash
-gh api repos/openshift-hyperfleet/REPO/pulls/NUMBER/commits --jq '.[-1].commit.committer.date' 2>/dev/null
+gh api --paginate repos/openshift-hyperfleet/REPO/pulls/NUMBER/commits --jq '.[-1].commit.committer.date' 2>/dev/null
 ```
 
 The author is considered "not responding" if EITHER condition is true:

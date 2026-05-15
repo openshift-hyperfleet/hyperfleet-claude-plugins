@@ -120,8 +120,8 @@ When the user passes `--slack`, produce Slack mrkdwn output with inline links fo
 
 **Tier emojis and labels:**
 - Tier 1: `🚨 *Tier 1 — Immediate Attention (N PRs)*`
-- Tier 2: `🟡 *Tier 2 — Today or tomorrow (N PRs)*`
-- Tier 3: `🟢 *Tier 3 — This week (N PRs)*`
+- Tier 2: `🟡 *Tier 2 — Should Review Soon (N PRs)*`
+- Tier 3: `🟢 *Tier 3 — This Week (N PRs)*`
 
 ### Full template
 
@@ -129,7 +129,7 @@ When the user passes `--slack`, produce Slack mrkdwn output with inline links fo
 🔴 *Open PRs — openshift-hyperfleet*
 _YYYY-MM-DD HH:MM UTC | N PRs across M repos_
 
-🟡 *Tier 2 — Today or tomorrow (N PRs)*
+🟡 *Tier 2 — Should Review Soon (N PRs)*
 
 • 🟢 *[High 74%]* — <https://github.com/openshift-hyperfleet/hyperfleet-api-spec/pull/44|`hyperfleet-api-spec #44`> : Add PUT for internal status endpoints | <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978>
 
@@ -327,7 +327,7 @@ Condensed format — table only, with a brief one-line reasoning per PR instead 
 No scoring table. Group by reason:
 
 ```text
-### Tier 4 — Not Actionable Right Now
+### Tier 4 — Informational
 
 **Draft PRs:**
 - [repo#XX](url) — TICKET-KEY: PR title (draft since Xd ago)
