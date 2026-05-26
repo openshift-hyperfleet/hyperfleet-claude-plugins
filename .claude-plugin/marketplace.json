@@ -8,7 +8,7 @@
     {
       "name": "hyperfleet-architecture",
       "source": "./hyperfleet-architecture",
-      "description": "Provides HyperFleet architecture knowledge for answering questions about design patterns, versioning strategies, and core principles"
+      "description": "Provides HyperFleet architecture knowledge for answering questions about design patterns, versioning strategies, configuration standards, and core principles"
     },
     {
       "name": "hyperfleet-jira",
