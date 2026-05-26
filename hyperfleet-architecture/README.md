@@ -10,6 +10,7 @@ This skill enables Claude to automatically pull in HyperFleet architecture docum
 - Status aggregation and cluster lifecycle
 - Event-driven architecture and CloudEvents
 - Adapter framework and deployment model
+- Configuration standards (naming conventions, override precedence, env vars, flags, validation)
 - Git workflow and release processes
 
 ## How It Works
@@ -22,17 +23,17 @@ The skill instructs Claude to fetch relevant documentation from the [HyperFleet 
 ## Installation
 
 1. Install the HyperFleet plugin marketplace (if not already installed):
-   ```
+   ```text
    /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
 2. Install this skill:
-   ```
+   ```text
    /plugin install hyperfleet-architecture@openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
 3. Update to get the latest version:
-   ```
+   ```text
    /plugin marketplace update hyperfleet-claude-plugins
    ```
 
@@ -46,6 +47,8 @@ Just ask Claude questions naturally:
 - "What's our Git branching model?"
 - "How does the status aggregation work?"
 - "What are the cluster lifecycle phases?"
+- "What are the configuration naming conventions?"
+- "What's the configuration override precedence?"
 
 Claude will automatically invoke this skill, read the relevant docs, and provide accurate answers based on the team's documented decisions.
 
@@ -55,6 +58,7 @@ This skill provides access to:
 - API versioning strategy
 - Sentinel and CloudEvents versioning
 - Adapter binary and config versioning
+- Configuration standards (naming conventions, override precedence, env vars, flags, validation)
 - Git workflow and release strategy
 - Versioning trade-offs and post-MVP considerations
 - Cluster status and lifecycle management
