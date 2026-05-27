@@ -1,6 +1,6 @@
 ---
 name: jira-ticket-creator
-description: Creates well-structured JIRA tickets in the HYPERFLEET project with required What/Why/Acceptance Criteria for all tickets, and required story points/activity type for Stories/Tasks/Bugs. Activates when users ask to create a ticket, story, task, or epic.
+description: Creates well-structured JIRA tickets in the HYPERFLEET project with required What/Why/Acceptance Criteria for all tickets, and required story points/activity type for Stories/Tasks/Bugs. Activates when users ask to create a ticket, story, task, or epic. Also activates when Claude itself decides a JIRA ticket should be created (e.g., follow-up from a PR comment, triaging work) — never use jira issue create directly, always use this skill.
 allowed-tools: Bash, Read, Grep, Glob, Skill, Write
 argument-hint: <ticket-type> <summary>
 ---
@@ -36,13 +36,14 @@ Load these files as needed:
 
 ## When to Use This Skill
 
-Activate this skill when the user:
-- Asks to "create a ticket" or "create a story/task/epic"
-- Says "I need a JIRA ticket for..."
-- Asks "can you create a ticket for [feature/bug/task]?"
-- Wants to document work as a JIRA issue
-- Asks to "file a ticket" or "add a story"
-- Provides work that needs to be tracked
+Activate this skill when:
+- The user asks to "create a ticket" or "create a story/task/epic"
+- The user says "I need a JIRA ticket for..."
+- The user asks "can you create a ticket for [feature/bug/task]?"
+- The user wants to document work as a JIRA issue
+- The user asks to "file a ticket" or "add a story"
+- The user provides work that needs to be tracked
+- Claude decides a JIRA ticket should be created as part of another task (e.g., responding to a PR comment requesting a follow-up, triaging work that needs tracking) — always use this skill instead of running `jira issue create` directly
 
 ## Required Ticket Structure
 
