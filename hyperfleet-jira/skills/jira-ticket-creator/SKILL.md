@@ -25,6 +25,16 @@ All JIRA ticket content — summaries, descriptions, comments, and acceptance cr
 
 The `jira-cli` accepts **Markdown** and converts it to ADF (Atlassian Document Format) for JIRA Cloud. Standard Markdown works correctly — headers, bullets, bold, inline code, fenced code blocks, links, and curly braces all render as expected.
 
+## Authoritative Source
+
+Field requirements, valid components, activity types, and story point scales are defined in **ticket-hygiene.md** in the architecture repo. Before creating tickets, fetch the current standard:
+
+```bash
+curl -sL https://raw.githubusercontent.com/openshift-hyperfleet/architecture/main/hyperfleet/standards/ticket-hygiene.md 2>/dev/null
+```
+
+Use the fetched document as the source of truth for valid components, activity types, and story point scales. Do NOT rely on hardcoded values.
+
 ## References
 
 Load these files as needed:
@@ -69,7 +79,7 @@ Minimum 2-3 clear, testable criteria that define "done":
 
 ### 4. Story Points (Required for Stories/Tasks/Bugs)
 
-All Stories, Tasks, and Bugs must have story points (scale: 0, 1, 3, 5, 8, 13).
+All Stories, Tasks, and Bugs must have story points (scale: 0, 1, 3, 5, 8, 13). The scale below should match ticket-hygiene.md. If in doubt, fetch the latest.
 
 ### 5. Priority (Required)
 
@@ -131,7 +141,7 @@ See [references/cli-examples.md](references/cli-examples.md) for description tem
 
 For Stories, Tasks, and Bugs: invoke the `jira-story-pointer` skill via the Skill tool. Pass the ticket context (description, acceptance criteria, type) as the argument. The skill returns a recommended value — use it directly.
 
-Valid story points: 0, 1, 3, 5, 8, 13. Tickets estimated at 13 should be split.
+Valid story points: 0, 1, 3, 5, 8, 13 (should match ticket-hygiene.md — if in doubt, fetch the latest). Tickets estimated at 13 should be split.
 
 ### Step 5: Assign Activity Type
 
@@ -164,6 +174,22 @@ All fields can be set via CLI during creation:
 - **Add Labels**: use `-l label1 -l label2`
 - **Add Component**: use `-C ComponentName`
 - **Code blocks**: use fenced code blocks (triple backticks) in the description — they render correctly via CLI
+
+#### Issue Links (Blocks / Is Blocked By)
+
+When linking tickets with "Blocks" relationships, the argument order is critical:
+
+```bash
+jira issue link <OUTWARD-TICKET> <INWARD-TICKET> "Blocks"
+```
+
+This means: `OUTWARD-TICKET` **blocks** `INWARD-TICKET`.
+
+Examples:
+- New ticket blocks an existing one: `jira issue link HYPERFLEET-NEW HYPERFLEET-EXISTING "Blocks"`
+- New ticket is blocked by an existing one: `jira issue link HYPERFLEET-EXISTING HYPERFLEET-NEW "Blocks"`
+
+**Common mistake:** Swapping the arguments inverts the link direction — the parent ticket appears as "IS BLOCKED BY" instead of "BLOCKS".
 
 ### Step 9: Verify and Return Details
 

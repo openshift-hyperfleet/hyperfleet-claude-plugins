@@ -2,6 +2,12 @@
 
 Activity Type is **required** for sprint/kanban capacity planning. Tickets without an Activity Type appear as "Uncategorized" and cannot be properly allocated.
 
+The authoritative source for activity types is **ticket-hygiene.md** in the architecture repo. The values below should match. If in doubt, fetch the latest version:
+
+```bash
+curl -sL https://raw.githubusercontent.com/openshift-hyperfleet/architecture/main/hyperfleet/standards/ticket-hygiene.md 2>/dev/null
+```
+
 Set via CLI: `--custom activity-type="<value>"`
 
 ## Assignment Flow

@@ -7,6 +7,7 @@
 1. Use `--body-file` flag — it doesn't exist! Use `-b "$(cat /tmp/file.txt)"` instead
 2. Use raw field IDs like `--custom customfield_10028=3` — silently ignored! Use aliases
 3. Use JIRA wiki markup for links (`[text|url]`) — the `jira-cli` expects Markdown (`[text](url)`) and wiki markup renders as malformed, duplicated links
+4. Swap arguments in `jira issue link` — the first argument is the OUTWARD ticket (the one that "blocks"), the second is the INWARD ticket (the one that "is blocked by"). Wrong order inverts the link direction
 
 ### DO
 
@@ -51,6 +52,18 @@ jira issue create --project HYPERFLEET --type Story \
 ### Issue: Activity Type Not Setting
 
 **Solution:** Use the exact syntax with quotes: `--custom activity-type="Quality / Stability / Reliability"`. Use field aliases, never raw IDs.
+
+### Issue: Link Direction Inverted (Blocks vs Is Blocked By)
+
+**Symptom:** After `jira issue link`, the parent ticket shows "IS BLOCKED BY" the new ticket instead of "BLOCKS" it.
+
+**Solution:** The argument order matters — first argument is the outward (blocking) ticket:
+
+```bash
+jira issue link BLOCKER-TICKET BLOCKED-TICKET "Blocks"
+```
+
+This creates: `BLOCKER-TICKET` blocks `BLOCKED-TICKET`.
 
 ### Issue: Description is Empty After Creation
 
