@@ -1,0 +1,126 @@
+name: Open PRs Digest
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  open-prs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: open-prs-digest
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Install and configure jira-cli
+        run: |
+          set -euo pipefail
+          JIRA_CLI_VERSION="1.5.2"
+          JIRA_CLI_SHA="a0b3dbfd1eb64e217a2a74a3f79179328b5debf61d6be8a3ed0d0014bd51512a"
+          JIRA_CLI_TAR="jira_${JIRA_CLI_VERSION}_linux_x86_64.tar.gz"
+          curl -sSfL "https://github.com/ankitpokhrel/jira-cli/releases/download/v${JIRA_CLI_VERSION}/${JIRA_CLI_TAR}" \
+            -o "/tmp/${JIRA_CLI_TAR}"
+          echo "${JIRA_CLI_SHA}  /tmp/${JIRA_CLI_TAR}" | sha256sum -c -
+          tar xz -C /usr/local/bin --strip-components=1 -f "/tmp/${JIRA_CLI_TAR}" "jira_${JIRA_CLI_VERSION}_linux_x86_64/bin/jira"
+          rm "/tmp/${JIRA_CLI_TAR}"
+          mkdir -p ~/.config/.jira
+          cat > ~/.config/.jira/.config.yml << EOF
+          auth_type: basic
+          server: https://redhat.atlassian.net
+          login: ${JIRA_AUTH_LOGIN}
+          project:
+            key: HYPERFLEET
+          board:
+            id: 1013
+            type: scrum
+          installation: Cloud
+          EOF
+        env:
+          JIRA_AUTH_LOGIN: ${{ secrets.JIRA_AUTH_LOGIN }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Run /open-prs via Claude
+        uses: anthropics/claude-code-action@537ffff2eff706bd7e3e1c3daf2d4b39067a9f85 # v1
+        id: claude
+        with:
+          use_vertex: "true"
+          model: "claude-sonnet-4-20250514"
+          prompt: |
+            Run the /open-prs skill with --slack flag. Analyze all open PRs across the
+            openshift-hyperfleet organization, cross-reference with JIRA, score and rank
+            them, and output a Slack-formatted prioritized list.
+            Output ONLY the Slack mrkdwn content — no surrounding explanation or code blocks.
+          claude_args: >-
+            --append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md
+            --allowedTools Bash,Read,Agent
+            --max-turns 20
+        env:
+          ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
+          CLOUD_ML_REGION: global
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN_ORG_READ }}
+
+      - name: Post to Slack
+        env:
+          OUTPUT_FILE: ${{ steps.claude.outputs.execution_file }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ ! -f "$OUTPUT_FILE" ] || [ ! -s "$OUTPUT_FILE" ]; then
+            echo "::error::Claude output file is missing or empty"
+            exit 1
+          fi
+
+          CONTENT="$(jq -r 'map(select(.type == "result")) | last | .result // empty' "$OUTPUT_FILE" 2>/dev/null)"
+
+          if [ -z "$CONTENT" ]; then
+            CONTENT="$(jq -r '[.[] | select(.type == "assistant")] | last | .message.content | map(select(.type == "text")) | last | .text // empty' "$OUTPUT_FILE" 2>/dev/null)"
+          fi
+
+          if [ -z "$CONTENT" ]; then
+            echo "::error::Could not extract result from Claude output"
+            exit 1
+          fi
+
+          PAYLOAD="$(jq -n --arg text "$CONTENT" '{"text": $text}')"
+
+          HTTP_CODE="$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD")"
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::Slack webhook returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "Posted to Slack successfully"
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL_ERRORS: ${{ secrets.SLACK_WEBHOOK_URL_ERRORS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          MESSAGE=$(printf '🔴 *Open PRs Digest failed*\n_%s_\n\nWorkflow run: %s' \
+            "$(date -u '+%Y-%m-%d %H:%M UTC')" "$RUN_URL")
+          HTTP_CODE="$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$SLACK_WEBHOOK_URL_ERRORS" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg text "$MESSAGE" '{"text": $text}')")"
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::Failure Slack webhook returned HTTP $HTTP_CODE"
+            exit 1
+          fi
