@@ -210,6 +210,18 @@ Explanation of business value and impact.
 - Criterion 3
 ```
 
+## Linking Tickets (Blocks Relationship)
+
+```bash
+# NEW_TICKET blocks EXISTING_TICKET
+jira issue link HYPERFLEET-NEW HYPERFLEET-EXISTING "Blocks"
+
+# EXISTING_TICKET blocks NEW_TICKET (new ticket is blocked by existing)
+jira issue link HYPERFLEET-EXISTING HYPERFLEET-NEW "Blocks"
+```
+
+The first argument is always the outward (blocking) ticket. Getting the order wrong inverts the link direction.
+
 ## Important Reminders
 
 - Fenced code blocks (triple backticks) work correctly via CLI

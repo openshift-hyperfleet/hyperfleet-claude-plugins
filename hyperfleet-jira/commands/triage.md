@@ -20,6 +20,12 @@ Audit JIRA tickets for sprint readiness, including required fields, valid compon
 
 ## Instructions
 
+0. **Fetch ticket-hygiene standard (source of truth for field validation):**
+   ```bash
+   curl -sL https://raw.githubusercontent.com/openshift-hyperfleet/architecture/main/hyperfleet/standards/ticket-hygiene.md 2>/dev/null
+   ```
+   Extract the valid components list and activity types from the fetched document. Use them for all validation steps below. Do NOT use hardcoded values.
+
 1. **Get tickets to audit (current sprint by default):**
    ```bash
    jira sprint list --current -p HYPERFLEET --raw 2>/dev/null
@@ -41,15 +47,12 @@ Audit JIRA tickets for sprint readiness, including required fields, valid compon
    jira issue list -q"project = HYPERFLEET AND sprint in openSprints() AND description is EMPTY" --plain 2>/dev/null
    ```
 
-5. **Find tickets without valid components (must be Adapter, API, Architecture, or Sentinel):**
+5. **Find tickets without valid components:**
    ```bash
    jira issue list -q"project = HYPERFLEET AND component is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
    ```
 
-   Also check for invalid components:
-   ```bash
-   jira issue list -q"project = HYPERFLEET AND sprint in openSprints() AND component not in (Adapter, API, Architecture, Sentinel)" --plain 2>/dev/null
-   ```
+   Also check for invalid components — build the JQL `component not in (...)` clause dynamically using the component names fetched from ticket-hygiene.md in step 0. Quote multi-word names with single quotes in JQL (e.g., `'Claude Plugins'`).
 
 6. **Find tickets without Activity Type:**
    ```bash
@@ -115,7 +118,7 @@ Audit JIRA tickets for sprint readiness, including required fields, valid compon
 | TICKET-1 | [Summary] | None |
 | TICKET-2 | [Summary] | InvalidComponent |
 
-**Valid Components:** Adapter, API, Architecture, Sentinel
+**Valid Components:** [list from ticket-hygiene.md fetched in step 0]
 
 **Action Required:** Assign valid component for tracking.
 
@@ -126,7 +129,7 @@ Audit JIRA tickets for sprint readiness, including required fields, valid compon
 |--------|---------|------|
 | TICKET-1 | [Summary] | Story |
 
-**Valid Activity Types:** Associate Wellness & Development, Incidents & Support, Security & Compliance, Quality / Stability / Reliability, Future Sustainability, Product / Portfolio Work
+**Valid Activity Types:** [list from ticket-hygiene.md fetched in step 0]
 
 **Action Required:** Set Activity Type for capacity planning.
 

@@ -7,6 +7,8 @@ description: Analyzes code changes in HyperFleet component repositories (API, Se
 
 This skill analyzes code changes in HyperFleet component repositories and determines whether architecture documentation in the `openshift-hyperfleet/architecture` repository needs to be updated.
 
+> **Note:** This skill operates on code repositories (API, Sentinel, Adapter, Broker), not JIRA components. For the full list of valid JIRA components, see `ticket-hygiene.md` in the architecture repo.
+
 ## When to Use This Skill
 
 This skill activates automatically when users:

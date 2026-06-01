@@ -25,15 +25,25 @@ Activate when the user:
 
 ## Triage Checklist
 
+### Authoritative Source
+
+Field requirements, valid components, activity types, and story point scales are defined in **ticket-hygiene.md** in the architecture repo. Before triaging, fetch the current standard:
+
+```bash
+curl -sL https://raw.githubusercontent.com/openshift-hyperfleet/architecture/main/hyperfleet/standards/ticket-hygiene.md 2>/dev/null
+```
+
+Use the fetched document as the source of truth for all validation in this skill. Do NOT rely on hardcoded values.
+
 ### Required Fields (Must Have)
 | Field | Requirement |
 |-------|-------------|
 | Title | Clear, actionable, under 100 characters |
 | Description | Detailed context (recommend > 100 characters) |
 | Acceptance Criteria | At least 2 clear, testable criteria |
-| Story Points | Set (scale: 0, 1, 3, 5, 8, 13) |
-| Component | One of: Adapter, API, Architecture, Sentinel |
-| Activity Type | Set for capacity planning |
+| Story Points | Per scale defined in ticket-hygiene.md |
+| Component | Must match a valid component from ticket-hygiene.md |
+| Activity Type | Must match a valid activity type from ticket-hygiene.md |
 
 ### Recommended Fields
 | Field | Requirement |
@@ -53,11 +63,7 @@ Activate when the user:
 
 ## Components
 
-Valid components for HYPERFLEET project:
-- **Adapter** - Integration adapters
-- **API** - API services
-- **Architecture** - Architecture decisions and documentation
-- **Sentinel** - Background processing services
+Valid components are defined in the "Valid Components" section of ticket-hygiene.md (fetched above). Validate the ticket's component against that list.
 
 ## How to Check a Ticket
 
@@ -88,7 +94,7 @@ When analyzing a ticket, provide:
 | Description | PASS/FAIL | [Length: X chars] |
 | Acceptance Criteria | PASS/FAIL | [Count: X criteria] |
 | Story Points | PASS/FAIL | [Value or "Missing"] |
-| Component | PASS/FAIL | [Must be: Adapter, API, Architecture, or Sentinel] |
+| Component | PASS/FAIL | [Must be a valid project component — see Components section] |
 | Activity Type | PASS/FAIL | [Type or "Uncategorized"] |
 
 #### Overall Score: X/6 Required Checks Passed
@@ -104,7 +110,7 @@ When analyzing a ticket, provide:
 
 ## Activity Types
 
-Follow the same activity type definitions used by the `jira-ticket-creator` skill. When triaging, verify the ticket's activity type is set and matches the correct Sankey tier (Non-Negotiable → Core Principles → Balance).
+Activity types and their tier assignments (Non-Negotiable → Core Principles → Balance) are defined in the "Activity Types" section of ticket-hygiene.md (fetched above). Validate the ticket's activity type against that list.
 
 ## Red Flags to Highlight
 
@@ -115,7 +121,7 @@ Follow the same activity type definitions used by the `jira-ticket-creator` skil
 - Vague titles like "Fix bug" or "Update feature"
 - Tickets open > 30 days without progress
 - **Missing Activity Type** (appears as Uncategorized in capacity planning)
-- **Invalid Component** (must be Adapter, API, Architecture, or Sentinel)
+- **Invalid Component** (must be a valid project component — see Components section)
 
 ## Integration with Commands
 

@@ -27,7 +27,11 @@ Activate this skill when the user:
 
 ## Story Point Scale Reference
 
-HyperFleet uses a modified Fibonacci sequence for story points:
+HyperFleet uses a modified Fibonacci sequence for story points. The authoritative source is **ticket-hygiene.md** in the architecture repo. The scale below should match. If in doubt, fetch the latest:
+
+```bash
+curl -sL https://raw.githubusercontent.com/openshift-hyperfleet/architecture/main/hyperfleet/standards/ticket-hygiene.md 2>/dev/null
+```
 
 | Points | Meaning | Typical Scope | Notes |
 |--------|---------|---------------|-------|

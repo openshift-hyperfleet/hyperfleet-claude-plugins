@@ -25,6 +25,16 @@ Load these files as needed during triage:
 - `references/owners.csv` — Component/domain owners for assignee suggestions
 - `../../references/github-repos.md` — GitHub repositories in triage scope (skip issues from unlisted repos)
 
+## Ticket Hygiene Standard
+
+Before triaging, fetch the current field requirements (valid components):
+
+```bash
+curl -sL https://raw.githubusercontent.com/openshift-hyperfleet/architecture/main/hyperfleet/standards/ticket-hygiene.md 2>/dev/null
+```
+
+Use the fetched document as the source of truth for component validation. Do NOT rely on hardcoded component lists.
+
 ## Ticket Creation
 
 When creating JIRA tickets (e.g., from accepted GitHub issues or RFE conversions), use the `hyperfleet-jira:jira-ticket-creator` skill via the Skill tool. This skill handles description formatting, Activity Type classification, Story Points estimation, and all ticket creation best practices. Pass the issue context (title, description, component, suggested priority) as the skill argument.
@@ -85,7 +95,7 @@ Evaluate and present:
 |-------|--------|-------|
 | Sufficient info/logs | PASS/FAIL | Logs, steps to reproduce, environment details? |
 | Priority set correctly | PASS/FAIL/MISSING | Based on SLA table |
-| Component identified | PASS/FAIL/MISSING | Must be: Hyperfleet API, Adapter, Sentinel, Broker, CICD (match names in `references/owners.csv`). If multiple components apply, add ALL |
+| Component identified | PASS/FAIL/MISSING | Must be a valid project component from ticket-hygiene.md (fetched above). Match names in `references/owners.csv`. If multiple components apply, add ALL |
 | Target version | SET/MISSING | If MVP bug, set "MVP". Otherwise set planned fix version per release strategy (if field is available) |
 | Valid bug | LIKELY/UNCLEAR | Real defect? Or actually a feature request (RFE)? |
 | Hyperfleet scope | YES/NO | If not in Hyperfleet scope, move to the correct Jira Project |
