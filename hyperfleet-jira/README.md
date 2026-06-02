@@ -31,10 +31,17 @@ brew install ankitpokhrel/jira-cli/jira-cli
 
 **Linux:**
 ```bash
-# Download from releases
-curl -LO https://github.com/ankitpokhrel/jira-cli/releases/latest/download/jira_linux_amd64.tar.gz
-tar -xzf jira_linux_amd64.tar.gz
-sudo mv jira /usr/local/bin/
+# Download latest release
+VERSION=$(curl -sL https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+if [ -z "$VERSION" ]; then
+    echo "Error: Failed to fetch latest jira-cli version"
+    exit 1
+fi
+curl -LO "https://github.com/ankitpokhrel/jira-cli/releases/download/${VERSION}/jira_${VERSION#v}_linux_x86_64.tar.gz"
+tar -xzf "jira_${VERSION#v}_linux_x86_64.tar.gz"
+sudo mv "jira_${VERSION#v}_linux_x86_64/bin/jira" /usr/local/bin/
+rm -rf "jira_${VERSION#v}_linux_x86_64" "jira_${VERSION#v}_linux_x86_64.tar.gz"
+
 ```
 
 **Other methods:** See [jira-cli installation docs](https://github.com/ankitpokhrel/jira-cli#installation)
