@@ -31,16 +31,18 @@ Core files (co-located in this repo):
 
   Read: CLAUDE_SKILL_DIR/diff-strategy.md
   Read: CLAUDE_SKILL_DIR/output-format.md
-  Read: CLAUDE_SKILL_DIR/standards-fetch.md
+  Read: CLAUDE_SKILL_DIR/../../config/standards-fetch.md
   Read: CLAUDE_SKILL_DIR/../../config/categories.md
 
-Mechanical checks (read all .md files from the checks folder):
+Agent-specific checks (local files, not fetched remotely):
 
-  Glob + Read: CLAUDE_SKILL_DIR/../../checks/*.md
+  Read: CLAUDE_SKILL_DIR/../../checks/doc-code-crossref.md
+  Read: CLAUDE_SKILL_DIR/../../checks/impact-analysis.md
+  Read: CLAUDE_SKILL_DIR/../../checks/intra-diff-consistency.md
 
 Load errors:
 
-  If any core file or group file was not found, stop and tell the user:
+  If any core file or agent-specific check was not found, stop and tell the user:
     "Could not load: PATH — try reinstalling the hyperfleet-code-review plugin."
 
 ## Review setup
@@ -75,9 +77,11 @@ Store SCOPE. Every subsequent step that references SCOPE uses this resolved valu
 
 Follow diff-strategy.md loaded above.
 
-## Standards
+## Standards and mechanical checks
 
-Follow standards-fetch.md loaded above.
+Follow standards-fetch.md loaded above. This fetches both HyperFleet standards and
+mechanical check definitions from the architecture repo. The fetched check definitions
+(prefixed `check/` in the output) are used as agent prompts in the next step.
 
 ## Mechanical checks, architecture check, and CodeRabbit
 
@@ -94,20 +98,21 @@ Launch all of the following in parallel in a single tool-call block:
 4. Keep output for use in the Deduplication step.
 
 **Mechanical check agents** (subagent_type=general-purpose): Each agent receives the diff
-content, the list of changed files, and the loaded HyperFleet standards. Each agent must
-enumerate every instance found before evaluating it, then return a JSON array of findings
-(or empty array if none).
+content, the list of changed files, the loaded HyperFleet standards, and its check
+definition (fetched from the architecture repo, or loaded locally for agent-specific
+checks). If a remote check was not fetched (partial failure), skip that agent and add a
+WARN line. Each agent must enumerate every instance found before evaluating it, then
+return a JSON array of findings (or empty array if none).
 
 SCOPE RULE (mandatory): Agents may read files outside the diff for context (e.g. impact
 analysis, link validation), but must ONLY return findings for lines that appear as `+`
 lines in the diff. Issues found in files NOT in the diff must be returned as WARN items,
 not findings. Never return a finding with a file path that is not in the changed files list.
 
-Go-specific checks — run only if any filename in the changed files list ends with `.go`
-(case-sensitive): error-handling, concurrency, exhaustiveness, resource-lifecycle,
-code-quality, testing, naming, performance.
-Language-agnostic checks (always run): security, code-hygiene, impact-analysis,
-doc-code-crossref, intra-diff-consistency.
+Fetched checks: each check definition states its scope. Skip Go-specific checks if no
+filename in the changed files list ends with `.go` (case-sensitive). Language-agnostic
+checks always run.
+Agent-specific checks (always run): impact-analysis, doc-code-crossref, intra-diff-consistency.
 
 Architecture check (run as a separate parallel agent):
 - Use the `hyperfleet-architecture` skill (via the Skill tool)

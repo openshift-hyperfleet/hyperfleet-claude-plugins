@@ -14,6 +14,7 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 ### Required Tools
 
 - **[GitHub CLI (`gh`)](https://cli.github.com/)** - Must be installed and authenticated
+- **[`jq`](https://jqlang.org/)** - Required for fetching standards and checks
 - **[jira-cli](https://github.com/ankitpokhrel/jira-cli)** - Required for `/review-pr` JIRA ticket validation
 - **[CodeRabbit CLI](https://coderabbit.ai/)** - Recommended for `/review-local` — runs automatically if installed
 
@@ -162,7 +163,7 @@ The optional scope argument controls which changes are reviewed:
 ### What It Does
 
 Runs a comprehensive review of all local branch changes and produces a structured report. Checks include HyperFleet standards, architecture consistency,
-mechanical code patterns (see `checks/`), impact analysis, doc/code cross-referencing,
+mechanical code patterns, impact analysis, doc/code cross-referencing,
 and CodeRabbit if installed.
 
 Output: a review setup block, findings grouped by category with AI-ready prompts,
@@ -191,6 +192,7 @@ skills/review-local/              # Local review skill
 └── ...
 
 checks/             # Check definitions
+scripts/            # Scripts for agent use
 config/             # Reference data
 ```
 

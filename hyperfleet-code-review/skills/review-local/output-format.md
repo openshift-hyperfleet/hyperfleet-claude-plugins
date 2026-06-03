@@ -30,8 +30,8 @@ Review setup
   ✓  <remote>/main reachable
   ✓  Scope    all  (+523 / -35)
   ✓  Standards loaded (8 files)
+  ❌  Checks — fetch failed (run gh auth login)
   ❌  CodeRabbit — not installed
-  ❌  Standards — fetch failed (run gh auth login)
 ```
 
 Rules:
@@ -44,8 +44,10 @@ The Review setup block has exactly these lines — no more, no less:
 | `✓  <remote>/main reachable` | Always |
 | `⚠️  Branch is N commits behind <remote>/main — rebase before merging.` | BEHIND > 0 (skip for `uncommitted` scope) |
 | `✓  Scope    <types>  (<+N> / <-N>)` | Once diff is computed |
-| `✓  Standards loaded (N files)` | When fetch succeeds |
-| `❌  Standards — fetch failed (run gh auth login)` | When fetch fails |
+| `✓  Standards loaded (N files)` | When standards fetch succeeds |
+| `❌  Standards — fetch failed (run gh auth login)` | When standards fetch fails |
+| `✓  Checks loaded (N files)` | When checks fetch succeeds |
+| `❌  Checks — fetch failed (run gh auth login)` | When checks fetch fails |
 | `❌  CodeRabbit — not installed` | When CodeRabbit is not installed |
 | `❌  CodeRabbit — rate limited` | When CodeRabbit is rate limited |
 

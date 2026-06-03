@@ -29,7 +29,7 @@ Before making any changes:
 
 | Plugin | Skills | Commands | Agents | Version |
 |--------|:------:|:--------:|:------:|---------|
-| `hyperfleet-code-review` | 1 (`review-pr`) | - | - | 0.5.0 |
+| `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | 0.7.0 |
 | `hyperfleet-jira` | 4 | 6 | - | 0.5.1 |
 | `hyperfleet-architecture` | 1 | - | - | 0.2.0 |
 | `hyperfleet-standards` | 1 | - | - | 1.1.0 |
@@ -67,6 +67,8 @@ Primarily Markdown and JSON, but also includes:
   - `hyperfleet-devtools/skills/architecture-impact/ensure_arch_repo.sh`
   - `hyperfleet-jira/scripts/check-setup.sh`
   - `hyperfleet-code-review/ci/install-plugins.sh`
+  - `hyperfleet-code-review/scripts/fetch-standards.sh`
+  - `hyperfleet-code-review/scripts/fetch-checks.sh`
 - **CI build system:** `hyperfleet-code-review/ci/` (Dockerfile + Makefile for `quay.io/openshift-hyperfleet/ci-review` container image, built with `podman`)
 - **CSV data:** `hyperfleet-bugs-triage/skills/bugs-triage/references/owners.csv`
 
