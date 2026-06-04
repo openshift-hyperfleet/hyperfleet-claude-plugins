@@ -14,7 +14,7 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 ### Required Tools
 
 - **[GitHub CLI (`gh`)](https://cli.github.com/)** - Must be installed and authenticated
-- **[`jq`](https://jqlang.org/)** - Required for fetching standards and checks
+- **[`jq`](https://jqlang.org/)** - Required for `/review-local` to fetch standards and checks
 - **[jira-cli](https://github.com/ankitpokhrel/jira-cli)** - Required for `/review-pr` JIRA ticket validation
 - **[CodeRabbit CLI](https://coderabbit.ai/)** - Recommended for `/review-local` — runs automatically if installed
 

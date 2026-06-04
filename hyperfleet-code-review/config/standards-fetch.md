@@ -5,11 +5,11 @@ context). Launch them in parallel within a single Bash call:
 
 ```bash
 std_out="$(mktemp)"; chk_out="$(mktemp)"
+trap 'rm -f "$std_out" "$chk_out"' EXIT
 bash CLAUDE_SKILL_DIR/../../scripts/fetch-standards.sh > "$std_out" &
 bash CLAUDE_SKILL_DIR/../../scripts/fetch-checks.sh > "$chk_out" &
 wait
 cat "$std_out" "$chk_out"
-rm -f "$std_out" "$chk_out"
 ```
 
 Replace `CLAUDE_SKILL_DIR` with the resolved skill directory path.
