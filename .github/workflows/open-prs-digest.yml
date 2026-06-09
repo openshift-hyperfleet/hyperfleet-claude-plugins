@@ -94,9 +94,18 @@ jobs:
             exit 1
           fi
 
-          PAYLOAD="$(jq -n --arg text "$CONTENT" '
-            ($text | gsub("\n---\n"; "\n\n")) as $clean |
-            {blocks: [{type: "section", text: {type: "mrkdwn", text: $clean}}]}
+          PAYLOAD="$(printf '%s' "$CONTENT" | sed '/^---$/d' | jq -Rs '
+            split("\n") as $lines |
+            reduce $lines[] as $line (
+              [{text: ""}];
+              if (.[-1].text | length) + ($line | length) + 1 > 2900 then
+                . + [{text: $line}]
+              else
+                .[-1].text += (if .[-1].text == "" then "" else "\n" end) + $line |
+                .
+              end
+            ) |
+            {blocks: [.[] | select(.text != "") | {type: "section", text: {type: "mrkdwn", text: .text}}]}
           ')"
 
           HTTP_CODE="$(curl -s -o /dev/null -w "%{http_code}" \
