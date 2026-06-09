@@ -70,7 +70,7 @@ jobs:
           claude_args: >-
             --append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md
             --allowedTools Bash,Read,Agent
-            --max-turns 20
+            --max-turns 50
         env:
           ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
           CLOUD_ML_REGION: global
