@@ -1,0 +1,9 @@
+{
+  "name": "hyperfleet-release",
+  "version": "0.1.0",
+  "description": "Release tooling for HyperFleet - deterministic release-notes generation from the release manifest and git history",
+  "author": {
+    "name": "HyperFleet Team",
+    "email": "hyperfleet-dev@redhat.com"
+  }
+}

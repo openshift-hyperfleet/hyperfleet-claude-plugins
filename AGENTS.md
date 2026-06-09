@@ -37,6 +37,7 @@ Before making any changes:
 | `hyperfleet-devtools` | 3 | 1 | 1 | 0.5.0 |
 | `hyperfleet-bugs-triage` | 1 | - | - | 0.1.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | N/A |
+| `hyperfleet-release` | 1 (`release-notes`) | - | - | 0.1.0 |
 
 
 ## Skill Format
