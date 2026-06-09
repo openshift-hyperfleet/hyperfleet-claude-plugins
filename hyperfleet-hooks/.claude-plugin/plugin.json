@@ -1,0 +1,8 @@
+{
+  "name": "hyperfleet-hooks",
+  "version": "0.1.0",
+  "description": "Claude Code hooks for automated quality checks",
+  "author": {
+    "name": "HyperFleet Team"
+  }
+}
