@@ -47,6 +47,20 @@ jobs:
         env:
           JIRA_AUTH_LOGIN: ${{ secrets.JIRA_AUTH_LOGIN }}
 
+      - name: Verify jira-cli setup
+        run: |
+          set -euo pipefail
+          echo "=== jira binary ==="
+          command -v jira && jira version
+          echo "=== config location ==="
+          ls -la ~/.config/.jira/.config.yml
+          echo "=== config content (redacted) ==="
+          sed 's/login:.*/login: [REDACTED]/' ~/.config/.jira/.config.yml
+          echo "=== test JIRA query ==="
+          jira issue view HYPERFLEET-1030 --raw 2>&1 | head -5 || echo "JIRA QUERY FAILED with exit code $?"
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
       - name: Authenticate to GCP
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
