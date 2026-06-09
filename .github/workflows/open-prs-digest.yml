@@ -95,30 +95,10 @@ jobs:
             exit 1
           fi
 
-          # Slack blocks have a 3000-char limit per section; split into chunks
-          PAYLOAD="$(python3 -c "
-import json, sys
-
-text = sys.stdin.read()
-# Replace --- separators (not valid Slack mrkdwn) with blank lines
-text = text.replace('\n---\n', '\n\n')
-text = text.strip()
-
-MAX = 3000
-chunks = []
-while text:
-    if len(text) <= MAX:
-        chunks.append(text)
-        break
-    cut = text.rfind('\n', 0, MAX)
-    if cut <= 0:
-        cut = MAX
-    chunks.append(text[:cut])
-    text = text[cut:].lstrip('\n')
-
-blocks = [{'type': 'section', 'text': {'type': 'mrkdwn', 'text': c}} for c in chunks]
-print(json.dumps({'blocks': blocks}))
-" <<< "$CONTENT")"
+          PAYLOAD="$(jq -n --arg text "$CONTENT" '
+            ($text | gsub("\n---\n"; "\n\n")) as $clean |
+            {blocks: [{type: "section", text: {type: "mrkdwn", text: $clean}}]}
+          ')"
 
           HTTP_CODE="$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "$SLACK_WEBHOOK_URL" \
