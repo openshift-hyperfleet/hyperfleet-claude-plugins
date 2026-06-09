@@ -58,6 +58,11 @@ jobs:
         with:
           use_vertex: "true"
           prompt: |
+            IMPORTANT: The jira CLI is installed at /usr/local/bin/jira and configured
+            with API token authentication. It is available and ready to use — do NOT skip
+            JIRA enrichment. The dynamic context markers in SKILL.md (lines starting with !)
+            were not executed; treat jira CLI, gh CLI, and jq as all available.
+
             Run the /open-prs skill with --slack flag. Analyze all open PRs across the
             openshift-hyperfleet organization, cross-reference with JIRA, score and rank
             them, and output a Slack-formatted prioritized list.
