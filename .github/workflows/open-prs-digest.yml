@@ -74,7 +74,8 @@ jobs:
           SKILL="./hyperfleet-work-triage/skills/open-prs/SKILL.md"
           RESOLVED="${SKILL}.resolved"
           CURRENT_DATE="$(date -u '+%Y-%m-%d %H:%M UTC')"
-          awk -v dt="$CURRENT_DATE" '
+          SKILL_DIR="./hyperfleet-work-triage/skills/open-prs"
+          awk -v dt="$CURRENT_DATE" -v skilldir="$SKILL_DIR" '
             /^## Dynamic context/ {
               print
               print ""
@@ -87,7 +88,7 @@ jobs:
             }
             skip && /^## / { skip=0 }
             skip { next }
-            { print }
+            { gsub(/\$\{CLAUDE_SKILL_DIR\}/, skilldir); print }
           ' "$SKILL" > "$RESOLVED"
 
       - name: Run /open-prs via Claude
@@ -96,16 +97,10 @@ jobs:
         with:
           use_vertex: "true"
           prompt: |
-            Run the /open-prs skill with --slack flag. Analyze all open PRs across the
-            openshift-hyperfleet organization, cross-reference with JIRA, score and rank
-            them, and output a Slack-formatted prioritized list.
-            Output ONLY the Slack mrkdwn content — no surrounding explanation or code blocks.
-
-            IMPORTANT — use ONLY Unicode emojis as defined in output-format.md:
-            - Tier headers: 🚨 (Tier 1), 🟡 (Tier 2), 🟢 (Tier 3)
-            - Confidence per PR: 🟢 (>=70%), 🟡 (50-69%), 🔴 (<50%)
-            Do NOT use Slack shortcodes like :zap:, :large_blue_circle:, :rotating_light: etc.
-            Use the actual Unicode emoji characters shown above.
+            Run the /open-prs skill with --slack flag.
+            Follow SKILL.md instructions: run collect-data.sh, pipe through score.jq,
+            classify Factor 4 for each PR, then pipe through format-output.jq with --arg mode slack.
+            Output ONLY the final Slack mrkdwn content — no surrounding explanation or code blocks.
           claude_args: >-
             --append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved
             --allowedTools Bash,Read,Agent
