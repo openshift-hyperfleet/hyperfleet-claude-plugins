@@ -15,8 +15,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      PATH: /usr/local/bin:/usr/bin:/bin
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -32,8 +30,10 @@ jobs:
           curl -sSfL "https://github.com/ankitpokhrel/jira-cli/releases/download/v${JIRA_CLI_VERSION}/${JIRA_CLI_TAR}" \
             -o "/tmp/${JIRA_CLI_TAR}"
           echo "${JIRA_CLI_SHA}  /tmp/${JIRA_CLI_TAR}" | sha256sum -c -
-          tar xz -C /usr/local/bin --strip-components=1 -f "/tmp/${JIRA_CLI_TAR}" "jira_${JIRA_CLI_VERSION}_linux_x86_64/bin/jira"
+          tar xz -C /usr/local/bin --strip-components=2 -f "/tmp/${JIRA_CLI_TAR}" "jira_${JIRA_CLI_VERSION}_linux_x86_64/bin/jira"
+          chmod +x /usr/local/bin/jira
           rm "/tmp/${JIRA_CLI_TAR}"
+          echo "/usr/local/bin" >> "$GITHUB_PATH"
           mkdir -p ~/.config/.jira
           cat > ~/.config/.jira/.config.yml << EOF
           auth_type: basic
