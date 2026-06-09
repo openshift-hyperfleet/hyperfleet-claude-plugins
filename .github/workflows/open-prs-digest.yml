@@ -57,13 +57,13 @@ jobs:
         id: claude
         with:
           use_vertex: "true"
-          model: "claude-sonnet-4-20250514"
           prompt: |
             Run the /open-prs skill with --slack flag. Analyze all open PRs across the
             openshift-hyperfleet organization, cross-reference with JIRA, score and rank
             them, and output a Slack-formatted prioritized list.
             Output ONLY the Slack mrkdwn content — no surrounding explanation or code blocks.
           claude_args: >-
+            --model claude-sonnet-4-20250514
             --append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md
             --allowedTools Bash,Read,Agent
             --max-turns 20
@@ -72,6 +72,7 @@ jobs:
           CLOUD_ML_REGION: global
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN_ORG_READ }}
+          PATH: /usr/local/bin:/usr/bin:/bin
 
       - name: Post to Slack
         env:
