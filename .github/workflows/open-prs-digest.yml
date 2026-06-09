@@ -84,6 +84,12 @@ jobs:
             openshift-hyperfleet organization, cross-reference with JIRA, score and rank
             them, and output a Slack-formatted prioritized list.
             Output ONLY the Slack mrkdwn content — no surrounding explanation or code blocks.
+
+            IMPORTANT — use ONLY Unicode emojis as defined in output-format.md:
+            - Tier headers: 🚨 (Tier 1), 🟡 (Tier 2), 🟢 (Tier 3)
+            - Confidence per PR: 🟢 (>=70%), 🟡 (50-69%), 🔴 (<50%)
+            Do NOT use Slack shortcodes like :zap:, :large_blue_circle:, :rotating_light: etc.
+            Use the actual Unicode emoji characters shown above.
           claude_args: >-
             --append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved
             --allowedTools Bash,Read,Agent
