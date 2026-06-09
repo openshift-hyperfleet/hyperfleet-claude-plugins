@@ -63,7 +63,6 @@ jobs:
             them, and output a Slack-formatted prioritized list.
             Output ONLY the Slack mrkdwn content — no surrounding explanation or code blocks.
           claude_args: >-
-            --model claude-sonnet-4-20250514
             --append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md
             --allowedTools Bash,Read,Agent
             --max-turns 20
