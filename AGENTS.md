@@ -35,7 +35,7 @@ Before making any changes:
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-devtools` | 3 | 1 | 1 | - | 0.5.0 |
-| `hyperfleet-bugs-triage` | 1 | - | - | - | 0.1.0 |
+| `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.3.0 |
 | `hyperfleet-hooks` | - | - | - | 1 | 0.1.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |
 | `hyperfleet-release` | 1 (`release-notes`) | - | - | - | 0.1.0 |
@@ -72,8 +72,11 @@ Primarily Markdown and JSON, but also includes:
   - `hyperfleet-code-review/ci/install-plugins.sh`
   - `hyperfleet-code-review/scripts/fetch-standards.sh`
   - `hyperfleet-code-review/scripts/fetch-checks.sh`
+  - `hyperfleet-work-triage/skills/open-prs/scripts/collect-data.sh`
+  - `hyperfleet-work-triage/skills/open-prs/scripts/tests/run-tests.sh`
+- **jq scripts:** `hyperfleet-work-triage/skills/open-prs/scripts/score.jq`, `hyperfleet-work-triage/skills/open-prs/scripts/format-output.jq`
 - **CI build system:** `hyperfleet-code-review/ci/` (Dockerfile + Makefile for `quay.io/openshift-hyperfleet/ci-review` container image, built with `podman`)
-- **CSV data:** `hyperfleet-bugs-triage/skills/bugs-triage/references/owners.csv`
+- **CSV data:** `hyperfleet-work-triage/skills/bugs-triage/references/owners.csv`
 
 ## Contributing
 

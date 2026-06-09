@@ -59,6 +59,9 @@ Questions or feedback? Open an issue in this repository.
 - **hyperfleet-architecture** - Q&A access to HyperFleet architecture documentation
 - **hyperfleet-standards** - Audit repositories against team architecture standards
 
+### Work Triage
+- **hyperfleet-work-triage** - Bug triage (JIRA + GitHub issues) and open PR prioritization across the org
+
 ### Adapter Development
 - **hyperfleet-adapter-authoring** - Interactive guide for authoring adapter configurations
 - **hyperfleet-operational-readiness** - Operational readiness audit for production deployments

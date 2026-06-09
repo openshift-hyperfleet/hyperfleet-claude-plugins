@@ -169,16 +169,42 @@ Measures the actual risk and urgency of the changes based on reading the PR cont
 | 1 | Minor cleanup, formatting, typo fixes |
 | 0 | Experimental/exploratory changes, spikes |
 
-### How to classify
+### Risk Label Integration (HYPERFLEET-1168)
+
+The Prow risk scoring job (HYPERFLEET-991) applies `risk/low`, `risk/medium`, `risk/high` labels to PRs based on deterministic signals (lines changed, sensitive file paths, test coverage). These labels provide a **floor score** for Factor 4 — the LLM classification can only raise the score, never lower it below the label floor.
+
+| Risk Label | Floor Score | Rationale |
+|------------|-------------|-----------|
+| `risk/high` (4+ points) | 8 | Sensitive paths + large size + missing tests = high-risk change |
+| `risk/medium` (2-3 points) | 6 | Some risk signals present — warrants careful review |
+| `risk/low` (0-1 points) | No floor | LLM classification alone is sufficient |
+| No label | No floor | Fallback to LLM-only classification — no regression |
+
+**Final Factor 4 score = max(label_floor, LLM_classification)**
+
+This means:
+- A `risk/high` PR classified by the LLM as "feature" (score 5) still gets Factor 4 = 8 (the label floor wins)
+- A `risk/low` PR classified by the LLM as "security fix" (score 10) gets Factor 4 = 10 (the LLM wins)
+- PRs without a risk label use LLM classification only (backward compatible)
+
+The risk labels are already available in the PR metadata collected in Step 1 (`collect-data.sh`) — no additional API call is needed.
+
+### How to classify (LLM)
+
+The LLM reads the **full PR diff** (not truncated) to classify the changes. For very large PRs (>3000 lines), the diff stat + file list is used instead.
 
 1. **PR labels**: `security`, `hotfix`, `bug`, `feature`, `refactor`, `docs`
 2. **Branch name**: `hotfix/`, `bugfix/`, `fix/`, `feat/`, `docs/`, `refactor/`
 3. **JIRA ticket type**: Bug, Story, Task, Spike
 4. **JIRA activity type**: Security & Compliance → score 10, Incidents & Support → score 9-10
-5. **PR diff content**: If diff touches security-sensitive files (auth, crypto, permissions), boost score
+5. **PR diff content**: Read the full diff to classify. If diff touches security-sensitive files (auth, crypto, permissions), boost score
 6. **JIRA description**: Read for urgency signals ("production issue", "customer-facing", "blocking release")
 
-**Non-determinism note:** This factor relies on LLM judgment to classify diff content, which may produce slightly different scores across runs. PRs near tier boundaries (e.g., score 74 vs 76) could shift between tiers on consecutive runs. The override rules (CI failing, waiting on author, Blocker boost, etc.) are fully deterministic and not affected. If this skill runs as a scheduled GitHub Action (HYPERFLEET-1030), minor ranking fluctuations between runs are expected and acceptable.
+### Deterministic signals (pre-computed by `score.jq`)
+
+The scoring script pre-computes deterministic signals from labels, branch name, JIRA type, and activity type. These are combined with the risk label floor to produce a `deterministic_floor` for Factor 4. The LLM classification is compared against this floor, and the maximum wins.
+
+**Non-determinism note:** The LLM classification component of this factor may produce slightly different scores across runs. However, the deterministic floor from risk labels ensures that high-risk PRs are never under-scored, even if the LLM classification varies. PRs near tier boundaries (e.g., score 74 vs 76) could still shift between tiers on consecutive runs, but this is limited to the LLM-classified portion only. Override rules (CI failing, waiting on author, Blocker boost, etc.) remain fully deterministic.
 
 ---
 
@@ -223,7 +249,7 @@ Compare against the timestamp of the `CHANGES_REQUESTED` review in `latestReview
 
 If a reviewer (not the PR author, not a bot) has left comments on the PR and the author has not responded, the PR has already received review attention. The ball is in the author's court. This PR should be **deprioritized** in favor of PRs that have received zero attention.
 
-**How to detect outstanding reviewer feedback:** Use the REST API to fetch review comments and general PR comments (see Step 4b in [SKILL.md](SKILL.md)). From the combined results:
+**How to detect outstanding reviewer feedback:** Review comments and general PR comments are collected by `collect-data.sh` (Step 1). From the combined results:
 1. Filter out comments by the PR author and known bots (`coderabbitai`, `openshift-ci[bot]`, `openshift-ci`, `dependabot[bot]`, `renovate[bot]`, `github-actions[bot]`)
 2. Find the most recent reviewer comment date
 3. Find the author's latest activity (most recent commit date OR most recent comment by the author)
@@ -247,7 +273,7 @@ This PR moves to **Tier 4** regardless of other scores — even for Blocker tick
 1. `reviewDecision` is `CHANGES_REQUESTED` and the author has NOT pushed commits since the review was submitted
 2. A reviewer (non-bot, non-author) has commented on the PR AND the author's latest activity (commit or comment) is older than the most recent reviewer comment
 
-In both cases, the reviewer has done their job; the author needs to respond. See [SKILL.md](SKILL.md) override precedence order.
+In both cases, the reviewer has done their job; the author needs to respond. See `apply_overrides` in `score.jq` for the override precedence order.
 
 ---
 
@@ -302,7 +328,7 @@ Any CI failure triggers a Tier 4 override, so the rubric is binary:
 
 ### Check status detection
 
-Gather all checks and statuses from **both** `statusCheckRollup` (GitHub Checks) and the commit status API (Prow, external CI) — see Step 4c in [SKILL.md](SKILL.md) for commands. Combine into one list.
+Gather all checks and statuses from **both** `statusCheckRollup` (GitHub Checks) and the commit status API (Prow, external CI) — collected by `collect-data.sh` and scored by `score.jq`'s `score_factor7`. Combine into one list.
 
 **Exclusions:** Do not count `tide` (merge-readiness gate) or all-null entries (checks not configured). Do not count PRs with `needs-ok-to-test` label as failing (process gate, score as pending).
 
@@ -316,7 +342,7 @@ Then classify:
 
 ### Override: Any CI failing
 
-If **any** CI check or commit status is failing, the PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. One failing check is enough. The author needs to fix CI before reviewers spend time on it. See [SKILL.md](SKILL.md) override precedence order.
+If **any** CI check or commit status is failing, the PR moves to **Tier 4** regardless of other scores — even for Blocker tickets. One failing check is enough. The author needs to fix CI before reviewers spend time on it. See `apply_overrides` in `score.jq` for the override precedence order.
 
 ---
 
@@ -340,6 +366,32 @@ Higher story points indicate more impactful work sitting idle, though story poin
 ### When JIRA is unavailable
 
 If jira CLI is not available, this factor defaults to a score of **2** for all PRs. Confidence is reduced.
+
+---
+
+## Tier Assignment
+
+The final weighted score maps to a tier. Overrides take precedence over score-based assignment.
+
+### Score-based thresholds
+
+| Tier | Score Range | Meaning |
+|------|------------|---------|
+| Tier 1 — Immediate Attention | ≥ 75 | Drop what you're doing |
+| Tier 2 — Should Review Soon | 50–74 | Today or tomorrow |
+| Tier 3 — This Week | 25–49 | This week |
+| Tier 4 — Informational | < 25 | Not actionable for reviewers right now |
+
+### Override-based assignment
+
+Applied by `score.jq`'s `apply_overrides` in this precedence order (first match wins):
+
+1. CI failing → Tier 4
+2. Waiting on author → Tier 4
+3. Merge conflicts → Tier 4
+4. Draft → Tier 4
+5. JIRA Blocker/Critical → Tier 1
+6. No JIRA ticket → capped at Tier 3
 
 ---
 
