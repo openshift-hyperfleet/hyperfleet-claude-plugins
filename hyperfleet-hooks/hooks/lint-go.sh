@@ -23,8 +23,17 @@ if ! command -v golangci-lint &>/dev/null; then
 fi
 
 LINT_DIR=$(dirname -- "$FILE_PATH")
-LINT_OUTPUT=$(golangci-lint run -- "$LINT_DIR" 2>&1) && exit 0
+LINT_OUTPUT=$(golangci-lint run -- "$LINT_DIR" 2>&1)
+RETCODE=$?
 
-echo "golangci-lint found issues in $LINT_DIR:" >&2
-echo "$LINT_OUTPUT" >&2
-exit 2
+if [[ $RETCODE -eq 0 ]]; then
+  exit 0
+elif [[ $RETCODE -eq 1 ]]; then
+  echo "golangci-lint found issues in $LINT_DIR:" >&2
+  echo "$LINT_OUTPUT" >&2
+  exit 2
+else
+  echo "golangci-lint failed to run (exit $RETCODE):" >&2
+  echo "$LINT_OUTPUT" >&2
+  exit 1
+fi
