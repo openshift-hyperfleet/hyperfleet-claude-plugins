@@ -19,7 +19,7 @@ Before making any changes:
 | Skill definitions | `<plugin>/skills/<skill-name>/SKILL.md` |
 | Command definitions | `<plugin>/commands/<name>.md` |
 | Agent definitions | `<plugin>/agents/<name>/AGENT.md` |
-| Hook definitions | `<plugin>/hooks/` (none currently used) |
+| Hook definitions | `<plugin>/hooks/` |
 | PR approval ownership | `<plugin>/OWNERS` (k8s-style) |
 | Contributor guide | `CONTRIBUTING.md` |
 | Skill reference data | `<plugin>/skills/<skill-name>/references/` |
@@ -27,17 +27,18 @@ Before making any changes:
 
 ## Plugin Inventory
 
-| Plugin | Skills | Commands | Agents | Version |
-|--------|:------:|:--------:|:------:|---------|
-| `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | 0.7.0 |
-| `hyperfleet-jira` | 4 | 6 | - | 0.5.1 |
-| `hyperfleet-architecture` | 1 | - | - | 0.2.0 |
-| `hyperfleet-standards` | 1 | - | - | 1.1.0 |
-| `hyperfleet-operational-readiness` | 1 | - | - | 0.2.0 |
-| `hyperfleet-devtools` | 3 | 1 | 1 | 0.5.0 |
-| `hyperfleet-bugs-triage` | 1 | - | - | 0.1.0 |
-| `hyperfleet-adapter-authoring` | 1 | - | - | N/A |
-| `hyperfleet-release` | 1 (`release-notes`) | - | - | 0.1.0 |
+| Plugin | Skills | Commands | Agents | Hooks | Version |
+|--------|:------:|:--------:|:------:|:-----:|---------|
+| `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | - | 0.7.0 |
+| `hyperfleet-jira` | 4 | 6 | - | - | 0.5.1 |
+| `hyperfleet-architecture` | 1 | - | - | - | 0.2.0 |
+| `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
+| `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
+| `hyperfleet-devtools` | 3 | 1 | 1 | - | 0.5.0 |
+| `hyperfleet-bugs-triage` | 1 | - | - | - | 0.1.0 |
+| `hyperfleet-hooks` | - | - | - | 1 | 0.1.0 |
+| `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |
+| `hyperfleet-release` | 1 (`release-notes`) | - | - | - | 0.1.0 |
 
 
 ## Skill Format
@@ -64,8 +65,9 @@ Dynamic context uses `` !`command` `` syntax — runs at skill load time, not at
 
 Primarily Markdown and JSON, but also includes:
 
-- **Shell scripts** used for dynamic context and CI:
+- **Shell scripts**:
   - `hyperfleet-devtools/skills/architecture-impact/ensure_arch_repo.sh`
+  - `hyperfleet-hooks/hooks/lint-go.sh`
   - `hyperfleet-jira/scripts/check-setup.sh`
   - `hyperfleet-code-review/ci/install-plugins.sh`
   - `hyperfleet-code-review/scripts/fetch-standards.sh`

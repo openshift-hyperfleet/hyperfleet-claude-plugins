@@ -50,6 +50,7 @@ Questions or feedback? Open an issue in this repository.
 ### Development Tools
 - **hyperfleet-devtools** - Commit message generation, architecture impact analysis
 - **hyperfleet-code-review** - Local branch review and PR review with automated checks and architecture validation
+- **hyperfleet-hooks** - Automated quality checks
 
 ### JIRA Integration
 - **hyperfleet-jira** - Task management, sprint status, team updates, ticket creation and triage

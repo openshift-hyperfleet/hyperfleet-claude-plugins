@@ -1,0 +1,28 @@
+{
+  "description": "Claude Code hooks for automated quality checks",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(*.go)",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/lint-go.sh",
+            "args": [],
+            "timeout": 60,
+            "statusMessage": "Running golangci-lint..."
+          },
+          {
+            "type": "command",
+            "if": "Write(*.go)",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/lint-go.sh",
+            "args": [],
+            "timeout": 60,
+            "statusMessage": "Running golangci-lint..."
+          }
+        ]
+      }
+    ]
+  }
+}

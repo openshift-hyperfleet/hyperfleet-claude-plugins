@@ -44,6 +44,11 @@
       "name": "hyperfleet-release",
       "source": "./hyperfleet-release",
       "description": "Release tooling for HyperFleet: /release-notes generates a deterministic release-notes draft from the release manifest and git history, categorizing real commits (feat/fix/security/perf) for human curation."
+    },
+    {
+      "name": "hyperfleet-hooks",
+      "source": "./hyperfleet-hooks",
+      "description": "Claude Code hooks for automated quality checks"
     }
   ]
 }
