@@ -1,5 +1,4 @@
 approvers:
-- "86254860"
 - aredenba-rh
 - ciaranRoche
 - crizzo71
@@ -14,12 +13,13 @@ approvers:
 - sherine-k
 - tirthct
 - vkareh
-- xueli181114
-- yasun1
-- yingzhanredhat
+- kuudori
+- ma-hill
+- ldornele
+- sherine-k
+- mliptak0
 
 reviewers:
-- "86254860"
 - aredenba-rh
 - ciaranRoche
 - crizzo71
@@ -34,6 +34,8 @@ reviewers:
 - sherine-k
 - tirthct
 - vkareh
-- xueli181114
-- yasun1
-- yingzhanredhat
+- kuudori
+- ma-hill
+- ldornele
+- sherine-k
+- mliptak0
