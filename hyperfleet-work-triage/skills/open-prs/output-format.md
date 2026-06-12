@@ -2,7 +2,7 @@
 
 This document defines the output format for the `/open-prs` skill. There are three modes:
 
-- **Default (compact):** A ranked list grouped by tier. Shows PR title, URL, linked JIRA ticket, confidence score, and tier.
+- **Default (compact):** A ranked list grouped by tier. Shows PR title, URL, linked JIRA ticket, review status with age, and tier.
 - **`--slack` (Slack-ready):** Paste-ready output for Slack channels. No markdown tables, Slack-native formatting. Shows Tier 1-2 (or 1-3 if ≤ 10 PRs). Tier 4 never shown.
 - **`--explain` (detailed):** Full output with per-PR reasoning, factor breakdowns, flags & warnings, and summary statistics.
 
@@ -37,31 +37,31 @@ Show each non-empty tier as a compact table. Omit empty tiers entirely.
 ```text
 ### Tier 1 (N PRs)
 
-| # | PR | JIRA | Confidence |
-|---|----|------|------------|
-| 1 | [repo#number](url) — PR title | TICKET-KEY | Very High (92%) |
-| 2 | [repo#number](url) — PR title | TICKET-KEY | High (78%) |
+| # | PR | Status |
+|---|----|--------|
+| 1 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Approved, 2d |
+| 2 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | No reviews, 5d |
 
 ### Tier 2 (N PRs)
 
-| # | PR | JIRA | Confidence |
-|---|----|------|------------|
-| 3 | [repo#number](url) — PR title | TICKET-KEY | High (80%) |
+| # | PR | Status |
+|---|----|--------|
+| 3 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | In review, 3d |
 
 ### Tier 3 (N PRs)
 
-| # | PR | JIRA | Confidence |
-|---|----|------|------------|
-| 6 | [repo#number](url) — PR title | No ticket | Medium (55%) |
+| # | PR | Status |
+|---|----|--------|
+| 6 | [repo#number](url) — PR title without ticket | No reviews, 1d |
 
 ### Tier 4 (N PRs)
 
-| PR | JIRA | Status |
-|----|------|--------|
-| [repo#number](url) — PR title | TICKET-KEY | Draft |
-| [repo#number](url) — PR title | TICKET-KEY | Waiting on author |
-| [repo#number](url) — PR title | TICKET-KEY | CI failing |
-| [repo#number](url) — PR title | TICKET-KEY | Merge conflicts |
+| PR | Status |
+|----|--------|
+| [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Draft |
+| [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Waiting on author |
+| [repo#number](url) — PR title without ticket | CI failing |
+| [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Merge conflicts |
 ```
 
 **Column definitions (compact):**
@@ -69,10 +69,8 @@ Show each non-empty tier as a compact table. Omit empty tiers entirely.
 | Column | Content | Example |
 |--------|---------|---------|
 | # | Rank position (continuous across tiers 1-3) | `1` |
-| PR | `[repo#number](url) — PR title` | `[hyperfleet-api#115](https://...) — Deletion observability metrics` |
-| JIRA | `TICKET-KEY` or `No ticket` | `HYPERFLEET-856` |
-| Confidence | Label and percentage | `Very High (92%)` |
-| Status | Tier 4 only — reason for informational status | `Draft`, `Waiting on author`, `CI failing`, `Merge conflicts` |
+| PR | `[repo#number](url) — title`. The repo#number links to the GitHub PR. If a JIRA ticket key appears in the title, it is replaced with a link to the JIRA ticket. | `[hyperfleet-api#115](https://...) — [HYPERFLEET-856](https://redhat.atlassian.net/browse/HYPERFLEET-856) - fix: Deletion observability metrics` |
+| Status | Review state and age. Tiers 1-3: `Approved, 2d`, `No reviews, 5d`, `In review, 3d`. Tier 4: reason for informational status (`Draft`, `Waiting on author`, `CI failing`, `Merge conflicts`) | `No reviews, 5d` |
 
 ### Recommendation
 
@@ -108,11 +106,6 @@ When the user passes `--slack`, produce Slack mrkdwn output with inline links fo
 - JIRA links: `<https://redhat.atlassian.net/browse/TICKET-KEY|TICKET-KEY>` — renders as clickable underlined text
 - No markdown tables — use bullet lists
 
-**Confidence emoji:**
-- 🟢 for High / Very High (≥ 70%)
-- 🟡 for Medium (50-69%)
-- 🔴 for Low (< 50%)
-
 **Tier visibility rules:**
 - If total PRs > 10: show only Tier 1 and Tier 2 (unless neither has PRs — then show Tier 3 so the output isn't empty)
 - If total PRs ≤ 10: show Tiers 1, 2, and 3
@@ -136,11 +129,11 @@ _YYYY-MM-DD HH:MM UTC | N PRs across M repos_
 
 🟡 *Tier 2 — Should Review Soon (N PRs)*
 
-• 🟢 *[High 74%]* — <https://github.com/openshift-hyperfleet/hyperfleet-api-spec/pull/44|`hyperfleet-api-spec #44`> : Add PUT for internal status endpoints | <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978>
+• <https://github.com/openshift-hyperfleet/hyperfleet-api-spec/pull/44|`hyperfleet-api-spec #44`> : <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978> - feat: Add PUT for internal status endpoints — _In review, 3d_
 
-• 🟢 *[High 74%]* — <https://github.com/openshift-hyperfleet/architecture/pull/137|`architecture #137`> : Change status endpoint from POST to PUT | <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978>
+• <https://github.com/openshift-hyperfleet/architecture/pull/137|`architecture #137`> : <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978> - fix: Change status endpoint from POST to PUT — _No reviews, 5d_
 
-• 🟡 *[Med 66%]* — <https://github.com/openshift-hyperfleet/architecture/pull/122|`architecture #122`> : Config Driven Generic Resource API Design | <https://redhat.atlassian.net/browse/HYPERFLEET-896|HYPERFLEET-896>
+• <https://github.com/openshift-hyperfleet/architecture/pull/122|`architecture #122`> : <https://redhat.atlassian.net/browse/HYPERFLEET-896|HYPERFLEET-896> - feat: Config Driven Generic Resource API Design — _Approved, 2d_
 
 _N more PRs in Tier 3-4. Run `/open-prs` for full list._
 ```
@@ -150,14 +143,12 @@ _N more PRs in Tier 3-4. Run `/open-prs` for full list._
 Each PR is a single bullet line:
 
 ```text
-• CONFIDENCE_EMOJI *[LABEL XX%]* — <PR_URL|`repo #number`> : PR title | <JIRA_URL|TICKET-KEY>
+• <PR_URL|`repo #number`> : <JIRA_URL|TICKET-KEY> - type: PR title — _review status, age_
 ```
 
-- **Confidence emoji:** 🟢 High/Very High, 🟡 Medium, 🔴 Low
-- **Confidence label:** `*[High 74%]*` or `*[Med 66%]*` or `*[Low 45%]*` — bold, abbreviated
 - **PR link:** `<github-url|` `` `repo #number` `` `>` — inline code-styled clickable link
-- **PR title:** plain text after the colon
-- **JIRA link:** `<jira-url|TICKET-KEY>` — clickable underlined text. If no ticket, show `No ticket` (no link)
+- **Title with inline JIRA link:** The JIRA ticket key in the title is replaced with a Slack link to the ticket. PRs without a ticket key show the title as-is.
+- **Status suffix:** review state and age in italics — e.g., `_No reviews, 5d_`, `_Approved, 2d_`, `_In review, 3d_`
 
 Each PR is one bullet point — no multi-line entries.
 
@@ -465,6 +456,11 @@ Always show both the label and percentage:
 | 70-84% | `High (XX%)` |
 | 50-69% | `Medium (XX%)` |
 | < 50% | `Low (XX%)` |
+
+**Confidence emoji** (used in `--explain` per-PR blocks):
+- 🟢 for High / Very High (≥ 70%)
+- 🟡 for Medium (50-69%)
+- 🔴 for Low (< 50%)
 
 ---
 
