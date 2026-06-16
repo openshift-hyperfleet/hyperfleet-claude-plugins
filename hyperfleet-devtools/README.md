@@ -154,6 +154,37 @@ Implements E2E test automation code from designed test case documents. Generates
 
 See [skills/e2e-test-automation/SKILL.md](./skills/e2e-test-automation/SKILL.md) for detailed documentation.
 
+---
+
+### 🔍 E2E CI Failure Debugger
+
+**Status**: ✅ Production Ready
+
+Analyzes HyperFleet E2E CI pipeline failures and provides structured root cause analysis.
+
+**What It Does**:
+- Walks the entire GCS artifact tree — every file, every directory, no shortcuts
+- Reconstructs a precise timeline with timestamps, node names, chart versions
+- Matches errors against 30+ documented failure patterns
+- Checks recent commits, PRs, and JIRA with time-bounded queries
+- Cross-run comparison: detects GKE version changes, config drift, code changes
+- Live cluster inspection via kubectl/gcloud (pod state, GKE node operations, Maestro DB)
+- Forensic certification gate with confidence scoring (HIGH/MEDIUM/LOW)
+
+**Usage**:
+
+```text
+# Debug a specific Prow run
+/hyperfleet-devtools:e2e-debug https://prow.ci.openshift.org/view/gs/test-platform-results/logs/periodic-ci-...-tier0-nightly/2058843047478693888
+
+# Debug the latest run of a job
+/hyperfleet-devtools:e2e-debug periodic-ci-openshift-hyperfleet-hyperfleet-e2e-main-e2e-tier0-nightly
+```
+
+**External Systems Accessed**: Prow/GCS artifacts (public, no auth), GitHub API (`gh` CLI), JIRA (`jira` CLI), Kubernetes (`kubectl`), Google Cloud (`gcloud`), Maestro REST API (via `kubectl port-forward`). Only `gh` is required — all others are optional with graceful degradation.
+
+See [skills/e2e-debug/SKILL.md](./skills/e2e-debug/SKILL.md) for detailed documentation.
+
 ## Installation
 
 This plugin is part of the HyperFleet Claude Plugins marketplace and is automatically available when you install the marketplace.
@@ -174,6 +205,7 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 # - hyperfleet-devtools:architecture-impact
 # - hyperfleet-devtools:e2e-test-design
 # - hyperfleet-devtools:e2e-test-automation
+# - hyperfleet-devtools:e2e-debug
 ```
 
 ## Configuration
@@ -206,7 +238,10 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.5.0 - Current Release
+### v0.6.0 - Current Release
+- ✅ **E2E CI Failure Debugger**: Analyze Prow/GHA pipeline failures with structured root cause analysis
+
+### v0.5.0
 - ✅ **E2E Test Automation**: Generate Ginkgo/Gomega test code from designed test case documents
 - ✅ **E2E Test Case Designer**: Systematic E2E test case design with traceability, risk assessment, and coverage verification
 - ✅ **Commit Message Generator**: Auto-generate standardized commit messages with JIRA ticket detection
@@ -250,6 +285,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.5.0
-**Last Updated**: 2026-04-02
+**Version**: 0.6.0
+**Last Updated**: 2026-06-15
 **Status**: ✅ Production Ready
