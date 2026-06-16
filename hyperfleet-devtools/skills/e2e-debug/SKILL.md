@@ -44,7 +44,17 @@ Load these files as needed during analysis:
 | `github.com/.../actions/runs/...` | GitHub Actions | Extract repo and run ID |
 | `gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/...` | GCS artifact link | Navigate directly to the artifact |
 | A job name like `periodic-ci-...-tier0-nightly` | Prow job name | Fetch `latest-build.txt` from the job's GCS directory to get the most recent run ID |
-| A JIRA ticket like `HYPERFLEET-XXXX` | JIRA reference | Validate format matches `^[A-Z]+-[0-9]+$` before use. Then fetch the ticket, look for pipeline links in comments |
+| A JIRA ticket like `HYPERFLEET-XXXX` | JIRA reference | Validate format, then fetch the ticket and look for pipeline links in comments (see validation below) |
+
+**JIRA ticket validation** (when input is a JIRA reference):
+```bash
+JIRA_INPUT="$ARGUMENTS"
+if ! echo "$JIRA_INPUT" | grep -qE '^[A-Z]+-[0-9]+$'; then
+  echo "ERROR: Invalid JIRA ticket format. Expected: HYPERFLEET-1234. Received: $JIRA_INPUT" >&2
+  # Stop — do not pass unvalidated input to jira CLI
+fi
+jira issue view "$JIRA_INPUT" --plain 2>/dev/null
+```
 
 ### 1b. Validate the run state
 
