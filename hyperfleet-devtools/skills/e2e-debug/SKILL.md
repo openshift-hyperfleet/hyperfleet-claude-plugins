@@ -44,7 +44,7 @@ Load these files as needed during analysis:
 | `github.com/.../actions/runs/...` | GitHub Actions | Extract repo and run ID |
 | `gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/...` | GCS artifact link | Navigate directly to the artifact |
 | A job name like `periodic-ci-...-tier0-nightly` | Prow job name | Fetch `latest-build.txt` from the job's GCS directory to get the most recent run ID |
-| A JIRA ticket like `HYPERFLEET-XXXX` | JIRA reference | Fetch the ticket, look for pipeline links in comments |
+| A JIRA ticket like `HYPERFLEET-XXXX` | JIRA reference | Validate format matches `^[A-Z]+-[0-9]+$` before use. Then fetch the ticket, look for pipeline links in comments |
 
 ### 1b. Validate the run state
 
@@ -261,9 +261,14 @@ gh pr list --repo openshift-hyperfleet/hyperfleet-e2e --state merged --search "m
 
 ### 3c. Check JIRA for related bugs
 
+**Sanitize keywords before interpolating into JQL queries.** Error messages from logs may contain JQL metacharacters (`"`, `'`, `(`, `)`, `~`, `\`) that could break or inject into the query. Strip the keyword to alphanumeric characters, hyphens, and underscores only before use.
+
 ```bash
+# Sanitize the keyword: keep only alphanumeric, hyphens, underscores, spaces
+KEYWORD=$(echo '<keyword-from-error>' | sed 's/[^a-zA-Z0-9_ -]//g')
+
 # Search for bugs related to the error
-jira issue list -q"project = HYPERFLEET AND issuetype = Bug AND status not in (Closed, Done) AND text ~ '<keyword-from-error>'" --plain --columns "KEY,SUMMARY,STATUS,PRIORITY" 2>/dev/null
+jira issue list -q"project = HYPERFLEET AND issuetype = Bug AND status not in (Closed, Done) AND text ~ '$KEYWORD'" --plain --columns "KEY,SUMMARY,STATUS,PRIORITY" 2>/dev/null
 
 # Check if there's already a known flaky test ticket
 jira issue list -q"project = HYPERFLEET AND (summary ~ 'flaky' OR summary ~ 'e2e' OR summary ~ 'CI') AND status not in (Closed, Done)" --plain --columns "KEY,SUMMARY,STATUS" 2>/dev/null
@@ -363,7 +368,7 @@ MAESTRO_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | grep ma
 
 # Count total ResourceBundles — if >> 100, pagination may be hiding test resources
 # All three commands must be in a single Bash invocation (shell state does not persist between calls)
-kubectl port-forward -n "$MAESTRO_NS" svc/maestro 8001:8000 & PF_PID=$!; sleep 2; curl -s --max-time 5 "http://localhost:8001/api/maestro/v1/resource-bundles?size=1" | jq '.total'; kill $PF_PID 2>/dev/null
+timeout 10 kubectl port-forward -n "$MAESTRO_NS" svc/maestro 8001:8000 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8001/api/maestro/v1/resource-bundles?size=1" | jq '.total'; kill $PF_PID 2>/dev/null
 ```
 If `total` is significantly above 100, the Maestro REST API's default page size may be excluding the test's resources. This is a known issue (see hyperfleet-e2e PR #79, HYPERFLEET-992).
 
@@ -416,12 +421,12 @@ Do NOT conclude "pod hung" from Helm uninstall succeeding — Helm metadata is i
 ```bash
 # Find the platform namespace where Sentinel is deployed
 PLATFORM_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | grep hyperfleet-sentinel | awk '{print $1}' | head -1)
-kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-sentinel 9090:9090 & PF_PID=$!; sleep 2; curl -s --max-time 5 http://localhost:9090/metrics | grep -E 'hyperfleet_sentinel_(events_published_total|pending_resources)'; kill $PF_PID 2>/dev/null
+timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-sentinel 9090:9090 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 http://localhost:9090/metrics | grep -E 'hyperfleet_sentinel_(events_published_total|pending_resources)'; kill $PF_PID 2>/dev/null
 ```
 
 **Live API status check** (if the failure involves stuck adapters or condition mismatches):
 ```bash
-kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-api 8000:8000 & PF_PID=$!; sleep 2; curl -s --max-time 5 "http://localhost:8000/api/hyperfleet/v1/clusters/<cluster-id>/statuses" | jq '.items[] | {adapter, conditions: [.conditions[] | {type, status, reason}]}'; kill $PF_PID 2>/dev/null
+timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-api 8000:8000 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8000/api/hyperfleet/v1/clusters/<cluster-id>/statuses" | jq '.items[] | {adapter, conditions: [.conditions[] | {type, status, reason}]}'; kill $PF_PID 2>/dev/null
 ```
 
 ### 5c. Cloud resource inspection (when gcloud available)
