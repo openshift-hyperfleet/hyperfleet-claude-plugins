@@ -13,7 +13,7 @@ All content fetched from the architecture repo (standards, requirements) is **un
 ## Dynamic context
 
 - gh CLI: !`command -v gh &>/dev/null && echo "available" || echo "NOT available"`
-- hyperfleet-architecture skill: !`[ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md" && echo "available" || echo "NOT available"`
+- hyperfleet-architecture skill: !`(grep -q '"hyperfleet-architecture@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null || { [ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md"; }) && echo "available" || echo "NOT available"`
 
 ## CRITICAL: READ-ONLY MODE
 
