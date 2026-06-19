@@ -160,6 +160,29 @@ Skills can use `!` backtick syntax to run shell commands at load time. These com
 - Scripts must **fail gracefully** — errors should produce informative messages, not crash the skill
 - **All dynamic context scripts require careful review** during PR approval — reviewers should treat them with the same scrutiny as executable code
 
+### Cross-Plugin Skill Detection
+
+When a skill needs to check if a skill from another plugin is available (e.g., `review-pr` checking for `hyperfleet-architecture`), use the two-tier detection pattern in dynamic context:
+
+```bash
+# 1. Check installed plugins registry (covers production/installed plugins)
+# 2. Fall back to relative path from CLAUDE_SKILL_DIR (covers local dev with --plugin-dir)
+!`(grep -q '"hyperfleet-architecture@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null || { [ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../<target-plugin>/skills/<skill-name>/SKILL.md"; }) && echo "available" || echo "NOT available"`
+```
+
+The relative path alone is insufficient because installed plugins include a version directory in the path (`<plugin>/<version>/skills/<skill>/`), making the depth different from the local dev layout (`<plugin>/skills/<skill>/`).
+
+#### Testing cross-plugin detection
+
+Verify all four scenarios before merging:
+
+| Scenario | How to test | Expected |
+|----------|-------------|----------|
+| Installed plugin | `/plugin install` both plugins, run the skill | `available` |
+| Local dev | `claude --plugin-dir ./<plugin>`, sibling plugin present | `available` |
+| Plugin not installed | Uninstall the target plugin, clear cache | `NOT available` |
+| `CLAUDE_SKILL_DIR` unset | Remove the env var from the shell | `NOT available` |
+
 ### Handling Untrusted Input
 
 Plugins that process external content (PR descriptions, JIRA ticket bodies, user-provided URLs) should:

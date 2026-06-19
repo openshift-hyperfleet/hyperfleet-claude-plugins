@@ -20,7 +20,7 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 - gh CLI: !`command -v gh &>/dev/null && echo "available" || echo "NOT available"`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 - GitHub user: !`gh api user -q '.login' 2>/dev/null || echo "unknown"`
-- hyperfleet-architecture skill: !`[ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md" && echo "available" || echo "NOT available"`
+- hyperfleet-architecture skill: !`(grep -q '"hyperfleet-architecture@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null || { [ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md"; }) && echo "available" || echo "NOT available"`
 
 ## Arguments
 
