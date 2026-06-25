@@ -150,6 +150,16 @@ jobs:
             exit 1
           fi
 
+          # Strip any LLM reasoning text before the actual Slack mrkdwn content.
+          # The formatted output always starts with an emoji header matching format-output.jq:
+          # 🚨 (Tier 1), 🟡 (Tier 2), 🟢 (Tier 3 / no PRs), 🔴 (all Tier 4), 🔵 (Tier 4 items).
+          CONTENT="$(printf '%s' "$CONTENT" | sed -n '/^[🟡🚨🟢🔵🔴]/,$p')"
+
+          if [ -z "$CONTENT" ]; then
+            echo "::error::Could not find Slack mrkdwn markers in Claude output"
+            exit 1
+          fi
+
           PAYLOAD="$(printf '%s' "$CONTENT" | sed '/^---$/d' | jq -Rs '
             split("\n") as $lines |
             reduce $lines[] as $line (
