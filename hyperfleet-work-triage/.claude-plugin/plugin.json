@@ -1,6 +1,6 @@
 {
   "name": "hyperfleet-work-triage",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Work triage skills for HyperFleet: /bugs-triage for interactive JIRA bug and GitHub issue triage. /open-prs surfaces and prioritizes open PRs across the org using GitHub + JIRA context with multi-factor scoring and confidence levels.",
   "author": {
     "name": "Rafael Benevides",

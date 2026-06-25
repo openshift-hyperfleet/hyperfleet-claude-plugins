@@ -92,7 +92,7 @@ jobs:
           ' "$SKILL" > "$RESOLVED"
 
       - name: Run /open-prs via Claude
-        uses: anthropics/claude-code-action@537ffff2eff706bd7e3e1c3daf2d4b39067a9f85 # v1
+        uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1
         id: claude
         with:
           use_vertex: "true"
@@ -103,7 +103,7 @@ jobs:
             Output ONLY the final Slack mrkdwn content — no surrounding explanation or code blocks.
           claude_args: >-
             --append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved
-            --allowedTools Bash,Read
+            --allowedTools Bash,Read,Glob,Grep
         env:
           ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
           CLOUD_ML_REGION: global
@@ -114,12 +114,16 @@ jobs:
         env:
           OUTPUT_FILE: ${{ steps.claude.outputs.execution_file }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL_ERRORS: ${{ secrets.SLACK_WEBHOOK_URL_ERRORS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          set -euo pipefail
           if [ ! -f "$OUTPUT_FILE" ] || [ ! -s "$OUTPUT_FILE" ]; then
             echo "::error::Claude output file is missing or empty"
             exit 1
           fi
 
+          IS_ERROR="$(jq -r 'map(select(.type == "result")) | last | .is_error // false' "$OUTPUT_FILE" 2>/dev/null)"
           CONTENT="$(jq -r 'map(select(.type == "result")) | last | .result // empty' "$OUTPUT_FILE" 2>/dev/null)"
 
           if [ -z "$CONTENT" ]; then
@@ -128,6 +132,21 @@ jobs:
 
           if [ -z "$CONTENT" ]; then
             echo "::error::Could not extract result from Claude output"
+            exit 1
+          fi
+
+          # Detect error results: is_error flag, or missing expected Slack format markers
+          if [ "$IS_ERROR" = "true" ] || ! printf '%s' "$CONTENT" | grep -q 'Open PRs'; then
+            echo "::warning::Claude produced an error or unexpected output — routing to errors channel"
+            MESSAGE=$(printf '🔴 *Open PRs Digest — unexpected output*\n_%s_\n\n```\n%.500s\n```\n\nWorkflow run: %s' \
+              "$(date -u '+%Y-%m-%d %H:%M UTC')" "$CONTENT" "$RUN_URL")
+            HTTP_CODE="$(curl --connect-timeout 10 --max-time 30 --retry 2 --retry-delay 2 --retry-connrefused -sS -o /dev/null -w "%{http_code}" \
+              -X POST "$SLACK_WEBHOOK_URL_ERRORS" \
+              -H 'Content-Type: application/json' \
+              -d "$(jq -n --arg text "$MESSAGE" '{"text": $text}')")"
+            if [ "$HTTP_CODE" -ne 200 ]; then
+              echo "::error::Error Slack webhook returned HTTP $HTTP_CODE"
+            fi
             exit 1
           fi
 

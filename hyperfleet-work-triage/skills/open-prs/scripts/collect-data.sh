@@ -339,39 +339,40 @@ wait
 echo "Assembling results..." >&2
 
 assemble_pr() {
-  local pr_json="$1"
+  local pr_file="$1"
   local repo number title author_login
 
-  repo=$(echo "$pr_json" | jq -r '.repo')
-  number=$(echo "$pr_json" | jq -r '.number')
-  title=$(echo "$pr_json" | jq -r '.title')
-  author_login=$(echo "$pr_json" | jq -r '.author.login')
+  repo=$(jq -r '.repo' "$pr_file")
+  number=$(jq -r '.number' "$pr_file")
+  title=$(jq -r '.title' "$pr_file")
+  author_login=$(jq -r '.author.login' "$pr_file")
 
   local jira_keys
   jira_keys=$(echo "$title" | grep -oE '(HYPERFLEET|ROSAENG|AIHCM)-[0-9]+' || true)
 
-  local jira_data='{}'
+  local jira_data_file="$TMPDIR_WORK/assembled/_jira_${repo}_${number}.json"
+  echo '{}' > "$jira_data_file"
   if [ -n "$jira_keys" ]; then
     for key in $jira_keys; do
       local jira_file="$TMPDIR_WORK/jira/${key}.json"
       if [ -f "$jira_file" ]; then
-        jira_data=$(echo "$jira_data" | jq --arg k "$key" --slurpfile v "$jira_file" '. + {($k): $v[0]}')
+        jq --arg k "$key" --slurpfile v "$jira_file" '. + {($k): $v[0]}' "$jira_data_file" > "${jira_data_file}.tmp" \
+          && mv "${jira_data_file}.tmp" "$jira_data_file"
       fi
     done
   fi
 
   local details_file="$TMPDIR_WORK/pr_details/${repo}_${number}.json"
-  local details='{}'
-  if [ -f "$details_file" ]; then
-    details=$(cat "$details_file")
+  if [ ! -f "$details_file" ]; then
+    echo '{}' > "$details_file"
   fi
 
   local risk_label
-  risk_label=$(echo "$pr_json" | jq -r '[.labels[]?.name // empty | select(startswith("risk/"))] | first // ""')
+  risk_label=$(jq -r '[.labels[]?.name // empty | select(startswith("risk/"))] | first // ""' "$pr_file")
 
-  echo "$pr_json" | jq -c \
-    --argjson details "$details" \
-    --argjson jira_data "$jira_data" \
+  jq -c \
+    --slurpfile details "$details_file" \
+    --slurpfile jira_data "$jira_data_file" \
     --arg author_login "$author_login" \
     --arg risk_label "$risk_label" \
     --argjson jira_keys "$(echo "$jira_keys" | jq -R -s 'split("\n") | map(select(. != ""))')" \
@@ -393,39 +394,50 @@ assemble_pr() {
       review_decision: .reviewDecision,
       latest_reviews: .latestReviews,
       status_check_rollup: .statusCheckRollup,
-      mergeable: ($details.mergeable // "UNKNOWN"),
-      latest_commit_date: ($details.latest_commit_date // ""),
-      commit_status: ($details.commit_status // {}),
-      review_comments: ($details.review_comments // []),
-      issue_comments: ($details.issue_comments // []),
-      diff_excerpt: ($details.diff_excerpt // ""),
+      mergeable: ($details[0].mergeable // "UNKNOWN"),
+      latest_commit_date: ($details[0].latest_commit_date // ""),
+      commit_status: ($details[0].commit_status // {}),
+      review_comments: ($details[0].review_comments // []),
+      issue_comments: ($details[0].issue_comments // []),
+      diff_excerpt: ($details[0].diff_excerpt // ""),
       jira_keys: $jira_keys,
-      jira_data: $jira_data
-    }'
+      jira_data: $jira_data[0]
+    }' "$pr_file"
 }
 
-RESULT_PRS="[]"
+mkdir -p "$TMPDIR_WORK/assembled"
 
+PR_INDEX=0
 while IFS= read -r pr_line; do
   [ -z "$pr_line" ] && continue
-  assembled=$(assemble_pr "$pr_line")
+  pr_input_file="$TMPDIR_WORK/assembled/input_${PR_INDEX}.json"
+  printf '%s\n' "$pr_line" > "$pr_input_file"
+  assembled=$(assemble_pr "$pr_input_file")
   if [ -n "$assembled" ]; then
-    RESULT_PRS=$(echo "$RESULT_PRS" | jq --argjson pr "$assembled" '. + [$pr]')
+    printf '%s\n' "$assembled" > "$TMPDIR_WORK/assembled/pr_${PR_INDEX}.json"
   fi
+  PR_INDEX=$((PR_INDEX + 1))
 done < <(jq -c '.[]' "$ALL_PRS")
 
+RESULT_FILE="$TMPDIR_WORK/result_prs.json"
+if compgen -G "$TMPDIR_WORK"/assembled/pr_*.json > /dev/null 2>&1; then
+  jq -s '.' "$TMPDIR_WORK"/assembled/pr_*.json > "$RESULT_FILE"
+else
+  echo '[]' > "$RESULT_FILE"
+fi
+
 if [ -n "$COMPONENT_FILTER" ] && [ "$JIRA_AVAILABLE" = true ]; then
-  RESULT_PRS=$(echo "$RESULT_PRS" | jq --arg comp "$COMPONENT_FILTER" '[
+  jq --arg comp "$COMPONENT_FILTER" '[
     .[] | select(
       .jira_data as $jd |
       (.jira_keys | length > 0) and
       (.jira_keys | any(. as $k | $jd[$k].components // [] | any(. == $comp)))
     )
-  ]')
-  TOTAL_PRS=$(echo "$RESULT_PRS" | jq 'length')
+  ]' "$RESULT_FILE" > "${RESULT_FILE}.tmp" && mv "${RESULT_FILE}.tmp" "$RESULT_FILE"
+  TOTAL_PRS=$(jq 'length' "$RESULT_FILE")
 fi
 
-REPOS_WITH_PRS=$(echo "$RESULT_PRS" | jq '[.[].repo] | unique | length')
+REPOS_WITH_PRS=$(jq '[.[].repo] | unique | length' "$RESULT_FILE")
 
 jq -n \
   --argjson jira "$JIRA_AVAILABLE" \
@@ -434,7 +446,7 @@ jq -n \
   --argjson total "$TOTAL_PRS" \
   --argjson repos_with_prs "$REPOS_WITH_PRS" \
   --argjson warnings "$WARNINGS" \
-  --argjson prs "$RESULT_PRS" \
+  --slurpfile prs "$RESULT_FILE" \
   --arg component "$COMPONENT_FILTER" \
   '{
     metadata: {
@@ -447,7 +459,7 @@ jq -n \
       component_filter: (if $component != "" then $component else null end),
       warnings: $warnings
     },
-    prs: $prs
+    prs: $prs[0]
   }'
 
 echo "Done." >&2
