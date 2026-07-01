@@ -36,10 +36,9 @@ Before making any changes:
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-devtools` | 3 | 1 | 1 | - | 0.5.0 |
 | `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.3.0 |
-| `hyperfleet-hooks` | - | - | - | 1 | 0.1.0 |
+| `hyperfleet-hooks` | - | - | - | 1 | 0.2.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |
 | `hyperfleet-release` | 1 (`release-notes`) | - | - | - | 0.1.0 |
-
 
 ## Skill Format
 
@@ -85,6 +84,7 @@ See `CONTRIBUTING.md` for adding/modifying plugins, local development, versionin
 ## Boundaries
 
 **DO:**
+
 - Keep skills as Markdown-only where possible
 - Use progressive disclosure: short SKILL.md pointing to `references/` for details
 - Follow `allowed-tools` least privilege (prefer `Read`, `Glob`, `Grep` over `Bash`)
@@ -92,6 +92,7 @@ See `CONTRIBUTING.md` for adding/modifying plugins, local development, versionin
 - Include prompt injection warnings in skills that process external content
 
 **DON'T:**
+
 - Store credentials or API tokens in plugin files
 - Request `allowed-tools` the skill doesn't actually use
 - Put SKILL.md directly in `skills/` — use a named subdirectory where name matches frontmatter `name` field (`skills/<skill-name>/SKILL.md`)

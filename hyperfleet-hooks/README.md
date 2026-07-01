@@ -14,4 +14,4 @@ Verify with `/hooks` after restarting Claude Code.
 
 ### Go Lint (PostToolUse)
 
-Runs `golangci-lint` after any `*.go` file is edited or created. Lint errors are reported back to Claude as context.
+Runs `golangci-lint` after any `*.go` file is edited or created. Only reports issues on lines changed since the last commit (`--new-from-rev=HEAD`), so pre-existing lint issues don't block Claude. Falls back to full-package linting if no git baseline is available.
