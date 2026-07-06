@@ -1,37 +1,43 @@
 ---
-description: "Weekly team update - a list of closed issues(Story,Task,Bug) in the last 7 days with a nested display in one team"
+description: "Weekly team update - a list of closed issues(Story,Task,Bug) with a nested display in one team. Accepts an optional Monday date to pick a specific week."
 allowed-tools: Bash
-argument-hint: "[project-key] [team-key]"
+argument-hint: "[monday-date] [project-key] [team-key]"
 ---
 
 # Team Weekly Update
 
-Summary of team progress over the past week, focusing on closed issues classified by activity type.
+Summary of team progress over a week, focusing on closed issues classified by activity type.
 
 ## Arguments
-- `$1` (optional): Project key (e.g., HYPERFLEET). If not provided, uses HYPERFLEET as default.
-- `$2` (optional): Team name to filter issues. If provided, filters issues where Team field matches this value.
+- `$1` (optional): Monday date of the desired week in `YYYY-MM-DD` format (e.g., `2026-06-29`). The skill will compute the range Monday 00:00 → Sunday 23:59 of that week. If not provided or empty, defaults to the last 7 days (`-7d, now()`).
+- `$2` (optional): Project key (e.g., HYPERFLEET). If not provided, uses HYPERFLEET as default.
+- `$3` (optional): Team name to filter issues. If provided, filters issues where Team field matches this value.
 
 ## Examples
 
-- Get weekly update for default project (HYPERFLEET):
+- Get weekly update for the last 7 days (default):
   ```
   team-weekly-update
   ```
 
-- Get weekly update for specific project:
+- Get weekly update for the week of June 29, 2026:
   ```
-  team-weekly-update MYPROJECT
-  ```
-
-- Get weekly update for specific project and team:
-  ```
-  team-weekly-update MYPROJECT MYTEAMKEY
+  team-weekly-update 2026-06-29
   ```
 
-- Get weekly update for default project with team filter:
+- Get weekly update for a specific week and project:
   ```
-  team-weekly-update "" MYTEAMKEY
+  team-weekly-update 2026-06-29 MYPROJECT
+  ```
+
+- Get weekly update for a specific week, project, and team:
+  ```
+  team-weekly-update 2026-06-29 MYPROJECT MYTEAMKEY
+  ```
+
+- Get weekly update for the last 7 days with project and team filter:
+  ```
+  team-weekly-update "" HYPERFLEET MYTEAMKEY
   ```
 
 ## Instructions
@@ -41,6 +47,23 @@ For each activity type below, follow this three-step process to fetch issues and
 **Step 1**: Get list of closed issue keys
 **Step 2**: For each issue, fetch full details including parent epic (fields.parent) and summary
 **Step 3**: Group issues by their parent Epic and fetch Epic details
+
+### Date Range Calculation
+
+Before querying, compute the date range based on `$1`:
+
+```bash
+if [[ -n "$1" ]]; then
+    # $1 is a Monday date (YYYY-MM-DD). Compute Sunday = Monday + 6 days.
+    MONDAY="$1"
+    SUNDAY=$(date -j -v+6d -f "%Y-%m-%d" "$MONDAY" "+%Y-%m-%d" 2>/dev/null || date -d "$MONDAY + 6 days" "+%Y-%m-%d")
+    DATE_RANGE="\"$MONDAY\", \"$SUNDAY\""
+else
+    DATE_RANGE="-7d, now()"
+fi
+```
+
+Use `$DATE_RANGE` in all JQL queries below in the `status changed to closed during (...)` clause.
 
 ### Activity Types to Process:
 
@@ -58,7 +81,7 @@ ACTIVITY_TYPES=(
 
 # For each activity type, fetch closed issues:
 for activity_type in "${ACTIVITY_TYPES[@]}"; do
-    jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done and status changed to closed during (-7d, now()) and customfield_10464 = "'"$activity_type"'" ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
+    jira issue list -q 'project = ${2:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done and status changed to closed during ('"$DATE_RANGE"') and "Activity Type" = "'"$activity_type"'" ${3:+and Team = $3}' --columns KEY --plain --no-headers 2>/dev/null
     # Process each issue as described in "For Each Issue Retrieved" section below
 done
 ```
@@ -67,7 +90,7 @@ Also check for issues without an activity type:
 
 ```bash
 # Issues without activity type
-jira issue list -q 'project = ${1:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done and status changed to closed during (-7d, now()) and customfield_10464 is EMPTY ${2:+and Team = $2}' --columns KEY --plain --no-headers 2>/dev/null
+jira issue list -q 'project = ${2:-HYPERFLEET} and type in (Story,Task,Bug) and resolution = Done and status changed to closed during ('"$DATE_RANGE"') and "Activity Type" is EMPTY ${3:+and Team = $3}' --columns KEY --plain --no-headers 2>/dev/null
 ```
 
 ### For Each Issue Retrieved:
