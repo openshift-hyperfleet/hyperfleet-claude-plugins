@@ -1,8 +1,8 @@
 ---
 name: e2e-debug
 description: |
-  Analyze HyperFleet E2E CI pipeline failures from a Prow URL, GitHub Actions URL, job name, or JIRA ticket.
-  Retrieves logs, matches against the debugging handbook, checks recent commits/JIRA, and outputs a structured root cause analysis.
+  Analyzes HyperFleet E2E CI pipeline failures from a Prow URL, GitHub Actions URL, job name, or JIRA ticket.
+  Use when a nightly or periodic E2E pipeline run fails and you need a structured root cause analysis with confidence scoring.
 allowed-tools: Bash, Read, WebFetch, AskUserQuestion
 argument-hint: <prow-url | github-actions-url | job-name | JIRA-ticket>
 ---
@@ -51,7 +51,7 @@ Load these files as needed during analysis:
 JIRA_INPUT="$ARGUMENTS"
 if ! echo "$JIRA_INPUT" | grep -qE '^[A-Z]+-[0-9]+$'; then
   echo "ERROR: Invalid JIRA ticket format. Expected: HYPERFLEET-1234. Received: $JIRA_INPUT" >&2
-  # Stop — do not pass unvalidated input to jira CLI
+  exit 1  # Stop — do not pass unvalidated input to jira CLI
 fi
 jira issue view "$JIRA_INPUT" --plain 2>/dev/null
 ```
@@ -138,9 +138,9 @@ After reading all artifacts, build a precise chronological timeline of the run. 
 
 **Extract these timestamps from the artifacts you already read.** Different sources use different formats — normalize everything to UTC:
 - `started.json` / `finished.json`: epoch seconds → convert to UTC
-- Setup/cleanup `build-log.txt`: `DD-MM-YYYYTHH:MM:SS` format (already UTC)
+- Setup/cleanup `build-log.txt`: ISO 8601 JSON logs (`2026-07-03T13:42:57.208Z`) — same format as component logs
 - Component JSON logs: ISO 8601 with `Z` suffix (already UTC)
-- Ginkgo test output: shows **durations** (e.g., `353.773s`), NOT absolute timestamps. To compute absolute time for a test failure, use: test step start time (from `openshift-hyperfleet-e2e-test/build-log.txt` first line or `sidecar-logs.json`) + cumulative duration of preceding tests (from `junit.xml`)
+- Ginkgo test `build-log.txt`: `STEP:` lines use `MM/DD/YY HH:MM:SS.mmm` format (e.g., `06/30/26 13:43:03.261`). `[FAILED]` markers use the same format. The test framework's structured logs use ISO 8601. Test result durations are in seconds (e.g., `353.773s`)
 - `junit.xml`: has `time` attribute per test case (duration in seconds) and `timestamp` on the `<testsuite>` element (suite start time)
 
 If a data point is unavailable (e.g., no test step exists because setup failed), mark it as "N/A — [reason]" and proceed:
@@ -478,7 +478,7 @@ kubectl get events --all-namespaces --sort-by='.lastTimestamp' --field-selector 
 
 **GKE maintenance policy** (check whether a maintenance window is configured to prevent this):
 ```bash
-gcloud container clusters describe hyperfleet-dev-prow --zone=<zone-from-step-1e> --format="yaml(maintenancePolicy)" 2>/dev/null
+gcloud container clusters describe <cluster-name-from-step-1e> --zone=<zone-from-step-1e> --format="yaml(maintenancePolicy)" 2>/dev/null
 ```
 If no `maintenancePolicy` is returned, node auto-upgrades can fire at any time — including during test runs. Flag this in the output as a risk factor. See HYPERFLEET-1225.
 
@@ -490,7 +490,7 @@ gcloud pubsub subscriptions list --filter="name:hyperfleet" --format="table(name
 
 **GKE cluster health**:
 ```bash
-gcloud container clusters describe hyperfleet-dev-prow --zone=<zone-from-step-1e> --format="table(status,currentNodeCount,currentMasterVersion)" 2>/dev/null
+gcloud container clusters describe <cluster-name-from-step-1e> --zone=<zone-from-step-1e> --format="table(status,currentNodeCount,currentMasterVersion)" 2>/dev/null
 ```
 
 ### 5d. Reconcile live findings with log-based diagnosis
