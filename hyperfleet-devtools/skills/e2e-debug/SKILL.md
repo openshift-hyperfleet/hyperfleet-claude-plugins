@@ -31,6 +31,8 @@ Load these files as needed during analysis:
 
 - `references/ci-quick-reference.md` — Prow job names, GCS artifact structure, ports, namespaces, Slack channels
 - `references/known-failure-patterns.md` — Error signature → category mapping with handbook section cross-references
+- `references/cluster-inspection-commands.md` — kubectl and gcloud commands for Step 5 (live cluster inspection)
+- `references/output-example.md` — Worked example of a HIGH confidence diagnosis (broker.type regression, validated against fix commits)
 
 ---
 
@@ -74,7 +76,7 @@ Before walking artifacts, fetch `finished.json` from the run root to confirm the
    - URL: `https://prow.ci.openshift.org/view/gs/test-platform-results/logs/<job-name>/<run-id>`
    - GCS web: `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/<job-name>/<run-id>/`
 
-2. **Walk the ENTIRE artifact tree. No shortcuts. No skipping.** The GCS artifacts are the primary and most reliable source of truth. They are always available regardless of kubectl access. You MUST recursively list and read every file in every directory starting from the run root. Do not cherry-pick. Do not skip directories you think are unimportant. Do not assume you know what's there.
+2. **Walk the ENTIRE artifact tree. No shortcuts. No skipping.** (Future: consider [prow-mcp-server](https://github.com/redhat-community-ai-tools/prow-mcp-server) as an alternative to WebFetch + HTML parsing for more robust GCS artifact access.) The GCS artifacts are the primary and most reliable source of truth. They are always available regardless of kubectl access. You MUST recursively list and read every file in every directory starting from the run root. Do not cherry-pick. Do not skip directories you think are unimportant. Do not assume you know what's there.
 
    **Procedure:**
    
@@ -349,149 +351,34 @@ The shared Prow GKE cluster (`hyperfleet-dev-prow`) and its backing services per
 
 ### 5a. Verify kubectl context and discover the namespace
 
-**First, verify kubectl is pointing at the correct cluster.** The GKE cluster name was extracted from the setup logs in Step 1e (e.g., `hyperfleet-dev-prow`). Check the current context:
-```bash
-kubectl config current-context 2>/dev/null
-```
-If the context does not match the test cluster name from Step 1e, the kubectl data will be from the wrong cluster. Use `AskUserQuestion` to ask the user to switch context, or note in the output that kubectl checks were skipped due to context mismatch.
-
-The CI test namespace follows the pattern `e2e-<run-id>` (e.g., `e2e-2058843047478693888`). For a completed run, this namespace is typically deleted. For a currently-running job, it still exists.
-
-```bash
-# Check if the run's namespace still exists
-kubectl get namespace e2e-<run-id> --no-headers 2>/dev/null
-
-# If not, find any active test namespaces
-kubectl get namespaces -o name | grep -E '^namespace/e2e-'
-```
-
-For **cluster-scoped resources** (ClusterRoles, AppliedManifestWorks) and **persistent services** (Maestro, Pub/Sub), the test namespace is irrelevant — these survive namespace deletion. Use the platform namespace where HyperFleet components are deployed (visible in the setup build-log.txt, typically shown after Helm install output).
+Verify kubectl points at the correct cluster (cluster name from Step 1e). If context mismatches, use `AskUserQuestion` to ask the user to switch, or skip kubectl checks. The CI namespace is `e2e-<run-id>` — typically deleted for completed runs. For cluster-scoped resources (ClusterRoles, ManifestWorks) and persistent services (Maestro), the test namespace is irrelevant.
 
 ### 5b. Cross-validate log findings against live state
 
-Use live data to confirm or refute the hypothesis from Step 4. You MUST run at least the checks that are relevant to your diagnosed failure category. If your diagnosis involves a timeout or crash, check pod health. If it involves Maestro, check the DB. If it involves resource conflicts, check orphaned resources. Do not leave an assumption unverified when kubectl can check it.
+Run the checks from `references/cluster-inspection-commands.md` that are relevant to your diagnosed failure category:
 
-**Maestro DB accumulation** (if the failure involves ManifestWorks, ResourceBundles, or Maestro discovery):
-```bash
-# Find the namespace where Maestro is deployed (check setup logs for the actual namespace)
-MAESTRO_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | grep maestro | awk '{print $1}' | head -1)
+| Failure category | Required checks |
+|---|---|
+| Timeout / crash / `connection refused` | Pod health, GKE node operations, node events, node-specific check |
+| Maestro / ManifestWork / ResourceBundle | Maestro DB accumulation |
+| Helm ownership conflict / resource collision | Orphaned K8s resources |
+| Adapter condition stuck | Sentinel metrics, live API status |
+| Broker / event delivery | Pub/Sub leaks |
 
-# Count total ResourceBundles — if >> 100, pagination may be hiding test resources
-# All three commands must be in a single Bash invocation (shell state does not persist between calls)
-timeout 10 kubectl port-forward -n "$MAESTRO_NS" svc/maestro 8001:8000 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8001/api/maestro/v1/resource-bundles?size=1" | jq '.total'; kill $PF_PID 2>/dev/null
-```
-If `total` is significantly above 100, the Maestro REST API's default page size may be excluding the test's resources. This is a known issue (see hyperfleet-e2e PR #79, HYPERFLEET-992).
+**Critical for `i/o timeout → connection refused`:** Check in this order:
+1. GKE node operations — did `UPGRADE_NODES` overlap the test window? (See HYPERFLEET-1225)
+2. Cluster-wide K8s events — `ReadOnlyFileSystemDetected`, `NodeNotReady`, `DeletingNode`, `Multi-Attach`
+3. `FailedToCreateEndpoint` warnings — signal of node replacement
+4. kubectl namespace (if alive) — pod describe and events
+5. Node-level — `kubectl top nodes`, OOM/eviction events
 
-**Orphaned K8s resources** (if the failure involves Helm ownership conflicts, "resource already exists", or namespace collisions):
-```bash
-# Stale ClusterRoles from prior runs
-kubectl get clusterroles -o name | grep adapter-
-
-# Orphaned test namespaces
-kubectl get namespaces -o name | grep -E 'e2e-|test-'
-
-# Orphaned ManifestWorks
-kubectl get appliedmanifestworks -A --no-headers 2>/dev/null | wc -l
-```
-
-**Pod health and crash detection** (if the failure involves connectivity, timeouts, API unresponsive, or `connection refused`):
-```bash
-# Check if the test namespace still exists
-kubectl get namespace e2e-<run-id> --no-headers 2>/dev/null
-
-# If namespace exists: check pod restarts, OOMKilled, CrashLoopBackOff
-kubectl get pods -n e2e-<run-id> -o wide --sort-by='.status.containerStatuses[0].restartCount'
-kubectl get pods -n e2e-<run-id> -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[0].lastState.terminated.reason}{"\n"}{end}' 2>/dev/null
-
-# Check K8s events for OOM, scheduling, mount, pull failures
-kubectl get events -n e2e-<run-id> --sort-by='.lastTimestamp' --field-selector type!=Normal | tail -20
-```
-
-**If the namespace is deleted** (completed run): the GCS cleanup step logs (Step 1c) contain post-failure operational data — whether Helm uninstall succeeded, whether namespace deletion succeeded, and what errors occurred. **CAUTION:** Helm uninstall succeeding does NOT prove the pod was alive — Helm metadata is in etcd, not on the node. A node drain/replacement can kill all pods while Helm releases remain uninstallable. For `i/o timeout → connection refused` failures, always check for GKE node operations (Step 5c) before concluding the pod hung vs. the node was replaced.
-
-Fall back to node-level and GKE operations checks:
-```bash
-# Node resource usage — high memory/CPU pressure can cause pod eviction
-kubectl top nodes 2>/dev/null
-
-# Recent cluster-wide warning events (OOM, eviction, scheduling failures)
-kubectl get events --all-namespaces --sort-by='.lastTimestamp' --field-selector type!=Normal 2>/dev/null | grep -i "oom\|evict\|kill\|exceeded\|pressure" | tail -10
-```
-
-**This check is critical for timeout → connection refused failures.** The transition from `i/o timeout` to `connection refused` means a pod stopped serving. To determine WHY, check in this order:
-1. **GKE node operations (Step 5c)** — did a node upgrade/drain/replacement overlap with the test window? If yes, this is the root cause (see HYPERFLEET-1225). Check `gcloud container operations list`.
-2. **Cluster-wide K8s events** — look for `ReadOnlyFileSystemDetected`, `NodeNotReady`, `DeletingNode`, cordon events, `Multi-Attach` PV errors on postgres/maestro-db.
-3. **`FailedToCreateEndpoint` warnings in the `default` namespace** — these indicate endpoint churn from node replacement or rapid pod rescheduling. If you see these for `hyperfleet-api` or adapter services, a node was likely replaced.
-4. **kubectl namespace** — if still alive, get pod describe and events.
-5. **kubectl node-level** — `kubectl top nodes`, cluster-wide OOM/eviction events.
-
-Do NOT conclude "pod hung" from Helm uninstall succeeding — Helm metadata is in etcd, not on the node. Without at least one of the checks above, the root cause is an assumption, not a fact.
-
-**Sentinel & Adapter metrics** (if the failure involves timeouts waiting for conditions):
-```bash
-# Find the platform namespace where Sentinel is deployed
-PLATFORM_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | grep hyperfleet-sentinel | awk '{print $1}' | head -1)
-timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-sentinel 9090:9090 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 http://localhost:9090/metrics | grep -E 'hyperfleet_sentinel_(events_published_total|pending_resources)'; kill $PF_PID 2>/dev/null
-```
-
-**Live API status check** (if the failure involves stuck adapters or condition mismatches):
-```bash
-timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-api 8000:8000 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8000/api/hyperfleet/v1/clusters/<cluster-id>/statuses" | jq '.items[] | {adapter, conditions: [.conditions[] | {type, status, reason}]}'; kill $PF_PID 2>/dev/null
-```
+**CAUTION:** Helm uninstall succeeding does NOT prove the pod was alive — Helm metadata is in etcd, not on the node. Do NOT conclude "pod hung" from Helm operations alone.
 
 ### 5c. Cloud resource inspection (when gcloud available)
 
-**First, verify gcloud is using the correct GCP project** (extracted in Step 1e from setup logs):
-```bash
-gcloud config get-value project 2>/dev/null
-```
-If it does not match the GCP project ID from Step 1e, add `--project=<project-id-from-step-1e>` to all gcloud commands below. Do NOT run `gcloud config set project` — that mutates the user's local config and violates the read-only contract.
+Verify gcloud project matches Step 1e. If wrong, add `--project=<project-id-from-step-1e>` to all commands. Do NOT run `gcloud config set project`.
 
-**GKE node operations** (ALWAYS check when the failure involves `i/o timeout`, `connection refused`, or any sudden API/component unreachability):
-```bash
-# Check for GKE node upgrades/repairs around the test run date
-# Use the run date from Step 1e. Filter to a 24-hour window centered on the run to catch operations that started before or finished after
-# Replace <run-date> with the date from finished.json (e.g., 2026-06-15)
-gcloud container operations list --zone=<zone-from-step-1e> --filter="operationType:(UPGRADE_NODES OR REPAIR_CLUSTER OR UPGRADE_MASTER) AND startTime>='<run-date>T00:00:00Z' AND startTime<='<run-date>T23:59:59Z'" --format="table(name,operationType,startTime,endTime,status)" 2>/dev/null
-
-# If no results for the run date, also check the day before (upgrade may have started overnight)
-gcloud container operations list --zone=<zone-from-step-1e> --filter="operationType:(UPGRADE_NODES OR REPAIR_CLUSTER OR UPGRADE_MASTER) AND startTime>='<day-before-run>T00:00:00Z' AND startTime<='<run-date>T23:59:59Z'" --format="table(name,operationType,startTime,endTime,status)" 2>/dev/null
-```
-**Do NOT use `--limit`.** A limit can silently truncate results and miss the exact operation that caused the failure. Date-filter instead.
-
-**Compare the operation timestamps against your timeline from Step 1e.** If an `UPGRADE_NODES` operation's time window overlaps with the period between setup-complete and first-failure, this is almost certainly the root cause — especially if the node name from the operation matches the node hosting the API/DB pods (extracted in Step 1e from `all-resources.txt`). See HYPERFLEET-1225.
-
-**GKE node-specific check** (use the node name extracted in Step 1e):
-```bash
-# Check the specific node that hosted the API pod (from all-resources.txt)
-kubectl describe node <node-name-from-step-1e> 2>/dev/null | grep -A5 -i "condition\|taint\|unschedulable"
-
-# If the node no longer exists, that confirms it was replaced
-kubectl get node <node-name-from-step-1e> 2>&1
-```
-If `kubectl get node` returns NotFound for the node that hosted the API pod, the node was replaced during or after the test run.
-
-**GKE node events** (check for node drain, cordon, deletion during the test window):
-```bash
-kubectl get events --all-namespaces --sort-by='.lastTimestamp' --field-selector type!=Normal 2>&1 | grep -i "cordon\|drain\|notready\|deletingnode\|nodenotready\|readonlyfilesystem\|upgrade\|preempt" | tail -15
-```
-
-**GKE maintenance policy** (check whether a maintenance window is configured to prevent this):
-```bash
-gcloud container clusters describe <cluster-name-from-step-1e> --zone=<zone-from-step-1e> --format="yaml(maintenancePolicy)" 2>/dev/null
-```
-If no `maintenancePolicy` is returned, node auto-upgrades can fire at any time — including during test runs. Flag this in the output as a risk factor. See HYPERFLEET-1225.
-
-**Pub/Sub leaks** (if the failure involves broker connectivity, event delivery, or cleanup failures):
-```bash
-gcloud pubsub topics list --filter="name:hyperfleet" --format="table(name)" 2>/dev/null
-gcloud pubsub subscriptions list --filter="name:hyperfleet" --format="table(name,ackDeadlineSeconds)" 2>/dev/null
-```
-
-**GKE cluster health**:
-```bash
-gcloud container clusters describe <cluster-name-from-step-1e> --zone=<zone-from-step-1e> --format="table(status,currentNodeCount,currentMasterVersion)" 2>/dev/null
-```
+Run the GKE operations, maintenance policy, node-specific, and Pub/Sub checks from `references/cluster-inspection-commands.md`. Compare operation timestamps against the timeline from Step 1e. **Do NOT use `--limit`** — date-filter instead.
 
 ### 5d. Reconcile live findings with log-based diagnosis
 
