@@ -86,7 +86,9 @@ fi
 ## Live API Status Check
 
 ```bash
-if [ -z "$PLATFORM_NS" ]; then echo "ERROR: platform namespace not resolved" >&2; else
+# Exact service match — self-contained, does not depend on any other block having run first
+PLATFORM_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | awk '$2 == "hyperfleet-api" {print $1; exit}')
+if [ -z "$PLATFORM_NS" ]; then echo "ERROR: hyperfleet-api service not found" >&2; else
   timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-api 8000:8000 & PF_PID=$!
   for i in $(seq 1 10); do curl -s --max-time 1 http://localhost:8000/api/hyperfleet/v1/clusters?size=0 >/dev/null 2>&1 && break; sleep 0.5; done
   kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8000/api/hyperfleet/v1/clusters/<cluster-id>/statuses" | jq '.items[] | {adapter, conditions: [.conditions[] | {type, status, reason}]}'
@@ -100,9 +102,9 @@ fi
 # Query for operations that could OVERLAP the test window, not just operations that started on the same day.
 # An upgrade that started at 23:50 the night before and ended at 00:10 during the test would be missed by a calendar-day filter.
 # Use the setup-complete and first-failure timestamps from Step 1e as boundaries.
-# Replace <setup-complete-time> and <first-failure-time> with ISO 8601 from the timeline.
+# Replace <2-hours-before-setup> and <first-failure-time> with ISO 8601 from the timeline.
 # Query ops that started up to 2 hours before setup (they could still be running) through first failure.
-gcloud container operations list --zone=<zone-from-step-1e> --filter="operationType:(UPGRADE_NODES OR REPAIR_CLUSTER OR UPGRADE_MASTER) AND startTime>='<2-hours-before-setup>'" --format="table(name,operationType,startTime,endTime,status)" 2>/dev/null
+gcloud container operations list --zone=<zone-from-step-1e> --filter="operationType:(UPGRADE_NODES OR REPAIR_CLUSTER OR UPGRADE_MASTER) AND startTime>='<2-hours-before-setup>' AND startTime<='<first-failure-time>'" --format="table(name,operationType,startTime,endTime,status)" 2>/dev/null
 ```
 
 **Do NOT use `--limit`.** Then manually check which operations' `startTime`-`endTime` window overlaps with the test window (`setup-complete` to `first-failure`).

@@ -40,6 +40,8 @@ Load these files as needed during analysis:
 
 ### 1a. Determine the URL type
 
+Load `references/ci-quick-reference.md` now — it has the Prow job name/tier table, the GCS artifact tree structure, and port/namespace conventions used throughout the rest of this procedure (Step 1c artifact walk, Step 5 live checks).
+
 | URL Pattern | Type | Action |
 |---|---|---|
 | `prow.ci.openshift.org/view/gs/...` | Prow job | Extract job name and run ID from the URL path |
@@ -394,6 +396,8 @@ If the answer to question 3 is "No" → downgrade confidence to LOW and output t
 ---
 
 ## Output Format
+
+See `references/output-example.md` for a full worked example (a validated HIGH confidence diagnosis) calibrating the expected rigor and level of detail before writing your own output.
 
 Present findings in this exact structure:
 
