@@ -229,14 +229,6 @@ gh api repos/openshift-hyperfleet/architecture/contents/hyperfleet/standards/err
 gh api repos/openshift-hyperfleet/architecture/contents/hyperfleet/docs/status-guide.md --jq '.content' 2>/dev/null | base64 -d
 ```
 
-### 2d. Check saved learnings (if available)
-
-If the user has a local learnings directory, check for relevant prior debugging context:
-```bash
-ls ~/Desktop/claude-learnings/ 2>/dev/null | grep -i e2e
-```
-If the directory does not exist or returns no results, skip this step.
-
 ---
 
 ## Step 3: Recent Change Verification

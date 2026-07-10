@@ -21,10 +21,17 @@ kubectl get namespaces -o name | grep -E '^namespace/e2e-'
 ## Maestro DB Accumulation
 
 ```bash
-MAESTRO_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | grep maestro | awk '{print $1}' | head -1)
-
-# All commands in a single Bash invocation (shell state does not persist between calls)
-timeout 10 kubectl port-forward -n "$MAESTRO_NS" svc/maestro 8001:8000 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8001/api/maestro/v1/resource-bundles?size=1" | jq '.total'; kill $PF_PID 2>/dev/null
+# Exact service match — fail if ambiguous (multiple namespaces with a 'maestro' service)
+MAESTRO_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | awk '$2 == "maestro" {print $1}')
+if [ "$(echo "$MAESTRO_NS" | wc -l)" -ne 1 ] || [ -z "$MAESTRO_NS" ]; then
+  echo "ERROR: Expected exactly 1 namespace with 'maestro' service, found: $MAESTRO_NS" >&2
+else
+  # All commands in a single Bash invocation — poll readiness instead of fixed sleep
+  timeout 10 kubectl port-forward -n "$MAESTRO_NS" svc/maestro 8001:8000 & PF_PID=$!
+  for i in $(seq 1 10); do curl -s --max-time 1 http://localhost:8001/api/maestro/v1/resource-bundles?size=0 >/dev/null 2>&1 && break; sleep 0.5; done
+  kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8001/api/maestro/v1/resource-bundles?size=1" | jq '.total'
+  kill $PF_PID 2>/dev/null
+fi
 ```
 
 If `total` >> 100, the Maestro REST API's default page size may be excluding test resources. See hyperfleet-e2e PR #79, HYPERFLEET-992.
@@ -66,27 +73,39 @@ kubectl get events --all-namespaces --sort-by='.lastTimestamp' --field-selector 
 ## Sentinel & Adapter Metrics
 
 ```bash
-PLATFORM_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | grep hyperfleet-sentinel | awk '{print $1}' | head -1)
-timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-sentinel 9090:9090 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 http://localhost:9090/metrics | grep -E 'hyperfleet_sentinel_(events_published_total|pending_resources)'; kill $PF_PID 2>/dev/null
+# Exact service match for sentinel
+PLATFORM_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | awk '$2 ~ /^.*hyperfleet-sentinel$/ {print $1; exit}')
+if [ -z "$PLATFORM_NS" ]; then echo "ERROR: hyperfleet-sentinel service not found" >&2; else
+  timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-sentinel 9090:9090 & PF_PID=$!
+  for i in $(seq 1 10); do curl -s --max-time 1 http://localhost:9090/metrics >/dev/null 2>&1 && break; sleep 0.5; done
+  kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 http://localhost:9090/metrics | grep -E 'hyperfleet_sentinel_(events_published_total|pending_resources)'
+  kill $PF_PID 2>/dev/null
+fi
 ```
 
 ## Live API Status Check
 
 ```bash
-timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-api 8000:8000 & PF_PID=$!; sleep 2; kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8000/api/hyperfleet/v1/clusters/<cluster-id>/statuses" | jq '.items[] | {adapter, conditions: [.conditions[] | {type, status, reason}]}'; kill $PF_PID 2>/dev/null
+if [ -z "$PLATFORM_NS" ]; then echo "ERROR: platform namespace not resolved" >&2; else
+  timeout 10 kubectl port-forward -n "$PLATFORM_NS" svc/hyperfleet-api 8000:8000 & PF_PID=$!
+  for i in $(seq 1 10); do curl -s --max-time 1 http://localhost:8000/api/hyperfleet/v1/clusters?size=0 >/dev/null 2>&1 && break; sleep 0.5; done
+  kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8000/api/hyperfleet/v1/clusters/<cluster-id>/statuses" | jq '.items[] | {adapter, conditions: [.conditions[] | {type, status, reason}]}'
+  kill $PF_PID 2>/dev/null
+fi
 ```
 
 ## GKE Node Operations
 
 ```bash
-# Check for node upgrades/repairs overlapping the test run
-gcloud container operations list --zone=<zone-from-step-1e> --filter="operationType:(UPGRADE_NODES OR REPAIR_CLUSTER OR UPGRADE_MASTER) AND startTime>='<run-date>T00:00:00Z' AND startTime<='<run-date>T23:59:59Z'" --format="table(name,operationType,startTime,endTime,status)" 2>/dev/null
-
-# Also check the day before
-gcloud container operations list --zone=<zone-from-step-1e> --filter="operationType:(UPGRADE_NODES OR REPAIR_CLUSTER OR UPGRADE_MASTER) AND startTime>='<day-before-run>T00:00:00Z' AND startTime<='<run-date>T23:59:59Z'" --format="table(name,operationType,startTime,endTime,status)" 2>/dev/null
+# Query for operations that could OVERLAP the test window, not just operations that started on the same day.
+# An upgrade that started at 23:50 the night before and ended at 00:10 during the test would be missed by a calendar-day filter.
+# Use the setup-complete and first-failure timestamps from Step 1e as boundaries.
+# Replace <setup-complete-time> and <first-failure-time> with ISO 8601 from the timeline.
+# Query ops that started up to 2 hours before setup (they could still be running) through first failure.
+gcloud container operations list --zone=<zone-from-step-1e> --filter="operationType:(UPGRADE_NODES OR REPAIR_CLUSTER OR UPGRADE_MASTER) AND startTime>='<2-hours-before-setup>'" --format="table(name,operationType,startTime,endTime,status)" 2>/dev/null
 ```
 
-**Do NOT use `--limit`.** Date-filter instead.
+**Do NOT use `--limit`.** Then manually check which operations' `startTime`-`endTime` window overlaps with the test window (`setup-complete` to `first-failure`).
 
 ## GKE Node-Specific Check
 

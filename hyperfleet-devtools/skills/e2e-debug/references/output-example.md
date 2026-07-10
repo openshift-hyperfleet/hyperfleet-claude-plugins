@@ -20,7 +20,7 @@ Real output from the `/e2e-debug` investigation of tier1-nightly run `2058873327
 * **Cascade:** All 5 failures share the same root cause — the Helm template validation rejects the adapter install before any pods are created. These are NOT independent failures.
 
 ### 2. Root Cause Analysis
-* The adapter Helm chart (`hyperfleet-adapter` PR #160, `HYPERFLEET-1104`, merged May 21) changed the broker type resolution from an inference-based fallback to a hard `required` call at `templates/deployment.yaml:94`. The E2E test helpers that deploy ephemeral negative-scenario adapters (`cl-m-unreg-consumer`, `cl-m-wrong-ds`, `cl-m-wrong-nest`, `cl-m-bad-api`, `cl-precondition-error`) are not passing the `broker.type` Helm value in their override configurations. The adapters fail at Helm template validation before any pods are created, so the negative scenarios never reach the application-level failure behavior they are designed to test.
+* The adapter Helm chart (`hyperfleet-adapter` PR #160, `HYPERFLEET-1104`, merged May 21) changed the broker type resolution from an inference-based fallback to a hard `required` call (validation in `_helpers.tpl`, surfaced as an error at `templates/deployment.yaml:94:31` where the helper is invoked). The E2E test helpers that deploy ephemeral negative-scenario adapters (`cl-m-unreg-consumer`, `cl-m-wrong-ds`, `cl-m-wrong-nest`, `cl-m-bad-api`, `cl-precondition-error`) are not passing the `broker.type` Helm value in their override configurations. The adapters fail at Helm template validation before any pods are created, so the negative scenarios never reach the application-level failure behavior they are designed to test.
 
 ### 3. Supporting Evidence
 * **Timeline:**
