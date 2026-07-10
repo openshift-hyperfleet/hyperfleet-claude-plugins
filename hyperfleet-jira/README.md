@@ -83,7 +83,7 @@ rm -rf "jira_${VERSION#v}_linux_x86_64" "jira_${VERSION#v}_linux_x86_64.tar.gz"
 
 2. **Install the JIRA plugin:**
    ```
-   /plugin install hyperfleet-jira@openshift-hyperfleet/hyperfleet-claude-plugins
+   /plugin install hyperfleet-jira@hyperfleet-claude-plugins
    ```
 
 3. **Restart Claude Code** to load the plugin.
