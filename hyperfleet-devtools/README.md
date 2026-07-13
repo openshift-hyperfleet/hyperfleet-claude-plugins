@@ -185,6 +185,31 @@ Analyzes HyperFleet E2E CI pipeline failures and provides structured root cause 
 
 See [skills/e2e-debug/SKILL.md](./skills/e2e-debug/SKILL.md) for detailed documentation.
 
+### 🔄 Renovate PR Manager
+
+**Status**: ✅ Production Ready
+
+Manages open Renovate/MintMaker dependency update PRs across HyperFleet repos.
+
+**What It Does**:
+- Lists all open Renovate PRs across sentinel, adapter, and api repos
+- Classifies bump type (major/minor/patch/digest/docker)
+- Auto-applies `/lgtm` for safe bumps (minor/patch/digest/docker) when CI is green
+- Flags major bumps for human review (never auto-lgtm)
+- Marks rebase checkbox on PRs with merge conflicts
+- Shows summary of all actions taken
+
+**Usage**:
+
+```text
+# Manage Renovate PRs across all repos
+/hyperfleet-devtools:renovate-prs
+```
+
+See [skills/renovate-prs/SKILL.md](./skills/renovate-prs/SKILL.md) for detailed documentation.
+
+---
+
 ## Installation
 
 This plugin is part of the HyperFleet Claude Plugins marketplace and is automatically available when you install the marketplace.
@@ -206,6 +231,7 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 # - hyperfleet-devtools:e2e-test-design
 # - hyperfleet-devtools:e2e-test-automation
 # - hyperfleet-devtools:e2e-debug
+# - hyperfleet-devtools:renovate-prs
 ```
 
 ## Configuration
@@ -238,7 +264,10 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.6.0 - Current Release
+### v0.7.0 - Current Release
+- ✅ **Renovate PR Manager**: Manage Renovate/MintMaker dependency update PRs across HyperFleet repos
+
+### v0.6.0
 - ✅ **E2E CI Failure Debugger**: Analyze Prow/GHA pipeline failures with structured root cause analysis
 
 ### v0.5.0
@@ -285,6 +314,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.6.0
-**Last Updated**: 2026-06-15
+**Version**: 0.7.0
+**Last Updated**: 2026-07-13
 **Status**: ✅ Production Ready
