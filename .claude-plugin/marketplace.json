@@ -28,7 +28,7 @@
     {
       "name": "hyperfleet-devtools",
       "source": "./hyperfleet-devtools",
-      "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, E2E test case design, E2E test automation, E2E CI failure debugging, and more"
+      "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, E2E test case design, E2E test automation, E2E CI failure debugging, Renovate PR management, and more"
     },
     {
       "name": "hyperfleet-code-review",
