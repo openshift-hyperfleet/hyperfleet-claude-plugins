@@ -53,7 +53,7 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 - Checks consistency with HyperFleet architecture documentation
 - Runs impact and call chain analysis to detect breaking changes and verify consistency across the codebase
 - Cross-references documentation and code for mismatches, including link and anchor validation
-- Runs 10 mechanical code pattern checks in parallel, fetched from the architecture repo at runtime:
+- Runs mechanical code pattern checks in parallel, fetched from the architecture repo at runtime:
   - **Error handling & wrapping** — ignored errors, log-and-continue, HTTP handler missing return, error wrapping (%w), sentinel errors (Go)
   - **Concurrency** — shared state safety, goroutine lifecycle, loop variable capture (Go)
   - **Exhaustiveness & guards** — switch/select completeness, nil/bounds safety (Go)
