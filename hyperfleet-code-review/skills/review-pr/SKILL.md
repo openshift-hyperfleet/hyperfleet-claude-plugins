@@ -18,9 +18,25 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 
 - jira CLI: !`command -v jira &>/dev/null && echo "available" || echo "NOT available"`
 - gh CLI: !`command -v gh &>/dev/null && echo "available" || echo "NOT available"`
+- gh auth: !`gh auth status &>/dev/null && echo "authenticated" || echo "NOT authenticated"`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 - GitHub user: !`gh api user -q '.login' 2>/dev/null || echo "unknown"`
-- hyperfleet-architecture skill: !`(grep -q '"hyperfleet-architecture@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null || { [ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md"; }) && echo "available" || echo "NOT available"`
+
+## Load supporting files
+
+Core file (co-located in this repo, shared with `review-local`):
+
+  Read: CLAUDE_SKILL_DIR/../../config/standards-fetch.md
+
+Agent-specific checks (shared plugin files, not fetched remotely — same files used by
+`review-local`):
+
+  Read: CLAUDE_SKILL_DIR/../../checks/doc-code-crossref.md
+  Read: CLAUDE_SKILL_DIR/../../checks/impact-analysis.md
+  Read: CLAUDE_SKILL_DIR/../../checks/intra-diff-consistency.md
+
+If any of these files was not found, stop and tell the user:
+  "Could not load: PATH — try reinstalling the hyperfleet-code-review plugin."
 
 ## Arguments
 
@@ -42,102 +58,81 @@ Verify `$1` is a valid PR reference (URL like `https://github.com/org/repo/pull/
 
 - If there is a JIRA ticket in the PR title (matching the project key pattern from the repository, e.g. `PROJ-123`):
   - If jira CLI is available (see Dynamic context above): run `jira issue view <TICKET-ID> --comments 50` to get the ticket description **and all comments**
-  - If jira CLI is NOT available: note in the summary that JIRA validation was skipped because `jira-cli` is not installed, and continue with the rest of the review
+  - If jira CLI is NOT available: add a Setup notes line (see [output-format.md](output-format.md)) that JIRA validation was skipped because `jira-cli` is not installed, and continue with the rest of the review
   - Understand the ticket's goal, acceptance criteria, and any clarifications or additional requirements discussed in the comments
   - Validate whether the PR meets **all** requirements — including those added or refined in comments (e.g., "we also need X", "please use Y approach", "don't forget to handle Z")
 - If there is **no** JIRA ticket in the PR title: flag this as a recommendation (category: Pattern) suggesting the author add a ticket reference to the PR title per the commit message standard fetched in step 4b (or per team conventions if the standard is unavailable)
 
-### Step 4 — Parallel analysis block (launch all applicable items simultaneously)
+### Step 4 — Parallel analysis block
 
-Run the following analyses in parallel. Each is independent and can be launched as a separate agent or executed concurrently:
+Run the following analyses as separate agents or concurrent executions — see the
+dependency note after 4b for what can launch immediately versus what must wait on 4b:
 
 #### 4a. Architecture check
 
-Use the `hyperfleet-architecture` skill (via the Skill tool) to check the HyperFleet architecture docs and verify there are no inconsistencies between the PR changes and the defined architecture patterns. Pass the list of changed files and a summary of the changes as context. If the skill is not available (see Dynamic context), skip and note it in the summary.
+Attempt to use the `hyperfleet-architecture` skill (via the Skill tool) to check the HyperFleet architecture docs and verify there are no inconsistencies between the PR changes and the defined architecture patterns. Pass the list of changed files and a summary of the changes as context.
 
-#### 4b. Fetch HyperFleet standards
+Do not pre-check availability by reading plugin configuration files or probing peer-plugin directories — attempt the call and handle failure at invocation time. If the Skill tool throws any error (not found, runtime error, invalid parameters, or any other failure), treat it as unavailable: skip this check and add a Setup notes line (see [output-format.md](output-format.md)). Do not let the error propagate or halt the review.
 
-Fetch all HyperFleet coding standards in a single batch using the `gh` CLI (fast — no LLM overhead per file). If `gh` CLI is unavailable, skip and note it in the summary.
+#### 4b. Fetch HyperFleet standards and mechanical checks
 
-```bash
-# List and fetch all standards in one Bash call
-if ! STANDARDS_FILES=$(gh api repos/openshift-hyperfleet/architecture/contents/hyperfleet/standards \
-  -q '.[].name | select(endswith(".md"))' 2>/dev/null); then
-  echo "===== FETCH FAILURES ====="
-  echo "Failed to list standards directory via gh api"
-  STANDARDS_FILES=""
-fi
+Follow standards-fetch.md loaded above (same fetch mechanism used by `review-local` —
+single source of truth, no duplicated fetch logic). This fetches, in parallel via `gh`
+CLI:
 
-FAILED_STANDARDS=""
-for FILE in $STANDARDS_FILES; do
-  echo "===== $FILE ====="
-  if ! gh api repos/openshift-hyperfleet/architecture/contents/hyperfleet/standards/$FILE \
-      -q '.content' | base64 -d; then
-    FAILED_STANDARDS="$FAILED_STANDARDS $FILE"
-  fi
-  echo ""
-done
+- HyperFleet coding standards and component docs (prefixed `<name>.md` / `component/...`)
+- The mechanical check definitions from the architecture repo (prefixed `check/<name>.md`)
 
-if [ -n "$FAILED_STANDARDS" ]; then
-  echo "===== FETCH FAILURES ====="
-  echo "Failed to fetch:$FAILED_STANDARDS"
-fi
-```
+If `gh` CLI is unavailable or unauthenticated (see Dynamic context), skip and add a Setup
+notes line (see [output-format.md](output-format.md)) noting the degraded state.
 
-The fetched standards content is passed to the mechanical checks (step 4e) and used by the intra-PR consistency check (step 5).
+The fetched standards content is used by the intra-PR consistency check (step 5). The
+fetched check definitions (prefixed `check/`) are used as agent prompts in step 4e.
+
+**Dependency note:** 4a, 4c, and 4d are independent of 4b and can run simultaneously
+with the fetch. 4e and step 5 require 4b output — launch them after the fetch completes.
 
 #### 4c. Impact and call chain analysis
 
-For each changed struct, config field, function signature, or behavioral change **in the diff**:
+Follow impact-analysis.md loaded above (same shared check used by `review-local`).
 
-- **Trace callers AND callees** of modified functions/types to verify the change is consistent in all contexts where it's used
-- **Search the codebase** (`Grep`/`Glob`) for consumers that may need updates but weren't modified in the PR
-- **Cross-reference completeness**: if the diff introduces N options/operators/fields/modes, verify that ALL N work in ALL contexts (e.g., an operator that works for regular fields may fail for JSONB fields; a config that works for clusters may not work for nodepools)
-- Use the Agent tool with subagent_type=Explore if the call chain spans more than 3 files
-- **Important**: if an impacted file is NOT part of the PR's file list, do NOT create a numbered recommendation for it. Instead, include it in the **Impact warnings** section (see [output-format.md](output-format.md)). Only create numbered recommendations for files that ARE in the PR diff.
+**review-pr output mapping**: the check's "surface as WARN lines" instruction maps to this
+skill's **Impact warnings** section (see [output-format.md](output-format.md)), not a
+generic WARN line. If an impacted file is NOT part of the PR's file list, do NOT create a
+numbered recommendation for it — include it in the Impact warnings section instead. Only
+create numbered recommendations for files that ARE in the PR diff.
 
 #### 4d. Doc <-> Code cross-referencing (only when at least one side is in the diff)
 
-- If the diff adds/modifies a spec or design doc (e.g., test-design, ADR, runbook): read the corresponding implementation code and verify every step/claim in the doc is actually implemented
-- If the diff adds/modifies implementation code: read the corresponding spec/design doc (if one exists in the repo) and verify the code matches what the doc describes
-- Only flag mismatches where the **diff-side** introduced the inconsistency (a new doc step with no code, or new code that contradicts the doc)
-- Common pairs: test-design docs <-> test files, API docs <-> handlers, deploy runbooks <-> deploy scripts
-- **Link and anchor validation:** When any file in the diff contains a URL, link, or anchor reference (e.g., `runbook_url`, markdown links, `$ref`) pointing to another file in the repo, validate the reference resolves correctly — **whether or not the target file is part of the PR**. For targets outside the PR, fetch the file from the PR's base branch (usually `main`) to verify:
-  - For markdown heading anchors (`#section-name`): compute the GitHub-generated anchor (lowercase, strip characters that are not letters/numbers/spaces/hyphens, spaces to hyphens) and verify it matches the URL fragment. Example: heading `### Poll Stale (Dead Man's Switch)` generates `#poll-stale-dead-mans-switch`, NOT `#poll-stale`
-  - For file path references: verify the target file exists at the referenced path
-  - For YAML/config references to doc sections: verify the referenced section heading exists and the generated anchor matches
+Follow doc-code-crossref.md loaded above (same shared check used by `review-local`),
+including its doc/code cross-referencing and link/anchor validation rules.
 
-#### 4e. Mechanical code pattern checks (10 grouped agents in parallel)
+#### 4e. Mechanical code pattern checks (one agent per fetched check, in parallel)
 
-Launch 10 grouped agents in parallel using a single tool-call block (`subagent_type=general-purpose`). Each agent receives the diff content, the list of changed files, and the HyperFleet standards fetched in step 4b. Each agent must: list every instance found in the diff before evaluating it, then return a JSON array of findings (or empty array if none). Do NOT skip a check because "it looks fine" — enumerate first, then judge.
+After 4b completes, immediately launch one agent per mechanical check definition fetched
+in step 4b (prefixed `check/<name>.md`), all in parallel using a single tool-call block
+(`subagent_type=general-purpose`) — this is the same agents-in-parallel execution model
+as before, only the check source changed from local files to the architecture repo. Each
+agent receives the diff content, the list of changed files, the HyperFleet standards
+fetched in step 4b, and its check definition. Each agent must: list every instance found
+in the diff before evaluating it, then return a JSON array of findings (or empty array if
+none). Do NOT skip a check because "it looks fine" — enumerate first, then judge.
 
-Groups 1–7 and 10 are written for Go codebases (HyperFleet's primary language). Skip these groups when the diff contains no `.go` files. If a check finds zero instances, it naturally produces no findings. Groups 8–9 are language-agnostic and run for every PR.
+Fetched checks: each check definition states its own scope. Skip Go-specific checks if no
+filename in the changed files list ends with `.go` (case-sensitive). Language-agnostic
+checks always run. If a check finds zero instances, it naturally produces no findings.
 
-Each group is defined in its own file:
-
-1. [Error handling and wrapping](group-01-error-handling.md) (passes 1a + 1b + 1c + 1d) — Go-specific
-2. [Concurrency and goroutine safety](group-02-concurrency.md) (passes 2a + 2b + 2c) — Go-specific
-3. [Exhaustiveness and guards](group-03-exhaustiveness.md) (passes 3a + 3b) — Go-specific
-4. [Resource and context lifecycle](group-04-resource-lifecycle.md) (passes 4a + 4b + 4c) — Go-specific
-5. [Code quality and struct completeness](group-05-code-quality.md) (passes 5a + 5b) — Go-specific
-6. [Testing and coverage](group-06-testing.md) (passes 6a + 6b + 6c) — Go-specific
-7. [Naming and code organization](group-07-naming.md) (passes 7a + 7b) — Go-specific
-8. [Security](group-08-security.md) (passes 8a + 8b + 8c) — language-agnostic, always runs
-9. [Code hygiene](group-09-code-hygiene.md) (passes 9a + 9b + 9c) — language-agnostic, always runs
-10. [Performance](group-10-performance.md) (passes 10a + 10b) — Go-specific
+If a check definition failed to fetch (partial failure — see config/standards-fetch.md),
+skip that agent and add a Setup notes line (see [output-format.md](output-format.md))
+naming the missing check. If ALL fetched checks failed, skip this step entirely and add a
+Setup notes line for the degraded state — the review still proceeds using steps 4a, 4c,
+4d, and 5.
 
 ### Step 5 — Intra-PR consistency check
 
-If the standards fetch (step 4b) returned empty or errored, run only the intra-PR consistency checks (items marked *[consistency]* below), emit a mandatory "HyperFleet standards unavailable — skipping standards-based validation" note in the output, and skip all items marked *[standards]*.
-
-For patterns that appear more than once across different files in the diff, verify ALL occurrences use the same approach **and** that the approach matches the HyperFleet standards fetched in step 4b (when available). Examples:
-
-- *[consistency]* Synchronization primitives (some goroutines use `atomic`, others use plain `int`)
-- *[consistency]* Test setup/teardown patterns (some tests restore global state, others don't)
-- *[consistency]* Flag inconsistencies within the PR itself — if the author did it right in one place, they likely intended to do it everywhere
-- *[standards]* Error handling style (some places check errors, others ignore) — compare against error model standard
-- *[standards]* Naming conventions, logging patterns, config access patterns — compare against logging specification standard
-- *[standards]* Flag deviations from team standards — if the PR introduces a pattern that contradicts a HyperFleet standard, flag it
+Follow intra-diff-consistency.md loaded above (same shared check used by `review-local`).
+Apply it to the PR diff (rather than a local branch diff — the mechanics are identical)
+using the HyperFleet standards fetched in step 4b.
 
 ### Step 6 — Compute and present
 
@@ -346,11 +341,11 @@ Before presenting recommendations, verify all steps were completed:
 - [ ] PR details, diff, and existing comments fetched (step 2, in parallel)
 - [ ] JIRA ticket validated (or skipped if jira CLI unavailable / no ticket in title)
 - [ ] Architecture check run via `hyperfleet-architecture` skill (or skipped if skill unavailable)
-- [ ] HyperFleet standards fetched via `gh` CLI (or skipped if gh unavailable)
+- [ ] HyperFleet standards and mechanical checks fetched via `gh` CLI (or skipped if gh unavailable/unauthenticated)
 - [ ] Impact and call chain analysis completed
 - [ ] Doc <-> Code cross-referencing done (if applicable)
 - [ ] Link and anchor validation done (if applicable)
-- [ ] All applicable mechanical pass groups launched in parallel (groups 8–9 always run; groups 1–7 and 10 are skipped for non-Go diffs)
+- [ ] One agent launched per fetched mechanical check, in parallel (language-agnostic checks always run; Go-specific checks are skipped for non-Go diffs)
 - [ ] Intra-PR consistency checked against HyperFleet standards
 - [ ] Severity classified for each finding (blocking or nit)
 - [ ] Confidence classified for each finding (high, medium, or low)

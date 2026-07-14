@@ -14,7 +14,7 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 ### Required Tools
 
 - **[GitHub CLI (`gh`)](https://cli.github.com/)** - Must be installed and authenticated
-- **[`jq`](https://jqlang.org/)** - Required for `/review-local` to fetch standards and checks
+- **[`jq`](https://jqlang.org/)** - Required for `/review-local` and `/review-pr` to fetch standards and checks
 - **[jira-cli](https://github.com/ankitpokhrel/jira-cli)** - Required for `/review-pr` JIRA ticket validation
 - **[CodeRabbit CLI](https://coderabbit.ai/)** - Recommended for `/review-local` — runs automatically if installed
 
@@ -53,7 +53,7 @@ A Claude Code plugin that provides standardized code review workflows for the Hy
 - Checks consistency with HyperFleet architecture documentation
 - Runs impact and call chain analysis to detect breaking changes and verify consistency across the codebase
 - Cross-references documentation and code for mismatches, including link and anchor validation
-- Runs 10 groups of mechanical code pattern checks in parallel:
+- Runs mechanical code pattern checks in parallel, fetched from the architecture repo at runtime:
   - **Error handling & wrapping** — ignored errors, log-and-continue, HTTP handler missing return, error wrapping (%w), sentinel errors (Go)
   - **Concurrency** — shared state safety, goroutine lifecycle, loop variable capture (Go)
   - **Exhaustiveness & guards** — switch/select completeness, nil/bounds safety (Go)
@@ -175,26 +175,22 @@ warnings with inline context, and a review summary box.
 
 ```text
 skills/review-pr/
-├── SKILL.md                      # Main instructions and workflow
-├── output-format.md              # Output format and interactive behavior
-├── group-01-error-handling.md    # Error handling and wrapping (Go)
-├── group-02-concurrency.md       # Concurrency and goroutine safety (Go)
-├── group-03-exhaustiveness.md    # Exhaustiveness and guards (Go)
-├── group-04-resource-lifecycle.md # Resource and context lifecycle (Go)
-├── group-05-code-quality.md      # Code quality and struct completeness (Go)
-├── group-06-testing.md           # Testing and coverage (Go)
-├── group-07-naming.md            # Naming and code organization (Go)
-├── group-08-security.md          # Security (all languages)
-├── group-09-code-hygiene.md      # Code hygiene (all languages)
-└── group-10-performance.md       # Performance (Go)
+├── SKILL.md          # Main instructions and workflow
+└── output-format.md  # Output format and interactive behavior
 
-skills/review-local/              # Local review skill
+skills/review-local/  # Local review skill
 └── ...
 
-checks/             # Check definitions
-scripts/            # Scripts for agent use
-config/             # Reference data
+checks/    # Agent-specific check definitions shared by review-pr and review-local
+           # (doc-code-crossref, impact-analysis, intra-diff-consistency)
+scripts/   # fetch-standards.sh / fetch-checks.sh — shared by review-pr and review-local
+config/    # standards-fetch.md (shared fetch instructions), categories.md
 ```
+
+The mechanical code pattern checks
+are **not** stored in this plugin — both skills fetch them at runtime from the
+[architecture repo](https://github.com/openshift-hyperfleet/architecture)'s
+`hyperfleet/standards/code-review/` directory via `scripts/fetch-checks.sh`.
 
 ## Troubleshooting
 
