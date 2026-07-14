@@ -16,7 +16,7 @@ HyperFleet DevTools is a comprehensive development assistance plugin that helps 
 
 ## Quick Start
 
-**Zero setup required!** Just invoke the tools you need:
+Just invoke the tools you need (some skills require CLI tools — see each skill's prerequisites):
 
 ```bash
 # Generate a standardized commit message
@@ -185,6 +185,31 @@ Analyzes HyperFleet E2E CI pipeline failures and provides structured root cause 
 
 See [skills/e2e-debug/SKILL.md](./skills/e2e-debug/SKILL.md) for detailed documentation.
 
+### 🎯 Next Ticket Finder
+
+**Status**: ✅ Production Ready
+
+Shows unassigned, non-blocked tickets in the current sprint backlog, sorted by priority, helping you pick your next task.
+
+**Prerequisites**: `jira` CLI ([jira-cli](https://github.com/ankitpokhrel/jira-cli)) configured with `jira init`, and `jq`.
+
+**What It Does**:
+- Queries the current HYPERFLEET sprint for unassigned tickets
+- Excludes blocked tickets (via issue links or flagged field) but lists them separately
+- Sorts by priority (Highest→Lowest) then type (Bug→Story→Task→Sub-task)
+- Outputs a formatted markdown table with clickable JIRA links
+
+**Usage**:
+
+```text
+# Find the next available ticket
+/hyperfleet-devtools:next-ticket
+```
+
+See [skills/next-ticket/SKILL.md](./skills/next-ticket/SKILL.md) for detailed documentation.
+
+---
+
 ### 🔄 Renovate PR Manager
 
 **Status**: ✅ Production Ready
@@ -232,6 +257,7 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 # - hyperfleet-devtools:e2e-test-automation
 # - hyperfleet-devtools:e2e-debug
 # - hyperfleet-devtools:renovate-prs
+# - hyperfleet-devtools:next-ticket
 ```
 
 ## Configuration
@@ -264,7 +290,10 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.7.0 - Current Release
+### v0.8.0 - Current Release
+- ✅ **Next Ticket Finder**: Show unassigned, non-blocked sprint tickets sorted by priority
+
+### v0.7.0
 - ✅ **Renovate PR Manager**: Manage Renovate/MintMaker dependency update PRs across HyperFleet repos
 
 ### v0.6.0
@@ -314,6 +343,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.7.0
-**Last Updated**: 2026-07-13
+**Version**: 0.8.0
+**Last Updated**: 2026-07-14
 **Status**: ✅ Production Ready
