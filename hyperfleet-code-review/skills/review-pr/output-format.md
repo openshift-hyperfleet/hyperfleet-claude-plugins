@@ -8,6 +8,19 @@ First, show a brief summary:
 **Files:** X file(s) changed
 **Recommendations found:** N (X blocking, Y nit)
 
+### Setup notes (optional, only when a setup step was skipped or degraded)
+
+If JIRA validation, the architecture check, or the HyperFleet standards/mechanical checks
+fetch (step 4b) was skipped or degraded, add one line per occurrence immediately below the
+summary above:
+
+**Setup notes:**
+- JIRA validation skipped — `jira-cli` not installed
+- Architecture check skipped — `hyperfleet-architecture` skill not available
+- Standards/checks fetch degraded — gh unavailable/unauthenticated, or N check(s) failed to fetch
+
+Omit "Setup notes" entirely if nothing was skipped or degraded.
+
 ## Impact warnings (optional, only when impact analysis found files outside the PR)
 
 If the impact analysis (step 4c) found files that **should have been updated but are NOT part of the PR**, show them in a separate section **before** the recommendations. These are NOT numbered recommendations — they are informational warnings so the author is aware.
