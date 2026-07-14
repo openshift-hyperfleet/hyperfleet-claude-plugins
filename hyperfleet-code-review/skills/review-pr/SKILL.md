@@ -21,7 +21,6 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 - gh auth: !`gh auth status &>/dev/null && echo "authenticated" || echo "NOT authenticated"`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 - GitHub user: !`gh api user -q '.login' 2>/dev/null || echo "unknown"`
-- hyperfleet-architecture skill: !`(grep -q '"hyperfleet-architecture@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null || { [ -n "${CLAUDE_SKILL_DIR}" ] && test -f "${CLAUDE_SKILL_DIR}/../../../hyperfleet-architecture/skills/hyperfleet-architecture/SKILL.md"; }) && echo "available" || echo "NOT available"`
 
 ## Load supporting files
 
@@ -70,7 +69,9 @@ Run the following analyses in parallel. Each is independent and can be launched 
 
 #### 4a. Architecture check
 
-Use the `hyperfleet-architecture` skill (via the Skill tool) to check the HyperFleet architecture docs and verify there are no inconsistencies between the PR changes and the defined architecture patterns. Pass the list of changed files and a summary of the changes as context. If the skill is not available (see Dynamic context), skip and add a Setup notes line (see [output-format.md](output-format.md)).
+Attempt to use the `hyperfleet-architecture` skill (via the Skill tool) to check the HyperFleet architecture docs and verify there are no inconsistencies between the PR changes and the defined architecture patterns. Pass the list of changed files and a summary of the changes as context.
+
+Do not pre-check availability by reading plugin configuration files or probing peer-plugin directories — attempt the call and handle failure at invocation time. If the Skill tool throws any error (not found, runtime error, invalid parameters, or any other failure), treat it as unavailable: skip this check and add a Setup notes line (see [output-format.md](output-format.md)). Do not let the error propagate or halt the review.
 
 #### 4b. Fetch HyperFleet standards and mechanical checks
 
