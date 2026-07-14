@@ -27,9 +27,8 @@ Both scripts print delimited sections:
 
 ## Error handling
 
-- If script output contains `FETCH FAILURES`, note it in the calling skill's defined
-  setup/summary output — review-local's Review setup block (see its output-format.md), or
-  review-pr's Setup notes (see its output-format.md) — and continue without the missing
+- If script output contains `FETCH FAILURES`, note it in the calling skill's own
+  setup/summary output format (see its output-format.md) and continue without the missing
   files.
 - If `gh auth status` was "NOT authenticated" (see Dynamic context), include a hint:
   "Run `gh auth login` to enable standards and checks fetching."

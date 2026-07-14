@@ -105,8 +105,8 @@ including its doc/code cross-referencing and link/anchor validation rules.
 
 #### 4e. Mechanical code pattern checks (one agent per fetched check, in parallel)
 
-Launch one agent per mechanical check definition fetched in step 4b (prefixed
-`check/<name>.md`), all in parallel using a single tool-call block
+After 4b completes, immediately launch one agent per mechanical check definition fetched
+in step 4b (prefixed `check/<name>.md`), all in parallel using a single tool-call block
 (`subagent_type=general-purpose`) — this is the same agents-in-parallel execution model
 as before, only the check source changed from local files to the architecture repo. Each
 agent receives the diff content, the list of changed files, the HyperFleet standards

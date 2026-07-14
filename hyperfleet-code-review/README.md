@@ -187,7 +187,7 @@ scripts/   # fetch-standards.sh / fetch-checks.sh — shared by review-pr and re
 config/    # standards-fetch.md (shared fetch instructions), categories.md
 ```
 
-The 10 mechanical code pattern checks (error handling, concurrency, exhaustiveness,
+The mechanical code pattern checks (error handling, concurrency, exhaustiveness,
 resource lifecycle, code quality, testing, naming, security, code hygiene, performance)
 are **not** stored in this plugin — both skills fetch them at runtime from the
 [architecture repo](https://github.com/openshift-hyperfleet/architecture)'s
