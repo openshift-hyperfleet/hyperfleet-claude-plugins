@@ -63,9 +63,10 @@ Verify `$1` is a valid PR reference (URL like `https://github.com/org/repo/pull/
   - Validate whether the PR meets **all** requirements — including those added or refined in comments (e.g., "we also need X", "please use Y approach", "don't forget to handle Z")
 - If there is **no** JIRA ticket in the PR title: flag this as a recommendation (category: Pattern) suggesting the author add a ticket reference to the PR title per the commit message standard fetched in step 4b (or per team conventions if the standard is unavailable)
 
-### Step 4 — Parallel analysis block (launch all applicable items simultaneously)
+### Step 4 — Parallel analysis block
 
-Run the following analyses in parallel. Each is independent and can be launched as a separate agent or executed concurrently:
+Run the following analyses as separate agents or concurrent executions — see the
+dependency note after 4b for what can launch immediately versus what must wait on 4b:
 
 #### 4a. Architecture check
 
@@ -87,6 +88,9 @@ notes line (see [output-format.md](output-format.md)) noting the degraded state.
 
 The fetched standards content is used by the intra-PR consistency check (step 5). The
 fetched check definitions (prefixed `check/`) are used as agent prompts in step 4e.
+
+**Dependency note:** 4a, 4c, and 4d are independent of 4b and can run simultaneously
+with the fetch. 4e and step 5 require 4b output — launch them after the fetch completes.
 
 #### 4c. Impact and call chain analysis
 
