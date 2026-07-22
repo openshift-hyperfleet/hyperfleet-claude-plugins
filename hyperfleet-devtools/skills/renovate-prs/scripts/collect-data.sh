@@ -56,6 +56,9 @@ collect_repo() {
     title=$(echo "$pr" | jq -r '.title')
     branch=$(echo "$pr" | jq -r '.headRefName')
     mergeable=$(echo "$pr" | jq -r '.mergeable')
+    if [[ "$mergeable" == "UNKNOWN" ]]; then
+      mergeable=$(gh pr view "$number" --repo "$repo" --json mergeable --jq '.mergeable' 2>/dev/null) || mergeable="UNKNOWN"
+    fi
     url=$(echo "$pr" | jq -r '.url')
 
     local labels

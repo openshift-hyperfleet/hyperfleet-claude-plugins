@@ -1,6 +1,6 @@
 {
   "name": "hyperfleet-devtools",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Development assistance tools for HyperFleet - commit message generation, architecture impact analysis, E2E test case design, E2E test automation, E2E CI failure debugging, Renovate PR management, next ticket finder, and more",
   "author": {
     "name": "HyperFleet Team",
