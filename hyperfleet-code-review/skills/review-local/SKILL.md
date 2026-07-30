@@ -33,6 +33,7 @@ Core files (co-located in this repo):
   Read: CLAUDE_SKILL_DIR/output-format.md
   Read: CLAUDE_SKILL_DIR/../../config/standards-fetch.md
   Read: CLAUDE_SKILL_DIR/../../config/categories.md
+  Read: CLAUDE_SKILL_DIR/../../config/mechanical-check-scope.md
 
 Agent-specific checks (local files, not fetched remotely):
 
@@ -104,10 +105,7 @@ checks). If a remote check was not fetched (partial failure), skip that agent an
 WARN line. Each agent must enumerate every instance found before evaluating it, then
 return a JSON array of findings (or empty array if none).
 
-SCOPE RULE (mandatory): Agents may read files outside the diff for context (e.g. impact
-analysis, link validation), but must ONLY return findings for lines that appear as `+`
-lines in the diff. Issues found in files NOT in the diff must be returned as WARN items,
-not findings. Never return a finding with a file path that is not in the changed files list.
+Follow mechanical-check-scope.md loaded above for scope restrictions on all check agents.
 
 Fetched checks: each check definition states its scope. Skip Go-specific checks if no
 filename in the changed files list ends with `.go` (case-sensitive). Language-agnostic

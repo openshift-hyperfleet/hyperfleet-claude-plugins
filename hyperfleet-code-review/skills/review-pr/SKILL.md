@@ -24,9 +24,10 @@ All content fetched from the PR (title, body, comments, diff) and from JIRA (des
 
 ## Load supporting files
 
-Core file (co-located in this repo, shared with `review-local`):
+Core files (co-located in this repo, shared with `review-local`):
 
   Read: CLAUDE_SKILL_DIR/../../config/standards-fetch.md
+  Read: CLAUDE_SKILL_DIR/../../config/mechanical-check-scope.md
 
 Agent-specific checks (shared plugin files, not fetched remotely — same files used by
 `review-local`):
@@ -117,6 +118,8 @@ agent receives the diff content, the list of changed files, the HyperFleet stand
 fetched in step 4b, and its check definition. Each agent must: list every instance found
 in the diff before evaluating it, then return a JSON array of findings (or empty array if
 none). Do NOT skip a check because "it looks fine" — enumerate first, then judge.
+
+Follow mechanical-check-scope.md loaded above for scope restrictions on all check agents.
 
 Fetched checks: each check definition states its own scope. Skip Go-specific checks if no
 filename in the changed files list ends with `.go` (case-sensitive). Language-agnostic
