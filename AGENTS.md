@@ -29,7 +29,7 @@ Before making any changes:
 
 | Plugin | Skills | Commands | Agents | Hooks | Version |
 |--------|:------:|:--------:|:------:|:-----:|---------|
-| `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | - | 0.8.0 |
+| `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | - | 0.8.1 |
 | `hyperfleet-jira` | 4 | 6 | - | - | 0.6.1 |
 | `hyperfleet-architecture` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
