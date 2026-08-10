@@ -290,7 +290,10 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.8.0 - Current Release
+### v0.8.2 - Current Release
+- ✅ **Renovate PR Manager**: Add `references` bump type for Konflux references PRs
+
+### v0.8.0
 - ✅ **Next Ticket Finder**: Show unassigned, non-blocked sprint tickets sorted by priority
 
 ### v0.7.0
@@ -343,6 +346,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.8.0
-**Last Updated**: 2026-07-14
+**Version**: 0.8.2
+**Last Updated**: 2026-08-10
 **Status**: ✅ Production Ready

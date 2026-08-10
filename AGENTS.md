@@ -34,7 +34,7 @@ Before making any changes:
 | `hyperfleet-architecture` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
-| `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.8.0 |
+| `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.8.2 |
 | `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.3.0 |
 | `hyperfleet-hooks` | - | - | - | 1 | 0.2.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |
