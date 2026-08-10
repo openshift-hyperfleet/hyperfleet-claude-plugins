@@ -14,6 +14,8 @@ classify_bump() {
     echo "digest"
   elif [[ "$branch" == *"docker-image"* ]] || echo "$title" | grep -qi "docker image"; then
     echo "docker"
+  elif [[ "$branch" == *"references/"* ]] || echo "$title" | grep -qi "konflux references"; then
+    echo "references"
   else
     echo "unknown"
   fi

@@ -52,6 +52,7 @@ Classification is derived from branch name and PR title:
 | Branch contains `minorpatch` or title contains `minor/patch` | `minor/patch` |
 | Branch contains `-digest` or title contains `digest` | `digest` |
 | Branch contains `docker-image` or title contains `docker image` | `docker` |
+| Branch contains `references/` or title contains `konflux references` | `references` |
 | None of the above | `unknown` |
 
 ## Action Rules
@@ -64,6 +65,8 @@ Classification is derived from branch name and PR title:
 | `digest` | CI green + already has LGTM | Skip (already in progress) |
 | `docker` | CI green + mergeable + no LGTM | `/lgtm` |
 | `docker` | CI green + already has LGTM | Skip (already in progress) |
+| `references` | CI green + mergeable + no LGTM | `/lgtm` |
+| `references` | CI green + already has LGTM | Skip (already in progress) |
 | `major` | Any | Mark for human review (never auto-lgtm) |
 | `unknown` | Any | Mark for human review (classification failed) |
 | Any | Conflicting | Mark rebase checkbox |
@@ -159,7 +162,7 @@ After executing, show a summary:
 ## Renovate PRs Summary
 
 ### Actions Taken
-- X PRs received /lgtm (minor/patch/digest/docker)
+- X PRs received /lgtm (minor/patch/digest/docker/references)
 - Y PRs rebased (conflicts)
 
 ### Requires Attention
