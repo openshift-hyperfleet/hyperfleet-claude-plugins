@@ -56,7 +56,7 @@ fi
 echo ""
 echo "--- Test: PR count preserved ---"
 SCORED_COUNT=$(echo "$SCORED" | jq '.scored_prs | length')
-assert_eq "6 PRs scored" "6" "$SCORED_COUNT"
+assert_eq "7 PRs scored" "7" "$SCORED_COUNT"
 
 echo ""
 echo "--- Test: Critical/Security PR (hyperfleet-adapter#88) → Tier 1 ---"
@@ -74,6 +74,21 @@ PR120=$(echo "$SCORED" | jq '.scored_prs[] | select(.repo == "hyperfleet-api" an
 assert_eq "Tier 4 (draft)" "4" "$(echo "$PR120" | jq '.provisional_tier')"
 assert_eq "Override reason: Draft" '"Draft"' "$(echo "$PR120" | jq '.override_info.reason')"
 assert_eq "No JIRA ticket" "0" "$(echo "$PR120" | jq '.jira_keys | length')"
+
+echo ""
+echo "--- Test: High-scoring draft PR (hyperfleet-api#130) → Tier 4 despite high score ---"
+PR130=$(echo "$SCORED" | jq '.scored_prs[] | select(.repo == "hyperfleet-api" and .number == 130)')
+assert_eq "Tier 4 (draft override wins over high score)" "4" "$(echo "$PR130" | jq '.provisional_tier')"
+assert_eq "Override reason: Draft" '"Draft"' "$(echo "$PR130" | jq '.override_info.reason')"
+PR130_SCORE=$(echo "$PR130" | jq '.deterministic_score')
+# Score should be ≥75 (Tier 1 threshold) — proving the override is doing the work
+if [ "$(echo "$PR130_SCORE >= 75" | bc)" -eq 1 ]; then
+  printf "  ✓ Score ≥75 (%s) but still Tier 4 — override working\n" "$PR130_SCORE"
+  PASS=$((PASS + 1))
+else
+  printf "  ✗ Score should be ≥75, got %s\n" "$PR130_SCORE"
+  FAIL=$((FAIL + 1))
+fi
 
 echo ""
 echo "--- Test: CI failing PR (hyperfleet-e2e#33) → Tier 4 ---"
@@ -112,8 +127,17 @@ echo ""
 echo "--- Test: Sorting order (score descending) ---"
 FIRST_REPO=$(echo "$SCORED" | jq -r '.scored_prs[0].repo')
 FIRST_NUM=$(echo "$SCORED" | jq '.scored_prs[0].number')
-assert_eq "Highest score PR first" "hyperfleet-adapter" "$FIRST_REPO"
-assert_eq "PR #88 is first" "88" "$FIRST_NUM"
+FIRST_SCORE=$(echo "$SCORED" | jq '.scored_prs[0].deterministic_score')
+SECOND_SCORE=$(echo "$SCORED" | jq '.scored_prs[1].deterministic_score')
+assert_eq "Highest score PR first (hyperfleet-api#130, draft but highest scoring)" "hyperfleet-api" "$FIRST_REPO"
+assert_eq "PR #130 is first" "130" "$FIRST_NUM"
+if [ "$(echo "$FIRST_SCORE >= $SECOND_SCORE" | bc)" -eq 1 ]; then
+  printf "  ✓ First PR score (%s) >= second PR score (%s)\n" "$FIRST_SCORE" "$SECOND_SCORE"
+  PASS=$((PASS + 1))
+else
+  printf "  ✗ Sort order wrong: first score %s < second score %s\n" "$FIRST_SCORE" "$SECOND_SCORE"
+  FAIL=$((FAIL + 1))
+fi
 
 echo ""
 echo "--- Test: Data completeness ---"
@@ -183,6 +207,25 @@ else
   printf "  ✓ Tier 3 hidden when >10 PRs\n"
   PASS=$((PASS + 1))
 fi
+
+echo ""
+echo "--- Test: effective_tier — draft PR with provisional_tier=1 still renders in Tier 4 (HYPERFLEET-1515) ---"
+TIER_GUARD_TMP=$(mktemp)
+TMPFILES+=("$TIER_GUARD_TMP")
+# Simulate LLM misassignment: set provisional_tier to 1 on the draft PR, leave override_info intact
+echo "$SCORED" | jq '
+  .scored_prs |= [.[] |
+    if .repo == "hyperfleet-api" and .number == 130
+    then .provisional_tier = 1
+    else . end
+  ]
+' > "$TIER_GUARD_TMP"
+GUARD_SLACK=$(jq --arg mode "slack" -rf "$SCRIPTS_DIR/format-output.jq" "$TIER_GUARD_TMP" 2>&1)
+assert_not_contains "Misassigned draft NOT in Tier 1 (slack)" "hyperfleet-api #130" "$(echo "$GUARD_SLACK" | grep -A5 'Tier 1')"
+GUARD_COMPACT=$(jq --arg mode "compact" -rf "$SCRIPTS_DIR/format-output.jq" "$TIER_GUARD_TMP" 2>&1)
+assert_not_contains "Misassigned draft NOT in Tier 1 (compact)" "hyperfleet-api#130" "$(echo "$GUARD_COMPACT" | grep -A5 'Tier 1')"
+# Verify it IS in Tier 4
+assert_contains "Misassigned draft appears in Tier 4 (compact)" "hyperfleet-api#130" "$(echo "$GUARD_COMPACT" | grep -A10 'Tier 4')"
 
 echo ""
 echo "--- Test: Compact format ---"
