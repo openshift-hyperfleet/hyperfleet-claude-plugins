@@ -393,6 +393,17 @@ Applied by `score.jq`'s `apply_overrides` in this precedence order (first match 
 5. JIRA Blocker/Critical → Tier 1
 6. No JIRA ticket → capped at Tier 3
 
+### Defense in depth: `effective_tier`
+
+`format-output.jq` derives an `effective_tier` from `override_info` before bucketing PRs into tier sections. This ensures overrides are enforced deterministically even if `provisional_tier` is incorrectly modified during the LLM re-tiering step (Step 3c):
+
+- `override_info.override == "tier4"` → `effective_tier = 4`
+- `override_info.override == "tier1"` → `effective_tier = 1`
+- `override_info.override == "cap_tier3"` → `effective_tier = max(3, provisional_tier)`
+- No override → `effective_tier = provisional_tier`
+
+All tier-based filtering in the formatter uses `effective_tier`, never `provisional_tier` directly.
+
 ---
 
 ## Confidence Score

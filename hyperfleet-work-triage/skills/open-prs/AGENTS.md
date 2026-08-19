@@ -12,6 +12,7 @@ All tests must pass before opening a PR. The tests validate:
 - Deterministic scoring (`score.jq`): factor scores, overrides, tier assignment, sorting
 - Output formatting (`format-output.jq`): Slack and compact modes, emoji correctness, tier visibility
 - Edge cases: zero PRs, JIRA unavailable, draft/CI-failing/waiting-on-author overrides
+- Override enforcement: `effective_tier` in `format-output.jq` prevents overridden PRs from leaking into wrong tiers even if `provisional_tier` is misassigned
 
 ## Architecture
 

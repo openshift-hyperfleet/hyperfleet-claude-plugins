@@ -23,6 +23,13 @@ def age_format:
   elif . < 1 then "\((. * 24) | floor)h"
   else "\(. | floor)d" end;
 
+def effective_tier:
+  if .override_info.override == "tier4" then 4
+  elif .override_info.override == "tier1" then 1
+  elif .override_info.override == "cap_tier3" then
+    (if .provisional_tier < 3 then 3 else .provisional_tier end)
+  else .provisional_tier end;
+
 def override_status:
   .override_info.reason // "Informational";
 
@@ -61,17 +68,17 @@ def title_with_jira_link_slack:
 
 def format_compact:
   .metadata as $meta |
-  .scored_prs as $prs |
+  (.scored_prs | map(. + {effective_tier: effective_tier})) as $prs |
   ($prs | length) as $total |
 
   if $total == 0 then
     "No open PRs found across the openshift-hyperfleet organization. Nothing to review!"
   else
 
-  ([$prs[] | select(.provisional_tier == 1)]) as $t1 |
-  ([$prs[] | select(.provisional_tier == 2)]) as $t2 |
-  ([$prs[] | select(.provisional_tier == 3)]) as $t3 |
-  ([$prs[] | select(.provisional_tier == 4)]) as $t4 |
+  ([$prs[] | select(.effective_tier == 1)]) as $t1 |
+  ([$prs[] | select(.effective_tier == 2)]) as $t2 |
+  ([$prs[] | select(.effective_tier == 3)]) as $t3 |
+  ([$prs[] | select(.effective_tier == 4)]) as $t4 |
 
   # Header
   "## Open PRs — openshift-hyperfleet\n\n" +
@@ -133,12 +140,12 @@ def format_compact:
 
 def format_slack:
   .metadata as $meta |
-  .scored_prs as $prs |
+  (.scored_prs | map(. + {effective_tier: effective_tier})) as $prs |
   ($prs | length) as $total |
-  ([$prs[] | select(.provisional_tier == 1)]) as $t1 |
-  ([$prs[] | select(.provisional_tier == 2)]) as $t2 |
-  ([$prs[] | select(.provisional_tier == 3)]) as $t3 |
-  ([$prs[] | select(.provisional_tier == 4)]) as $t4 |
+  ([$prs[] | select(.effective_tier == 1)]) as $t1 |
+  ([$prs[] | select(.effective_tier == 2)]) as $t2 |
+  ([$prs[] | select(.effective_tier == 3)]) as $t3 |
+  ([$prs[] | select(.effective_tier == 4)]) as $t4 |
 
   # Tier visibility rules
   ($total > 10) as $hide_t3 |

@@ -130,7 +130,7 @@ For each PR:
 2. Optionally adjust Factor 2 score based on 3b findings
 3. Compute final weighted score: `(F1*20 + F2*18 + F3*16 + F4*14 + F5*12 + F6*8 + F7*7 + F8*5) / 10`
 4. Re-sort by final score descending (tiebreakers: confidence desc, age desc, size asc)
-5. Re-assign tiers if the final score changed the threshold crossing (respecting overrides — those don't change)
+5. Re-assign `provisional_tier` using score thresholds: ≥75→1, 50-74→2, 25-49→3, <25→4. **Do not modify `override_info` — it is set deterministically by `score.jq`. Never change `provisional_tier` for PRs where `override_info.override` is non-null** — override tiers are final. `format-output.jq` enforces this independently via `effective_tier`, but preserving the correct values avoids inconsistency
 
 #### 3d. Compute confidence scores
 
