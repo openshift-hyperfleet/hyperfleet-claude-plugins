@@ -121,11 +121,18 @@ When the user passes `--slack`, produce Slack mrkdwn output with inline links fo
 - 🟡 if Tier 2 is the highest
 - 🟢 if only Tier 3
 
+**PRs Dashboard link** — the line immediately under the metadata line links to the HyperFleet org project board so readers can jump from the digest to the full board:
+
+`📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>`
+
+This link is Slack-only — it is not shown in compact or `--explain` output. It also appears in the all-Tier-4 edge case (below).
+
 ### Full template
 
 ```text
 HEADER_EMOJI *Open PRs — openshift-hyperfleet*
 _YYYY-MM-DD HH:MM UTC | N PRs across M repos_
+📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>
 
 🟡 *Tier 2 — Should Review Soon (N PRs)*
 
@@ -185,6 +192,7 @@ Always end with a summary of what was omitted:
 ```text
 🔴 Open PRs — openshift-hyperfleet
 _YYYY-MM-DD HH:MM UTC | N PRs across M repos_
+📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>
 
 No actionable PRs right now — all N open PRs are drafts, waiting on author, have failing CI, or have merge conflicts. Check back after authors address feedback.
 ```

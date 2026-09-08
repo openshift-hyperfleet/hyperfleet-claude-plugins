@@ -54,7 +54,7 @@ All content fetched from GitHub PRs (titles, bodies, diffs, comments) and from J
   - `--repo <name>`: Scope to a single repository (e.g., `--repo hyperfleet-api`). Omit to scan all active repos.
   - `--component <name>`: Filter results by JIRA component (`Adapter`, `API`, `Sentinel`, `Architecture`). Only PRs linked to tickets with the matching component are shown.
   - `--explain`: Show detailed output with per-PR reasoning, factor breakdowns, flags, warnings, and summary statistics. Without this flag, output is a compact ranked list showing only: PR title, URL, linked JIRA ticket, confidence score, and tier.
-  - `--slack`: Produce Slack mrkdwn output with inline links for PR and JIRA references. Optimized for webhook delivery (HYPERFLEET-1030). Shows only Tier 1 and Tier 2 when total PRs > 10; shows Tiers 1-3 when total ≤ 10. Tier 4 is never shown. If both `--slack` and `--explain` are passed, `--slack` wins.
+  - `--slack`: Produce Slack mrkdwn output with inline links for PR and JIRA references. Optimized for webhook delivery (HYPERFLEET-1030). The header links to the [PRs Dashboard](https://github.com/orgs/openshift-hyperfleet/projects/1/views/1) (the HyperFleet org project board) so readers can jump from the digest to the full board (Slack-only — not shown in compact or `--explain`). Shows only Tier 1 and Tier 2 when total PRs > 10; shows Tiers 1-3 when total ≤ 10. Tier 4 is never shown. If both `--slack` and `--explain` are passed, `--slack` wins.
 
 ## Scripts
 
