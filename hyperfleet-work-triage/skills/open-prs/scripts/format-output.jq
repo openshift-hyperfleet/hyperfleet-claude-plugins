@@ -9,6 +9,9 @@ def escape_md:
 def escape_slack:
   gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
 
+# HyperFleet org project board — linked from the Slack digest header.
+def board_url: "https://github.com/orgs/openshift-hyperfleet/projects/1/views/1";
+
 def tier_emoji:
   if . == 1 then "🚨"
   elif . == 2 then "🟡"
@@ -164,11 +167,12 @@ def format_slack:
     "🟢 No open PRs found across the openshift-hyperfleet organization. 🎉"
   # All Tier 4 edge case
   elif ($t1 + $t2 + $t3 | length) == 0 then
-    "🔴 Open PRs — openshift-hyperfleet\n_\($meta.generated_at // $meta.scored_at) | \($total) PRs across \($meta.repos_with_prs) repos_\n\nNo actionable PRs right now — all \($total) open PRs are drafts, waiting on author, have failing CI, or have merge conflicts. Check back after authors address feedback."
+    "🔴 Open PRs — openshift-hyperfleet\n_\($meta.generated_at // $meta.scored_at) | \($total) PRs across \($meta.repos_with_prs) repos_\n📋 <\(board_url)|PRs Dashboard>\n\nNo actionable PRs right now — all \($total) open PRs are drafts, waiting on author, have failing CI, or have merge conflicts. Check back after authors address feedback."
   else
     # Main header
     "\($hdr_emoji) *Open PRs — openshift-hyperfleet*\n" +
     "_\($meta.generated_at // $meta.scored_at) | \($total) PRs across \($meta.repos_with_prs) repos_\n" +
+    "📋 <\(board_url)|PRs Dashboard>\n" +
 
     (if $meta.component_filter != null then "_Filter: component=\($meta.component_filter)_\n" else "" end) +
     (if ($meta.jira_available | not) then "_⚠️ JIRA unavailable — GitHub-only mode, confidence reduced_\n" else "" end) +

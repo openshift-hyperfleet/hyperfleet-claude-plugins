@@ -171,6 +171,7 @@ assert_contains "PR link format" "<https://github.com/openshift-hyperfleet/" "$S
 assert_contains "JIRA link inline in title" "<https://redhat.atlassian.net/browse/HYPERFLEET-1100|HYPERFLEET-1100>" "$SLACK_OUT"
 assert_not_contains "No separate JIRA pipe in Slack" "| <https://redhat.atlassian.net" "$SLACK_OUT"
 assert_contains "Slack status suffix" "No reviews," "$SLACK_OUT"
+assert_contains "Slack header links to project board" "📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>" "$SLACK_OUT"
 if echo "$SLACK_OUT" | grep -q ":[a-z_]*:"; then
   printf "  ✗ Should not contain Slack shortcodes\n"
   FAIL=$((FAIL + 1))
@@ -240,12 +241,20 @@ assert_contains "Tier table header (3 columns)" "| # | PR | Status |" "$COMPACT_
 assert_not_contains "No separate JIRA column" "| JIRA |" "$COMPACT_OUT"
 assert_contains "JIRA ticket linked in title" "[HYPERFLEET-856](https://redhat.atlassian.net/browse/HYPERFLEET-856)" "$COMPACT_OUT"
 assert_contains "Recommendation line" "**Start with:**" "$COMPACT_OUT"
+assert_not_contains "Board link is slack-only, not in compact" "projects/1/views/1" "$COMPACT_OUT"
 
 echo ""
 echo "--- Test: Compact format — PR without ticket has no JIRA link ---"
 NOTIX_OUT=$(echo "$SCORED" | jq '.scored_prs |= [.[] | select(.jira_keys | length == 0) | .provisional_tier = 3 | .override_info = {override: null, reason: null}]' | \
   jq --arg mode "compact" -rf "$SCRIPTS_DIR/format-output.jq" 2>&1)
 assert_not_contains "No JIRA link for no-ticket PR" "redhat.atlassian.net" "$NOTIX_OUT"
+
+echo ""
+echo "--- Test: Slack all-Tier-4 branch still links to project board ---"
+ALLT4_SLACK=$(echo "$SCORED" | jq '.scored_prs |= [.[] | .override_info = {override: "tier4", reason: "Draft"}]' | \
+  jq --arg mode "slack" -rf "$SCRIPTS_DIR/format-output.jq" 2>&1)
+assert_contains "All-Tier-4 slack shows 'No actionable PRs' branch" "No actionable PRs right now" "$ALLT4_SLACK"
+assert_contains "All-Tier-4 slack still links to project board" "📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>" "$ALLT4_SLACK"
 
 echo ""
 echo "--- Test: Empty input ---"
