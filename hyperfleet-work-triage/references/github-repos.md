@@ -9,6 +9,8 @@ Used by `/bugs-triage` (issue triage) and `/open-prs` (PR prioritization).
 - `hyperfleet-adapter`
 - `hyperfleet-sentinel`
 - `hyperfleet-broker`
+- `hyperfleet-operator`
+- `hyperfleet-applier`
 
 ## Infrastructure & Deployment
 
@@ -16,6 +18,7 @@ Used by `/bugs-triage` (issue triage) and `/open-prs` (PR prioritization).
 - `hyperfleet-infra`
 - `hyperfleet-credential-provider`
 - `hyperfleet-logger`
+- `hyperfleet-release`
 
 ## Testing & CLI
 
