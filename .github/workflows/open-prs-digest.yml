@@ -2,8 +2,8 @@ name: Open PRs Digest
 
 on:
   schedule:
-    - cron: '0 9 * * 1-5'
-  workflow_dispatch:
+    - cron: "0 9 * * 1-5"
+  workflow_dispatch: {}
 
 jobs:
   open-prs:
@@ -62,12 +62,14 @@ jobs:
           echo "=== test JIRA query ==="
           jira issue view HYPERFLEET-1030 --raw 2>&1 | head -5 || echo "JIRA QUERY FAILED with exit code $?"
         env:
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: false
+          export_environment_variables: false
 
       - name: Resolve dynamic context in SKILL.md
         run: |
@@ -92,45 +94,58 @@ jobs:
             { gsub(/\$\{CLAUDE_SKILL_DIR\}/, skilldir); print }
           ' "$SKILL" > "$RESOLVED"
 
+      - name: Collect PR and JIRA data
+        id: collect-data
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN_ORG_READ }}
+        run: |
+          set -euo pipefail
+           ./hyperfleet-work-triage/skills/open-prs/scripts/collect-data.sh > /tmp/pr-data.json
+
       - name: Run /open-prs via Claude
         uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1
         id: claude
         with:
           use_vertex: "true"
           prompt: |
-            Run the /open-prs skill with --slack flag.
-            Follow SKILL.md instructions: run collect-data.sh, pipe through score.jq,
+            Process the collected PR data from /tmp/pr-data.json.
+            Follow SKILL.md instructions: pipe through score.jq,
             classify Factor 4 for each PR, then pipe through format-output.jq with --arg mode slack.
             Output ONLY the final Slack mrkdwn content — no surrounding explanation or code blocks.
-           claude_args: "--append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved --allowedTools Bash,Read,Glob,Grep --model claude-haiku-4-5@20251001"
+          claude_args: "--append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved --allowedTools Read,Glob,Grep --model claude-haiku-4-5@20251001"
         env:
           ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
           CLOUD_ML_REGION: global
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-           GH_TOKEN: ${{ secrets.GH_TOKEN_ORG_READ }}
+          # Explicitly exclude GCP credential environment variables to prevent credential leakage
+          GOOGLE_APPLICATION_CREDENTIALS: ""
+          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ""
+          GOOGLE_GHA_CREDS_PATH: ""
 
-       - name: Check Claude execution result
-         run: |
-           set -euo pipefail
-           OUTPUT_FILE="${{ steps.claude.outputs.execution_file }}"
-           
-           echo "=== Claude Execution Output ==="
-           IS_ERROR="$(jq -r 'map(select(.type == "result")) | last | .is_error // false' "$OUTPUT_FILE" 2>/dev/null || echo 'unknown')"
-           MODEL_USED="$(jq -r 'map(select(.type == "system")) | last | .model // "unknown"' "$OUTPUT_FILE" 2>/dev/null || echo 'unknown')"
-           ERROR_MSG="$(jq -r 'map(select(.type == "assistant")) | last | .message.content[0].text // empty' "$OUTPUT_FILE" 2>/dev/null || echo '')"
-           
-           echo "Is Error: $IS_ERROR"
-           echo "Model Used: $MODEL_USED"
-           if [ ! -z "$ERROR_MSG" ]; then
-             echo "Error Message: $ERROR_MSG"
-           fi
-           
-           if [ "$IS_ERROR" = "true" ]; then
-             echo "::error::Claude execution failed. Check error message above"
-             exit 1
-           fi
+      - name: Check Claude execution result
+        run: |
+          set -euo pipefail
+          OUTPUT_FILE="${{ steps.claude.outputs.execution_file }}"
 
-       - name: Post to Slack
+          echo "=== Claude Execution Output ==="
+          IS_ERROR="$(jq -r 'map(select(.type == "result")) | last | .is_error // false' "$OUTPUT_FILE" 2>/dev/null || echo 'unknown')"
+          MODEL_USED="$(jq -r 'map(select(.type == "system")) | last | .model // "unknown"' "$OUTPUT_FILE" 2>/dev/null || echo 'unknown')"
+          ERROR_MSG="$(jq -r 'map(select(.type == "assistant")) | last | .message.content[0].text // empty' "$OUTPUT_FILE" 2>/dev/null || echo '')"
+
+          echo "Is Error: $IS_ERROR"
+          echo "Model Used: $MODEL_USED"
+          if [ ! -z "$ERROR_MSG" ]; then
+            echo "Error Message: $ERROR_MSG"
+          fi
+
+          if [ "$IS_ERROR" = "true" ]; then
+            echo "::error::Claude execution failed. Check error message above"
+            exit 1
+          fi
+
+      - name: Post to Slack
+        id: post-to-slack
+        if: ${{ !cancelled() }}
         env:
           OUTPUT_FILE: ${{ steps.claude.outputs.execution_file }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -165,9 +180,11 @@ jobs:
               -H 'Content-Type: application/json' \
               -d "$(jq -n --arg text "$MESSAGE" '{"text": $text}')")"
             if [ "$HTTP_CODE" -ne 200 ]; then
-              echo "::error::Error Slack webhook returned HTTP $HTTP_CODE"
-            fi
-            exit 1
+               echo "::error::Error Slack webhook returned HTTP $HTTP_CODE"
+               exit 1
+             fi
+             echo "error_handled=true" >> "$GITHUB_OUTPUT"
+             exit 1
           fi
 
           # Strip any LLM reasoning text before the actual Slack mrkdwn content.
@@ -207,7 +224,7 @@ jobs:
           echo "Posted to Slack successfully"
 
       - name: Notify Slack on failure
-        if: failure()
+        if: failure() && steps.post-to-slack.outputs.error_handled != 'true'
         env:
           SLACK_WEBHOOK_URL_ERRORS: ${{ secrets.SLACK_WEBHOOK_URL_ERRORS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
