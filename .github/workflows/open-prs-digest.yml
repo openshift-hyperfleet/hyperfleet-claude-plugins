@@ -104,7 +104,7 @@ jobs:
            ./hyperfleet-work-triage/skills/open-prs/scripts/collect-data.sh > /tmp/pr-data.json
 
       - name: Run /open-prs via Claude
-        uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1
+        uses: anthropics/claude-code-action@6dcf93138bbf3e264225a6c7ceecd5aa2205469d # v1.0.221
         id: claude
         with:
           use_vertex: "true"
