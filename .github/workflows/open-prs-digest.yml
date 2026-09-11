@@ -108,10 +108,10 @@ jobs:
         id: claude
         with:
           use_vertex: "true"
-          prompt: |
-            Execute the /open-prs skill to process PR data and return formatted Slack output.
-            The collected PR data is in pr-data.json.
-            Output ONLY the final Slack mrkdwn content — no surrounding explanation or code blocks.
+           prompt: |
+             Execute the /open-prs skill to process PR data and return formatted Slack output.
+             The collected PR data is in pr-data.json.
+             Output ONLY the final Slack mrkdwn content — no surrounding explanation or code blocks.
           claude_args: "--append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved --allowedTools Read,Glob,Grep,Bash --model claude-haiku-4-5@20251001"
         env:
           ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
