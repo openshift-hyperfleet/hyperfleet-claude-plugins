@@ -109,11 +109,10 @@ jobs:
         with:
           use_vertex: "true"
           prompt: |
-            Process the collected PR data from pr-data.json.
-            Follow SKILL.md instructions: pipe through score.jq,
-            classify Factor 4 for each PR, then pipe through format-output.jq with --arg mode slack.
+            Execute the /open-prs skill to process PR data and return formatted Slack output.
+            The collected PR data is in pr-data.json.
             Output ONLY the final Slack mrkdwn content — no surrounding explanation or code blocks.
-          claude_args: "--append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved --allowedTools Read,Glob,Grep --model claude-haiku-4-5@20251001"
+          claude_args: "--append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved --allowedTools Read,Glob,Grep,Bash --model claude-haiku-4-5@20251001"
         env:
           ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
           CLOUD_ML_REGION: global
