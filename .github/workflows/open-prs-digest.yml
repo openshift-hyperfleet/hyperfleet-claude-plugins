@@ -117,10 +117,6 @@ jobs:
         env:
           ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
           CLOUD_ML_REGION: global
-          # Explicitly exclude GCP credential environment variables to prevent credential leakage
-          GOOGLE_APPLICATION_CREDENTIALS: ""
-          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ""
-          GOOGLE_GHA_CREDS_PATH: ""
 
       - name: Check Claude execution result
         run: |
