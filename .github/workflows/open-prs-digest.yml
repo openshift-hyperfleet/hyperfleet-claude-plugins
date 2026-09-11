@@ -102,14 +102,35 @@ jobs:
             Follow SKILL.md instructions: run collect-data.sh, pipe through score.jq,
             classify Factor 4 for each PR, then pipe through format-output.jq with --arg mode slack.
             Output ONLY the final Slack mrkdwn content — no surrounding explanation or code blocks.
-          claude_args: "--append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved --allowedTools Bash,Read,Glob,Grep --model claude-3-5-haiku-20241022"
+           claude_args: "--append-system-prompt-file ./hyperfleet-work-triage/skills/open-prs/SKILL.md.resolved --allowedTools Bash,Read,Glob,Grep --model claude-haiku-4-5@20251001"
         env:
           ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.ANTHROPIC_VERTEX_PROJECT_ID }}
           CLOUD_ML_REGION: global
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN_ORG_READ }}
+           GH_TOKEN: ${{ secrets.GH_TOKEN_ORG_READ }}
 
-      - name: Post to Slack
+       - name: Check Claude execution result
+         run: |
+           set -euo pipefail
+           OUTPUT_FILE="${{ steps.claude.outputs.execution_file }}"
+           
+           echo "=== Claude Execution Output ==="
+           IS_ERROR="$(jq -r 'map(select(.type == "result")) | last | .is_error // false' "$OUTPUT_FILE" 2>/dev/null || echo 'unknown')"
+           MODEL_USED="$(jq -r 'map(select(.type == "system")) | last | .model // "unknown"' "$OUTPUT_FILE" 2>/dev/null || echo 'unknown')"
+           ERROR_MSG="$(jq -r 'map(select(.type == "assistant")) | last | .message.content[0].text // empty' "$OUTPUT_FILE" 2>/dev/null || echo '')"
+           
+           echo "Is Error: $IS_ERROR"
+           echo "Model Used: $MODEL_USED"
+           if [ ! -z "$ERROR_MSG" ]; then
+             echo "Error Message: $ERROR_MSG"
+           fi
+           
+           if [ "$IS_ERROR" = "true" ]; then
+             echo "::error::Claude execution failed. Check error message above"
+             exit 1
+           fi
+
+       - name: Post to Slack
         env:
           OUTPUT_FILE: ${{ steps.claude.outputs.execution_file }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
