@@ -3,7 +3,8 @@ name: Open PRs Digest
 on:
   schedule:
     - cron: "0 9 * * 1-5"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs: {}
 
 jobs:
   open-prs:
