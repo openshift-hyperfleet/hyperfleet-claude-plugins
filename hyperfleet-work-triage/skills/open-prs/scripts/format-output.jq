@@ -167,7 +167,7 @@ def format_slack:
     "🟢 No open PRs found across the openshift-hyperfleet organization. 🎉"
   # All Tier 4 edge case
   elif ($t1 + $t2 + $t3 | length) == 0 then
-    "🔴 Open PRs — openshift-hyperfleet\n_\($meta.generated_at // $meta.scored_at) | \($total) PRs across \($meta.repos_with_prs) repos_\n📋 <\(board_url)|PRs Dashboard>\n\nNo actionable PRs right now — all \($total) open PRs are drafts, waiting on author, have failing CI, or have merge conflicts. Check back after authors address feedback."
+    "🟢 Open PRs — openshift-hyperfleet\n_\($meta.generated_at // $meta.scored_at) | \($total) PRs across \($meta.repos_with_prs) repos_\n📋 <\(board_url)|PRs Dashboard>\n\nNo actionable PRs right now — all \($total) open PRs are drafts, waiting on author, have failing CI, or have merge conflicts. Check back after authors address feedback."
   else
     # Main header
     "\($hdr_emoji) *Open PRs — openshift-hyperfleet*\n" +

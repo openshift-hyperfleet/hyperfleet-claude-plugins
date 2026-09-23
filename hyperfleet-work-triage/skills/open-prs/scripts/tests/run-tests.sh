@@ -255,6 +255,8 @@ ALLT4_SLACK=$(echo "$SCORED" | jq '.scored_prs |= [.[] | .override_info = {overr
   jq --arg mode "slack" -rf "$SCRIPTS_DIR/format-output.jq" 2>&1)
 assert_contains "All-Tier-4 slack shows 'No actionable PRs' branch" "No actionable PRs right now" "$ALLT4_SLACK"
 assert_contains "All-Tier-4 slack still links to project board" "📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>" "$ALLT4_SLACK"
+assert_contains "All-Tier-4 slack header uses green (not red)" "🟢 Open PRs — openshift-hyperfleet" "$ALLT4_SLACK"
+assert_not_contains "All-Tier-4 slack header has no red circle" "🔴 Open PRs" "$ALLT4_SLACK"
 
 echo ""
 echo "--- Test: Empty input ---"

@@ -120,6 +120,7 @@ When the user passes `--slack`, produce Slack mrkdwn output with inline links fo
 - 🚨 if Tier 1 PRs exist
 - 🟡 if Tier 2 is the highest
 - 🟢 if only Tier 3
+- 🟢 if no Tier 1-3 PRs exist (all PRs are Tier 4 — nothing actionable)
 
 **PRs Dashboard link** — the line immediately under the metadata line links to the HyperFleet org project board so readers can jump from the digest to the full board:
 
@@ -190,7 +191,7 @@ Always end with a summary of what was omitted:
 **All PRs are Tier 4 (none actionable):**
 
 ```text
-🔴 Open PRs — openshift-hyperfleet
+🟢 Open PRs — openshift-hyperfleet
 _YYYY-MM-DD HH:MM UTC | N PRs across M repos_
 📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>
 
