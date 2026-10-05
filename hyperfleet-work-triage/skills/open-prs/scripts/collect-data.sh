@@ -112,7 +112,8 @@ fetch_repo_prs() {
   local author="${3:-}"
   local outfile="$TMPDIR_WORK/prs/${owner}_${repo}${author:+_${author}}.json"
   local errfile="$TMPDIR_WORK/repo_errors/${owner}_${repo}${author:+_${author}}.txt"
-  local -a args=(--repo "$owner/$repo" --state open --limit 100 --json "$PR_FIELDS")
+  # gh pr list paginates internally up to --limit; use the search API's 1,000-result ceiling.
+  local -a args=(--repo "$owner/$repo" --state open --limit 1000 --json "$PR_FIELDS")
   [ -z "$author" ] || args+=(--search "author:${author}")
 
   if result=$(gh pr list "${args[@]}" 2>"$errfile"); then
