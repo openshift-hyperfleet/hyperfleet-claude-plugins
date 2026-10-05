@@ -14,16 +14,19 @@ Used by `/bugs-triage` (issue triage) and `/open-prs` (PR prioritization).
 
 ## Infrastructure & Deployment
 
-- `hyperfleet-chart`
 - `hyperfleet-infra`
+- `oci-infra`
 - `hyperfleet-credential-provider`
 - `hyperfleet-logger`
 - `hyperfleet-release`
+- `hypershift`
+- `management-cluster-reconciler`
 
 ## Testing & CLI
 
 - `hyperfleet-e2e`
 - `maestro-cli`
+- `hyperfleet-scripts`
 
 ## API & Specifications
 
@@ -33,3 +36,20 @@ Used by `/bugs-triage` (issue triage) and `/open-prs` (PR prioritization).
 
 - `architecture`
 - `hyperfleet-claude-plugins`
+- `hyperfleet-hooks`
+- `rh-hooks-ai`
+- `coderabbit`
+- `renovate-config`
+- `.github`
+
+## Other Active Projects
+
+- `kartograph`
+
+## Additional PR sources
+
+These sources are used only by `/open-prs`; they are not GitHub issue-triage
+targets. Only PRs authored by current members of the `hyperfleet` team in the
+`openshift-hyperfleet` organization are included.
+
+- `openshift/release`
