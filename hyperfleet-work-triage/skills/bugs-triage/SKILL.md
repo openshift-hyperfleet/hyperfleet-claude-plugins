@@ -160,7 +160,7 @@ Present in a table and ask the user to re-evaluate or close each one:
 
 ### Step 1: Fetch untriaged issues
 
-Read `../../references/github-repos.md` to get the list of repos in scope. For each repo name, build a `repo:openshift-hyperfleet/<name>` token and include all of them in the `-f q=` parameter. Fetch issues that are either unlabeled or have `hf-needs-triage` but NOT already triaged labels:
+Read `../../references/github-repos.md` to get the repositories in scope. Use only repository names under the existing organization categories; do not include entries under `Additional PR sources`, which are exclusive to `/open-prs`. For each organization repository, build a `repo:openshift-hyperfleet/<name>` token and include all of them in the `-f q=` parameter. Fetch issues that are either unlabeled or have `hf-needs-triage` but NOT already triaged labels:
 
 ```bash
 gh api search/issues -X GET \

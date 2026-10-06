@@ -74,22 +74,30 @@ if [ ! -f "$REPOS_FILE" ]; then
   exit 0
 fi
 
-REPOS=$(grep -oE '`[a-zA-Z0-9_-]+`' "$REPOS_FILE" | tr -d '`' | sort -u)
+ORG_REPOS=$(sed '/^## Additional PR sources/,$d' "$REPOS_FILE" | grep -oE '^- `[a-zA-Z0-9_.-]+`' | sed 's/^- `//; s/`$//' | sort -u)
+EXTERNAL_PR_REPOS=$(sed -n '/^## Additional PR sources/,$p' "$REPOS_FILE" | grep -oE '^- `[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+`' | sed 's/^- `//; s/`$//' | sort -u || true)
 
-if [ -z "$REPOS" ]; then
+if [ -z "$ORG_REPOS" ]; then
   emit_error_json "No repositories parsed from $REPOS_FILE"
   exit 0
 fi
 
 if [ -n "$REPO_FILTER" ]; then
-  if ! echo "$REPOS" | grep -Fxq "$REPO_FILTER"; then
-    emit_error_json "Invalid repo: $REPO_FILTER. Valid repos: $(echo "$REPOS" | tr '\n' ', ')"
+  if echo "$ORG_REPOS" | grep -Fxq "$REPO_FILTER"; then
+    ORG_REPOS="$REPO_FILTER"
+    EXTERNAL_PR_REPOS=""
+  elif echo "$EXTERNAL_PR_REPOS" | grep -Fxq "$REPO_FILTER"; then
+    ORG_REPOS=""
+    EXTERNAL_PR_REPOS="$REPO_FILTER"
+  else
+    emit_error_json "Invalid repo: $REPO_FILTER. Valid repos: $(printf '%s\n%s' "$ORG_REPOS" "$EXTERNAL_PR_REPOS" | tr '\n' ', ')"
     exit 0
   fi
-  REPOS="$REPO_FILTER"
 fi
 
-REPO_COUNT=$(echo "$REPOS" | wc -l | tr -d ' ')
+REPO_COUNT=0
+[ -z "$ORG_REPOS" ] || REPO_COUNT=$(printf '%s\n' "$ORG_REPOS" | wc -l | tr -d ' ')
+[ -z "$EXTERNAL_PR_REPOS" ] || REPO_COUNT=$((REPO_COUNT + 1))
 echo "Fetching PRs from $REPO_COUNT repos..." >&2
 
 # --- Phase 1: Fetch all open PRs across repos (parallel) ---
@@ -99,13 +107,17 @@ PR_FIELDS="number,title,author,createdAt,updatedAt,additions,deletions,changedFi
 mkdir -p "$TMPDIR_WORK/prs" "$TMPDIR_WORK/repo_errors"
 
 fetch_repo_prs() {
-  local repo="$1"
-  local outfile="$TMPDIR_WORK/prs/${repo}.json"
-  local errfile="$TMPDIR_WORK/repo_errors/${repo}.txt"
+  local owner="$1"
+  local repo="$2"
+  local author="${3:-}"
+  local outfile="$TMPDIR_WORK/prs/${owner}_${repo}${author:+_${author}}.json"
+  local errfile="$TMPDIR_WORK/repo_errors/${owner}_${repo}${author:+_${author}}.txt"
+  # gh pr list paginates internally up to --limit; use the search API's 1,000-result ceiling.
+  local -a args=(--repo "$owner/$repo" --state open --limit 1000 --json "$PR_FIELDS")
+  [ -z "$author" ] || args+=(--search "author:${author}")
 
-  if result=$(gh pr list --repo "openshift-hyperfleet/$repo" --state open \
-    --limit 100 --json "$PR_FIELDS" 2>"$errfile"); then
-    if echo "$result" | jq -c --arg repo "$repo" '[.[] | . + {repo: $repo}]' > "${outfile}.tmp" 2>/dev/null \
+  if result=$(gh pr list "${args[@]}" 2>"$errfile"); then
+    if echo "$result" | jq -c --arg repo "$repo" --arg owner "$owner" '[.[] | . + {repo: $repo, owner: $owner}]' > "${outfile}.tmp" 2>/dev/null \
        && [ -s "${outfile}.tmp" ] && jq empty "${outfile}.tmp" 2>/dev/null; then
       mv "${outfile}.tmp" "$outfile"
       rm -f "$errfile"
@@ -116,10 +128,24 @@ fetch_repo_prs() {
   fi
 }
 
-for repo in $REPOS; do
-  fetch_repo_prs "$repo" &
+for repo in $ORG_REPOS; do
+  fetch_repo_prs "openshift-hyperfleet" "$repo" &
 done
 wait
+
+if [ -n "$EXTERNAL_PR_REPOS" ]; then
+  release_owner=${EXTERNAL_PR_REPOS%%/*}
+  release_repo=${EXTERNAL_PR_REPOS#*/}
+  if team_members=$(gh api orgs/openshift-hyperfleet/teams/hyperfleet/members --paginate --jq '.[].login' 2>"$TMPDIR_WORK/team_members_error.txt") \
+    && [ -n "$team_members" ]; then
+    for member in $team_members; do
+      fetch_repo_prs "$release_owner" "$release_repo" "$member" &
+    done
+    wait
+  else
+    echo "Failed to load current HyperFleet team members" > "$TMPDIR_WORK/repo_errors/${release_owner}_${release_repo}_team.txt"
+  fi
+fi
 
 ALL_PRS="$TMPDIR_WORK/all_prs.json"
 if compgen -G "$TMPDIR_WORK"/prs/*.json > /dev/null 2>&1; then
@@ -256,10 +282,10 @@ echo "Fetching per-PR details (reviews, CI, diffs)..." >&2
 mkdir -p "$TMPDIR_WORK/pr_details"
 
 fetch_pr_details() {
-  local repo="$1"
-  local number="$2"
-  local outfile="$TMPDIR_WORK/pr_details/${repo}_${number}.json"
-  local org="openshift-hyperfleet"
+  local org="$1"
+  local repo="$2"
+  local number="$3"
+  local outfile="$TMPDIR_WORK/pr_details/${org}_${repo}_${number}.json"
 
   local review_comments="[]"
   local issue_comments="[]"
@@ -320,12 +346,12 @@ fetch_pr_details() {
   fi
 }
 
-PR_LIST=$(jq -r '.[] | "\(.repo) \(.number)"' "$ALL_PRS")
+PR_LIST=$(jq -r '.[] | "\(.owner) \(.repo) \(.number)"' "$ALL_PRS")
 
 BATCH_COUNT=0
-while IFS=' ' read -r repo number; do
+while IFS=' ' read -r owner repo number; do
   [ -z "$repo" ] && continue
-  fetch_pr_details "$repo" "$number" &
+  fetch_pr_details "$owner" "$repo" "$number" &
   BATCH_COUNT=$((BATCH_COUNT + 1))
   if [ "$BATCH_COUNT" -ge 5 ]; then
     wait
@@ -362,7 +388,9 @@ assemble_pr() {
     done
   fi
 
-  local details_file="$TMPDIR_WORK/pr_details/${repo}_${number}.json"
+  local owner
+  owner=$(jq -r '.owner' "$pr_file")
+  local details_file="$TMPDIR_WORK/pr_details/${owner}_${repo}_${number}.json"
   if [ ! -f "$details_file" ]; then
     echo '{}' > "$details_file"
   fi
