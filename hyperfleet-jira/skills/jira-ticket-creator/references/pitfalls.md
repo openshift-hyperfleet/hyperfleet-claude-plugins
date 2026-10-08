@@ -24,7 +24,7 @@
 7. Set activity type via CLI: `--custom activity-type="Product / Portfolio Work"`
 8. Set component via CLI: `-C "Sentinel"`
 9. Set labels via CLI: `-l label1 -l label2`
-10. Link to epic via CLI: `-P EPIC-KEY`, or add `-l no-epic-needed` when the user confirms no epic applies
+10. Link to epic via CLI: `-P EPIC-KEY`. For a Task or Bug, add `-l no-epic-needed` instead when the user confirms no epic applies. Stories always need `-P`
 11. Use **bold** for HTTP methods: `**POST** /api/path/:id`
 
 ## Troubleshooting

@@ -168,7 +168,7 @@ The creator ensures:
 - **What/Why/Acceptance Criteria** structure, plus type-specific sections for Bugs, Epics, and Spikes
 - Story points via `jira-story-pointer` skill
 - Activity type via Sankey capacity allocation flow
-- Component and parent epic (or the `no-epic-needed` label), and an explicit priority
+- Component, parent epic (Tasks and Bugs may use the `no-epic-needed` label instead), and an explicit priority
 - Validation gate — blocks creation until all required fields are set
 - Post-creation check that the fields actually landed on the ticket
 

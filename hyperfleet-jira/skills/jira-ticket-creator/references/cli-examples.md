@@ -1,6 +1,6 @@
 # JIRA CLI Ticket Creation Examples
 
-Every Story, Task, and Bug command passes `--priority`, `-C`, and either `-P EPIC-KEY` or `-l no-epic-needed`. Jira has no default priority, so leaving out `--priority` creates the ticket as `Undefined`.
+Every Story, Task, and Bug command passes `--priority`, `-C`, and `-P EPIC-KEY`. A Task or Bug with no applicable epic passes `-l no-epic-needed` instead of `-P`; a Story always needs `-P`. Epics take neither. Jira has no default priority, so leaving out `--priority` creates the ticket as `Undefined`.
 
 ## Creating a Story
 
@@ -71,7 +71,7 @@ jira issue create --project HYPERFLEET --type Task \
   --no-input \
   -b "$(cat /tmp/task-description.txt)"
 
-# no-epic-needed: the user confirmed no epic applies. Otherwise use -P EPIC-KEY
+# no-epic-needed: the user confirmed no epic applies (Tasks and Bugs only). Otherwise use -P EPIC-KEY
 ```
 
 ## Creating a Bug

@@ -115,9 +115,12 @@ At least one component from the Valid Components list in ticket-hygiene.md, set 
 
 ### 9. Parent Epic (Required for Stories/Tasks/Bugs)
 
-Link the parent epic with `-P EPIC-KEY`. If no epic applies, add the `no-epic-needed` label instead (`-l no-epic-needed`), so triage can tell a deliberate omission from a forgotten link. ticket-hygiene.md makes the epic a MUST for Stories and a SHOULD for Tasks and Bugs; the label records the decision in every case.
+Link the parent epic with `-P EPIC-KEY`. ticket-hygiene.md makes the epic a MUST for Stories and a SHOULD for Tasks and Bugs:
 
-Do not decide this silently. Propose an epic (see Step 6) and let the user confirm it or choose `no-epic-needed`.
+- **Stories** must have a parent epic. The `no-epic-needed` label does not replace it. If no open epic fits, ask the user to pick one, create the epic first, or file the work as a Task
+- **Tasks and Bugs** with no applicable epic get the `no-epic-needed` label instead (`-l no-epic-needed`), so triage can tell a deliberate omission from a forgotten link
+
+Do not decide this silently. Propose an epic (see Step 6) and let the user confirm it or, for a Task or Bug, choose `no-epic-needed`.
 
 ### 10. Optional Context
 
@@ -187,7 +190,7 @@ jira issue list -q "project = HYPERFLEET AND issuetype = Epic AND statusCategory
 
 Do not add `ORDER BY` inside `-q`. jira-cli appends its own and the query fails, so use `--order-by`.
 
-Show the proposed epic to the user and ask them to confirm it, pick another, or choose `no-epic-needed`. If the user already named a parent, use it without asking.
+Show the proposed epic to the user and ask them to confirm it, pick another, or, for a Task or Bug, choose `no-epic-needed`. If the user already named a parent, use it without asking.
 
 ### Step 7: Validate Required Fields
 
@@ -199,7 +202,7 @@ Show the proposed epic to the user and ask them to confirm it, pick another, or 
 - [ ] **Activity Type** — must have a value from Step 5
 - [ ] **Component** — at least one valid component, and no two domain components
 - [ ] **Priority** — an explicit value passed with `--priority`, never `Undefined`
-- [ ] **Parent epic** — `-P EPIC-KEY`, or the `no-epic-needed` label if the user confirmed no epic applies
+- [ ] **Parent epic** — `-P EPIC-KEY`. Tasks and Bugs may use the `no-epic-needed` label instead if the user confirmed no epic applies; Stories may not
 
 For Epics: the description has Goal, Scope, and Success Criteria, and priority is set explicitly. Ask for a component and activity type too; ticket-hygiene.md says epics SHOULD have them.
 
@@ -214,7 +217,9 @@ Key patterns:
 - Use `-b "$(cat /tmp/file.txt)"` to pass descriptions
 - Use `--no-input` for non-interactive creation
 - Use `--custom story-points=X` and `--custom activity-type="..."` for custom fields
-- Always pass `--priority`, `-C "Component"`, and either `-P EPIC-KEY` or `-l no-epic-needed`
+- Always pass `--priority`
+- For Stories, Tasks, and Bugs, also pass `-C "Component"` and `-P EPIC-KEY`. Tasks and Bugs may pass `-l no-epic-needed` instead of `-P`
+- For Epics, pass neither `-P` nor `-l no-epic-needed`
 - Use fenced code blocks (triple backticks) in the description; they render correctly via CLI
 
 ### Step 9: Link Related Tickets
@@ -289,7 +294,7 @@ When creating a ticket, provide this output to the user:
 **Priority:** [Priority]
 **Activity Type:** [Activity type]
 **Component:** [Component(s)]
-**Parent Epic:** [HYPERFLEET-YYY, or `no-epic-needed`]
+**Parent Epic:** [HYPERFLEET-YYY, or `no-epic-needed` for a Task or Bug]
 
 All fields verified from the raw ticket JSON.
 ```
