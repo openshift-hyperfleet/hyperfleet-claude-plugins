@@ -1,5 +1,7 @@
 # JIRA CLI Ticket Creation Examples
 
+Every Story, Task, and Bug command passes `--priority`, `-C`, and either `-P EPIC-KEY` or `-l no-epic-needed`. Jira has no default priority, so leaving out `--priority` creates the ticket as `Undefined`.
+
 ## Creating a Story
 
 ```bash
@@ -64,45 +66,12 @@ jira issue create --project HYPERFLEET --type Task \
   --custom story-points=3 \
   --custom activity-type="Future Sustainability" \
   --priority Normal \
+  -C "CICD" \
+  -l no-epic-needed \
   --no-input \
   -b "$(cat /tmp/task-description.txt)"
-```
 
-## Creating an Epic
-
-**CRITICAL: Epics require the Epic Name field!**
-
-```bash
-cat > /tmp/epic-description.txt << 'EOF'
-# Epic Full Title
-
-### Overview
-
-Overview paragraph.
-
-### What
-
-- Deliverable 1
-- Deliverable 2
-
-### Why
-
-Explanation.
-
-### Success Criteria
-
-- Criterion 1
-- Criterion 2
-EOF
-
-# Create epic with Epic Name (required field!)
-jira issue create --project HYPERFLEET --type Epic \
-  --summary "Epic: Full Title Here" \
-  --custom epic-name="Short Name" \
-  -b "$(cat /tmp/epic-description.txt)" \
-  --no-input
-
-# Note: Use --custom epic-name="Name" (not epicName or customfield_12311141)
+# no-epic-needed: the user confirmed no epic applies. Otherwise use -P EPIC-KEY
 ```
 
 ## Creating a Bug
@@ -111,31 +80,139 @@ jira issue create --project HYPERFLEET --type Epic \
 cat > /tmp/bug-description.txt << 'EOF'
 ### What
 
-Description of the bug and its impact.
+Description of the bug.
+
+### Steps to Reproduce
+
+1. Step one
+2. Step two
+3. Observe the failure
+
+### Expected Behavior
+
+What should happen.
+
+### Actual Behavior
+
+What happens instead, including the error message if there is one.
+
+### Impact
+
+Who is affected and how (users, CI, other teams), and whether there is a workaround.
 
 ### Why
 
-Why this needs to be fixed urgently.
+Why this needs to be fixed now.
 
 ### Acceptance Criteria
 
-- Bug is reproducible
-- Root cause identified
-- Fix is verified
+- Root cause identified and fixed
 - Regression test added
+- Fix verified in the environment where the bug was found
 EOF
 
 jira issue create --project HYPERFLEET --type Bug \
   --summary "Bug: Brief Description" \
-  --custom story-points=5 \
+  --custom story-points=3 \
   --custom activity-type="Quality / Stability / Reliability" \
   --priority Major \
   -C "API" \
+  -P HYPERFLEET-100 \
   --no-input \
   -b "$(cat /tmp/bug-description.txt)"
+
+# Choose the priority from the bug's impact; do not default to Normal
+```
+
+## Creating a Spike
+
+A spike is a Story whose summary starts with `[SPIKE]`. Its acceptance criteria name the deliverable, and the Time Box caps the effort.
+
+```bash
+cat > /tmp/spike-description.txt << 'EOF'
+### What
+
+Research question: the question this spike answers.
+
+### Why
+
+The decision or work this unblocks.
+
+### Acceptance Criteria
+
+- Deliverable published: ADR, design doc, POC, or written recommendation (say which and where)
+- Options considered and trade-offs documented
+- Follow-up tickets filed for the chosen approach
+
+### Time Box
+
+N days. If the question is not answered by then, report findings so far and re-plan.
+EOF
+
+jira issue create --project HYPERFLEET --type Story \
+  --summary "[SPIKE] Choose the approach for X" \
+  --custom story-points=3 \
+  --custom activity-type="Future Sustainability" \
+  --priority Normal \
+  -C "Applier" -C "Architecture" \
+  -P HYPERFLEET-100 \
+  --no-input \
+  -b "$(cat /tmp/spike-description.txt)"
+
+# A design spike in the Applier domain gets Applier + Architecture (one domain + one cross-cutting component)
+```
+
+## Creating an Epic
+
+Epic Name (`customfield_10011`) is optional on Jira Cloud, so there is no need to pass `--custom epic-name`.
+
+```bash
+cat > /tmp/epic-description.txt << 'EOF'
+### Goal
+
+What the epic delivers when it is complete.
+
+### Why
+
+Business value and the problem it solves.
+
+### Scope
+
+**In Scope:**
+- Item 1
+- Item 2
+
+**Out of Scope:**
+- Item 3
+
+### Success Criteria
+
+- Criterion 1
+- Criterion 2
+
+### Dependencies
+
+- Other epics, teams, or external work this depends on
+
+### Risks
+
+- Known risks and how they will be handled
+EOF
+
+jira issue create --project HYPERFLEET --type Epic \
+  --summary "Epic Title" \
+  --custom activity-type="Product / Portfolio Work" \
+  --priority Normal \
+  -C "Operator" \
+  --no-input \
+  -b "$(cat /tmp/epic-description.txt)"
+
+# Story points are optional for epics; component and activity type SHOULD be set
 ```
 
 ## Description Templates (Markdown)
+
+The Bug, Spike, and Epic templates are in the CLI examples above.
 
 ### Story/Task Template
 
@@ -171,43 +248,6 @@ Detailed explanation paragraph (optional).
 
 - Item not included
 - Another exclusion
-```
-
-### Epic Template
-
-```markdown
-# Epic Title
-
-### Overview
-
-Brief overview paragraph.
-
-### What
-
-- Key deliverable 1
-- Key deliverable 2
-  - Sub-item
-- Key deliverable 3
-
-### Why
-
-Explanation of business value and impact.
-
-### Scope
-
-**In Scope:**
-- Item 1
-- Item 2
-
-**Out of Scope:**
-- Item 3
-- Item 4
-
-### Success Criteria
-
-- Criterion 1
-- Criterion 2
-- Criterion 3
 ```
 
 ## Linking Tickets (Blocks Relationship)

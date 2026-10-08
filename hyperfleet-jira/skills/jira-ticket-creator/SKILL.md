@@ -1,6 +1,6 @@
 ---
 name: jira-ticket-creator
-description: Creates well-structured JIRA tickets in the HYPERFLEET project with required What/Why/Acceptance Criteria for all tickets, and required story points/activity type for Stories/Tasks/Bugs. Activates when users ask to create a ticket, story, task, or epic. Also activates when Claude itself decides a JIRA ticket should be created (e.g., follow-up from a PR comment, triaging work) — never use jira issue create directly, always use this skill.
+description: Creates well-structured JIRA tickets in the HYPERFLEET project with required What/Why/Acceptance Criteria for all tickets, and required story points, activity type, component, priority, and parent epic for Stories/Tasks/Bugs. Activates when users ask to create a ticket, story, task, bug, spike, or epic. Also activates when Claude itself decides a JIRA ticket should be created (e.g., follow-up from a PR comment, triaging work) — never use jira issue create directly, always use this skill.
 allowed-tools: Bash, Read, Grep, Glob, Skill, Write
 argument-hint: <ticket-type> <summary>
 ---
@@ -77,24 +77,49 @@ Minimum 2-3 clear, testable criteria that define "done":
 - Should cover functional requirements and edge cases
 - Use bullet format with specific details
 
-### 4. Story Points (Required for Stories/Tasks/Bugs)
+### 4. Type-Specific Sections
+
+Some ticket types need extra description sections (templates in [references/cli-examples.md](references/cli-examples.md)):
+
+- **Bug** (required): Steps to Reproduce (or a clear trigger), Expected Behavior, Actual Behavior, and Impact (who is affected and how)
+- **Epic** (required): Goal, Scope (in and out), and Success Criteria. For epics these replace What and Acceptance Criteria
+- **Spike**: a Story whose summary starts with `[SPIKE]`. What states the research question, Acceptance Criteria name the deliverable (ADR, design doc, POC, or recommendation), and a Time Box section caps the effort
+
+### 5. Story Points (Required for Stories/Tasks/Bugs)
 
 All Stories, Tasks, and Bugs must have story points (scale: 0, 1, 3, 5, 8, 13). The scale below should match ticket-hygiene.md. If in doubt, fetch the latest.
 
-### 5. Priority (Required)
+### 6. Priority (Required)
 
-Set priority via CLI using `--priority`:
+Always set priority explicitly with `--priority`. Jira has **no default priority**: a ticket created without `--priority` shows `Undefined`, which does not meet the standard.
+
 - `Blocker` - Blocks development/testing, must be fixed immediately
 - `Critical` - Crashes, data loss, severe memory leak
 - `Major` - Major loss of function
-- `Normal` - Default priority for most work
+- `Normal` - Use for most work unless the user says otherwise
 - `Minor` - Minor loss of function, easy workaround
 
-### 6. Activity Type (Required for Stories/Tasks/Bugs)
+Never use `Undefined`. For Bugs, choose the priority from the bug's impact rather than defaulting to `Normal`.
+
+### 7. Activity Type (Required for Stories/Tasks/Bugs)
 
 See [references/activity-types.md](references/activity-types.md) for the full definition and Sankey capacity allocation flow.
 
-### 7. Optional Context
+### 8. Component (Required for Stories/Tasks/Bugs)
+
+At least one component from the Valid Components list in ticket-hygiene.md, set with `-C`. Follow its "Combining Components" rules:
+
+- Normally pick exactly one domain component (the system where the work lives)
+- Add a cross-cutting component (e.g. `Architecture`, `Documentation`) only when the ticket's main output is that kind of artifact
+- Never combine two domain components. Split the ticket, or pick the domain where most of the work lands
+
+### 9. Parent Epic (Required for Stories/Tasks/Bugs)
+
+Link the parent epic with `-P EPIC-KEY`. If no epic applies, add the `no-epic-needed` label instead (`-l no-epic-needed`), so triage can tell a deliberate omission from a forgotten link. ticket-hygiene.md makes the epic a MUST for Stories and a SHOULD for Tasks and Bugs; the label records the decision in every case.
+
+Do not decide this silently. Propose an epic (see Step 6) and let the user confirm it or choose `no-epic-needed`.
+
+### 10. Optional Context
 
 Additional sections can be added as needed:
 - **Technical Notes**: High-level implementation plan
@@ -106,12 +131,15 @@ Additional sections can be added as needed:
 ### Step 1: Gather Requirements
 
 Ask the user clarifying questions if needed:
-- What type of ticket? (Epic, Story, Task, Bug)
+- What type of ticket? (Epic, Story, Task, Bug, or a spike)
 - What needs to be done? (What)
 - Why is this important? (Why)
 - How will we know it's done? (Acceptance Criteria)
+- For Bugs: how to reproduce it, expected vs actual behavior, and who is affected
 - How complex/large is this work? (for story points)
 - What category of work is this? (for activity type)
+- Which part of the system does it touch? (for component)
+- Which epic does it belong to, if any? (for parent epic)
 
 ### Step 2: Check for Duplicates
 
@@ -147,33 +175,49 @@ Valid story points: 0, 1, 3, 5, 8, 13 (should match ticket-hygiene.md — if in 
 
 Follow the Sankey flow defined in [references/activity-types.md](references/activity-types.md) — evaluate top-down, first match wins.
 
-### Step 6: Validate Required Fields
+### Step 6: Choose Component and Parent Epic
 
-**Do NOT create the ticket until all required fields are set.** For Stories, Tasks, and Bugs, verify:
+Pick the component from the Valid Components in ticket-hygiene.md, following the combining rules in section 8 above.
 
+Then list open epics and propose the best match for the ticket:
+
+```bash
+jira issue list -q "project = HYPERFLEET AND issuetype = Epic AND statusCategory != Done" --order-by updated --plain --columns key,summary,status
+```
+
+Do not add `ORDER BY` inside `-q`. jira-cli appends its own and the query fails, so use `--order-by`.
+
+Show the proposed epic to the user and ask them to confirm it, pick another, or choose `no-epic-needed`. If the user already named a parent, use it without asking.
+
+### Step 7: Validate Required Fields
+
+**Do NOT create the ticket until every check passes.** For Stories, Tasks, and Bugs:
+
+- [ ] **Summary** — clear and under 100 characters
+- [ ] **Description** — What, Why, and at least 2 testable Acceptance Criteria, plus the type-specific sections from section 4 (Bug: Steps to Reproduce, Expected Behavior, Actual Behavior, Impact)
 - [ ] **Story Points** — must have a value from Step 4. If `jira-story-pointer` was not invoked, go back and invoke it now
 - [ ] **Activity Type** — must have a value from Step 5
-- [ ] **Priority** — must be set (default: `Normal`)
+- [ ] **Component** — at least one valid component, and no two domain components
+- [ ] **Priority** — an explicit value passed with `--priority`, never `Undefined`
+- [ ] **Parent epic** — `-P EPIC-KEY`, or the `no-epic-needed` label if the user confirmed no epic applies
 
-If any field is missing, resolve it before proceeding.
+For Epics: the description has Goal, Scope, and Success Criteria, and priority is set explicitly. Ask for a component and activity type too; ticket-hygiene.md says epics SHOULD have them.
 
-### Step 7: Create the Ticket via jira-cli
+If anything is missing, resolve it with the user before proceeding.
 
-See [references/cli-examples.md](references/cli-examples.md) for complete CLI commands for each ticket type (Story, Task, Epic, Bug).
+### Step 8: Create the Ticket via jira-cli
+
+See [references/cli-examples.md](references/cli-examples.md) for complete CLI commands for each ticket type (Story, Task, Bug, Spike, Epic).
 
 Key patterns:
 - Always save descriptions to temporary files first
 - Use `-b "$(cat /tmp/file.txt)"` to pass descriptions
 - Use `--no-input` for non-interactive creation
 - Use `--custom story-points=X` and `--custom activity-type="..."` for custom fields
+- Always pass `--priority`, `-C "Component"`, and either `-P EPIC-KEY` or `-l no-epic-needed`
+- Use fenced code blocks (triple backticks) in the description; they render correctly via CLI
 
-### Step 8: Post-Creation Steps
-
-All fields can be set via CLI during creation:
-- **Link to Epic**: use `-P EPIC-KEY` (or `--parent EPIC-KEY`)
-- **Add Labels**: use `-l label1 -l label2`
-- **Add Component**: use `-C ComponentName`
-- **Code blocks**: use fenced code blocks (triple backticks) in the description — they render correctly via CLI
+### Step 9: Link Related Tickets
 
 #### Issue Links (Blocks / Is Blocked By)
 
@@ -191,17 +235,29 @@ Examples:
 
 **Common mistake:** Swapping the arguments inverts the link direction — the parent ticket appears as "IS BLOCKED BY" instead of "BLOCKS".
 
-### Step 9: Verify and Return Details
+### Step 10: Verify and Return Details
+
+`--plain` does not show story points or activity type, and jira-cli can drop custom fields without an error. Read the fields back from the raw JSON:
 
 ```bash
-jira issue view HYPERFLEET-XXX --plain
+jira issue view HYPERFLEET-XXX --raw | jq '{
+  type: .fields.issuetype.name,
+  storyPoints: .fields.customfield_10028,
+  activityType: .fields.customfield_10464.value,
+  components: [.fields.components[].name],
+  priority: .fields.priority.name,
+  parent: .fields.parent.key,
+  labels: .fields.labels,
+  descLen: ((.fields.description // "" | tostring) | length)
+}'
 ```
+
+If any required field is null, empty, or `Undefined`, or the description is empty, fix it with `jira issue edit` (see [references/pitfalls.md](references/pitfalls.md)) and check again.
 
 Return to user:
 - Ticket key (e.g., HYPERFLEET-123)
 - Link: https://redhat.atlassian.net/browse/HYPERFLEET-123
-- Summary of what was created
-- **List of manual steps needed**
+- Summary of what was created, including the verified field values
 
 ## Output Format
 
@@ -210,7 +266,7 @@ When creating a ticket, provide this output to the user:
 ```
 ### Ticket Created: HYPERFLEET-XXX
 
-**Type:** [Story/Task/Epic/Bug]
+**Type:** [Story/Task/Bug/Epic]
 **Summary:** [Title]
 **Link:** https://redhat.atlassian.net/browse/HYPERFLEET-XXX
 
@@ -229,17 +285,13 @@ When creating a ticket, provide this output to the user:
 - Criterion 2
 - Criterion 3
 
-**Story Points:** [X points - set via CLI]
-**Priority:** [Priority - set via CLI]
-**Activity Type:** [Activity type - set via CLI]
+**Story Points:** [X]
+**Priority:** [Priority]
+**Activity Type:** [Activity type]
+**Component:** [Component(s)]
+**Parent Epic:** [HYPERFLEET-YYY, or `no-epic-needed`]
 
----
-
-#### Post-Creation (if not set during creation)
-
-1. **Link to Epic**: `jira issue edit HYPERFLEET-XXX --parent EPIC-KEY --no-input`
-2. **Add Labels**: `jira issue edit HYPERFLEET-XXX -l label1 -l label2 --no-input`
-3. **Add Component**: `jira issue edit HYPERFLEET-XXX -C "Sentinel" --no-input`
+All fields verified from the raw ticket JSON.
 ```
 
 ## Integration with Other Skills

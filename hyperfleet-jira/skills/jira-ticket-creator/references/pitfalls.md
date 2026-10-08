@@ -8,6 +8,10 @@
 2. Use raw field IDs like `--custom customfield_10028=3` — silently ignored! Use aliases
 3. Use JIRA wiki markup for links (`[text|url]`) — the `jira-cli` expects Markdown (`[text](url)`) and wiki markup renders as malformed, duplicated links
 4. Swap arguments in `jira issue link` — the first argument is the OUTWARD ticket (the one that "blocks"), the second is the INWARD ticket (the one that "is blocked by"). Wrong order inverts the link direction
+5. Leave out `--priority` — Jira has no default, so the ticket is created with priority `Undefined`
+6. Combine two domain components (e.g. `-C Infra -C Applier`) — split the ticket or pick the domain where most of the work lands
+7. Put `ORDER BY` inside a `jira issue list -q` query — jira-cli appends its own and the query fails with a 400. Use `--order-by` instead
+8. Trust `jira issue view --plain` to confirm custom fields — it does not show story points or activity type. Verify with `--raw` and jq
 
 ### DO
 
@@ -20,23 +24,19 @@
 7. Set activity type via CLI: `--custom activity-type="Product / Portfolio Work"`
 8. Set component via CLI: `-C "Sentinel"`
 9. Set labels via CLI: `-l label1 -l label2`
-10. Link to epic via CLI: `-P EPIC-KEY`
+10. Link to epic via CLI: `-P EPIC-KEY`, or add `-l no-epic-needed` when the user confirms no epic applies
 11. Use **bold** for HTTP methods: `**POST** /api/path/:id`
 
 ## Troubleshooting
 
-### Issue: Epic Name Required Error
+### Issue: Priority Shows `Undefined`
 
-```text
-Error: customfield_12311141: Epic Name is required.
-```
+**Cause:** the ticket was created without `--priority`.
 
 **Solution:**
 
 ```bash
---custom epic-name="Short Name"  # Correct
---custom epicName="Name"          # Wrong
---custom customfield_12311141     # Wrong
+jira issue edit HYPERFLEET-XXX --priority Normal --no-input
 ```
 
 ### Issue: Story Points Not Setting
