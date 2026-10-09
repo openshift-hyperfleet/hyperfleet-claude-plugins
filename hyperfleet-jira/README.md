@@ -15,7 +15,7 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 - **`/triage`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
-- **jira-ticket-creator** - Creates well-structured tickets with What/Why/Acceptance Criteria, duplicate check, story points, activity type, and validation gate
+- **jira-ticket-creator** - Creates well-structured tickets with What/Why/Acceptance Criteria, duplicate check, story points, activity type, component, parent epic, and validation gate
 - **jira-triage** - Validates ticket quality and sprint readiness
 - **jira-story-pointer** - Estimates story points using complexity analysis and historical comparison
 - **Is Ticket Implemented?** - Validates whether a ticket's requirements are implemented in the codebase
@@ -165,10 +165,12 @@ Just ask naturally to create tickets:
 
 The creator ensures:
 - Duplicate check before creating
-- **What/Why/Acceptance Criteria** structure
+- **What/Why/Acceptance Criteria** structure, plus type-specific sections for Bugs, Epics, and Spikes
 - Story points via `jira-story-pointer` skill
 - Activity type via Sankey capacity allocation flow
+- Component, parent epic (Tasks and Bugs may use the `no-epic-needed` label instead), and an explicit priority
 - Validation gate — blocks creation until all required fields are set
+- Post-creation check that the fields actually landed on the ticket
 
 #### Ticket Triage
 Just ask naturally:
