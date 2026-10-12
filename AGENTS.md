@@ -20,7 +20,7 @@ Before making any changes:
 | Command definitions | `<plugin>/commands/<name>.md` |
 | Agent definitions | `<plugin>/agents/<name>/AGENT.md` |
 | Hook definitions | `<plugin>/hooks/` |
-| PR approval ownership | `<plugin>/OWNERS` (k8s-style) |
+| PR approval ownership | `<plugin>/OWNERS` (k8s-style, references aliases from the root `OWNERS_ALIASES`; both are generated from `hyperfleet/docs/owners.md` in the architecture repository, so ownership changes go there first) |
 | Contributor guide | `CONTRIBUTING.md` |
 | Skill reference data | `<plugin>/skills/<skill-name>/references/` |
 | CI review container | `hyperfleet-code-review/ci/` |
@@ -35,7 +35,7 @@ Before making any changes:
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.8.2 |
-| `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.3.0 |
+| `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.4.0 |
 | `hyperfleet-hooks` | - | - | - | 1 | 0.2.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |
 | `hyperfleet-release` | 1 (`release-notes`) | - | - | - | 0.1.0 |

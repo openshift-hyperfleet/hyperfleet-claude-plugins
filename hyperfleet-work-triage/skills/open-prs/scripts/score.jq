@@ -377,6 +377,41 @@ def score_factor8:
     end
   end;
 
+# --- Area ownership (from Prow area/* labels) ---
+# A PR with several area labels is grouped under its first label; the rest are
+# listed in `others` so the formatter can show them inline. No label -> "No area".
+def area_info:
+  ((.area_labels // [.labels[]? | select(startswith("area/"))]) | map(sub("^area/"; ""))) as $areas |
+  {labels: $areas,
+   primary: ($areas[0] // "No area"),
+   others: ($areas[1:] // []),
+   has_area: ($areas | length > 0)};
+
+# --- Review request tracking ---
+# Prow requests reviewers from the area's OWNERS pool, so a pending request names
+# the reviewer of record. GitHub drops the request once the reviewer submits a
+# review, so anything still listed has not been acted on. Waiting on a requested
+# reviewer for more than one business day is flagged as overdue.
+def review_request_info($now_epoch):
+  (.review_requests // []) as $reqs |
+  ([$reqs[] | .login] | map(select(. != null))) as $reviewers |
+  ((.review_requested_at // ([$reqs[].requested_at] | max)) // null) as $requested_at |
+  ($requested_at | safe_parse_iso8601) as $requested_epoch |
+  (if ($reviewers | length) > 0 and $requested_epoch > 0
+   then business_days_between($requested_epoch; $now_epoch) else 0 end) as $bdays |
+  (($reviewers | length) > 0 and ($requested_epoch > 0) and (.is_draft | not) and $bdays > 1) as $overdue |
+  {reviewers: $reviewers,
+   teams: [$reqs[] | select(.type == "team") | .login],
+   requested_at: $requested_at,
+   requested_at_source: ([$reqs[].requested_at_source] | first // null),
+   business_days_waiting: $bdays,
+   overdue: $overdue,
+   detail: (
+     if ($reviewers | length) == 0 then "No reviewer requested"
+     else "\($reviewers | map("@" + .) | join(", ")) requested \($bdays) business day(s) ago\(if $overdue then ", overdue" else "" end)"
+     end
+   )};
+
 # --- Data Completeness (for confidence) ---
 def data_completeness:
   . as $pr |
@@ -413,7 +448,9 @@ def generate_flags($now_epoch):
     (if ($pr.jira_keys | length) == 0 then "no_jira_ticket" else empty end),
     (if $age_days > 7 then "stale" else empty end),
     (if ($pr.labels | any(. == "needs-rebase")) then "needs_rebase" else empty end),
-    (if ($pr.scores.factor8.score // 0) >= 10 then "high_story_points" else empty end)
+    (if ($pr.scores.factor8.score // 0) >= 10 then "high_story_points" else empty end),
+    (if ($pr.review_request.overdue // false) then "reviewer_overdue" else empty end),
+    (if $pr.area.has_area == false then "no_area_label" else empty end)
   ];
 
 # --- Override rules ---
@@ -512,6 +549,10 @@ def assign_tier:
     factor7: score_factor7,
     factor8: score_factor8
   }} |
+
+  # Area ownership and reviewer of record (not part of the weighted score)
+  . + {area: area_info} |
+  . + {review_request: review_request_info($now_epoch)} |
 
   # Apply overrides
   . + {override_info: apply_overrides} |

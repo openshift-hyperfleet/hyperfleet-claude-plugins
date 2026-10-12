@@ -289,6 +289,7 @@ fetch_pr_details() {
 
   local review_comments="[]"
   local issue_comments="[]"
+  local review_request_events="[]"
   local latest_commit_date=""
   local commit_status='{}'
   local mergeable=""
@@ -299,6 +300,17 @@ fetch_pr_details() {
 
   issue_comments=$(gh api --paginate "repos/$org/$repo/issues/$number/comments" \
     --jq '[.[] | {author: .user.login, created: .created_at}]' 2>/dev/null) || issue_comments="[]"
+
+  # Review request timestamps. `gh pr list --json reviewRequests` only returns who is
+  # currently requested, not when. The issue timeline exposes `review_requested` events
+  # with `created_at`, so each pending request is matched to its latest event here.
+  # Pages are merged with `jq -s` because a busy PR can have more than 100 timeline events.
+  review_request_events=$(gh api --paginate "repos/$org/$repo/issues/$number/timeline?per_page=100" 2>/dev/null | \
+    jq -s '[.[]? | .[]? | select(.event == "review_requested") |
+      {login: (.requested_reviewer.login // .requested_team.slug // empty),
+       type: (if .requested_team != null then "team" else "user" end),
+       requested_at: .created_at}]' 2>/dev/null) || review_request_events="[]"
+  [ -n "$review_request_events" ] || review_request_events="[]"
 
   latest_commit_date=$(gh api --paginate "repos/$org/$repo/pulls/$number/commits" \
     --jq '.[-1].commit.committer.date' 2>/dev/null) || latest_commit_date=""
@@ -325,6 +337,7 @@ fetch_pr_details() {
     --argjson number "$number" \
     --argjson review_comments "$review_comments" \
     --argjson issue_comments "$issue_comments" \
+    --argjson review_request_events "$review_request_events" \
     --arg latest_commit_date "$latest_commit_date" \
     --argjson commit_status "$commit_status" \
     --arg mergeable "$mergeable" \
@@ -334,6 +347,7 @@ fetch_pr_details() {
       number: $number,
       review_comments: $review_comments,
       issue_comments: $issue_comments,
+      review_request_events: $review_request_events,
       latest_commit_date: $latest_commit_date,
       commit_status: $commit_status,
       mergeable: $mergeable,
@@ -398,13 +412,28 @@ assemble_pr() {
   local risk_label
   risk_label=$(jq -r '[.labels[]?.name // empty | select(startswith("risk/"))] | first // ""' "$pr_file")
 
+  # area/* labels are applied by Prow's owners-label plugin from OWNERS files.
+  # reviewRequests lists reviewers still pending (GitHub drops a request once the
+  # reviewer submits a review). Each pending request is paired with the newest
+  # matching `review_requested` timeline event; when no event was fetched, the PR
+  # createdAt is used as the request time because Prow requests reviewers at open.
   jq -c \
     --slurpfile details "$details_file" \
     --slurpfile jira_data "$jira_data_file" \
     --arg author_login "$author_login" \
     --arg risk_label "$risk_label" \
     --argjson jira_keys "$(echo "$jira_keys" | jq -R -s 'split("\n") | map(select(. != ""))')" \
-    '{
+    '($details[0].review_request_events // []) as $rr_events |
+    .createdAt as $created_at |
+    ([.reviewRequests[]? |
+      {login: (.login // .slug // .name // empty),
+       type: (if .__typename == "Team" then "team" else "user" end)} |
+      . as $req |
+      ([$rr_events[] | select(.login == $req.login) | .requested_at] | max) as $event_at |
+      $req + {requested_at: ($event_at // $created_at),
+              requested_at_source: (if $event_at != null then "timeline" else "pr_created_at" end)}
+    ]) as $review_requests |
+    {
       repo: .repo,
       number: .number,
       title: .title,
@@ -418,7 +447,10 @@ assemble_pr() {
       is_draft: .isDraft,
       head_branch: .headRefName,
       labels: [.labels[]?.name // empty],
+      area_labels: [.labels[]?.name // empty | select(startswith("area/"))],
       risk_label: $risk_label,
+      review_requests: $review_requests,
+      review_requested_at: ([$review_requests[].requested_at] | max),
       review_decision: .reviewDecision,
       latest_reviews: .latestReviews,
       status_check_rollup: .statusCheckRollup,

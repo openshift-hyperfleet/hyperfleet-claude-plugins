@@ -8,7 +8,7 @@ argument-hint: [--repo <repo-name>] [--component <component-name>] [--explain] [
 
 # Open PRs — Intelligent Review Queue
 
-Surface, analyze, and prioritize all open PRs across the `openshift-hyperfleet` GitHub organization. Cross-references GitHub PR metadata with JIRA ticket context, reads PR content to understand urgency beyond field values, and produces a ranked review queue with per-PR reasoning and confidence scores.
+Surface, analyze, and prioritize all open PRs across the `openshift-hyperfleet` GitHub organization. Cross-references GitHub PR metadata with JIRA ticket context, reads PR content to understand urgency beyond field values, and produces a ranked review queue with per-PR reasoning and confidence scores. Output is grouped by `area/*` label (applied by Prow from OWNERS files) and shows, for each PR, the reviewers Prow requested from the area's OWNERS pool and how many business days they have been waiting, so the reviewer of record is visible.
 
 **Architecture:** ~80% of the work (data fetching, deterministic scoring, tier assignment, formatting) is handled by shell/jq scripts. The LLM handles only the ~20% that requires judgment: diff content classification (Factor 4), informal blocking signal detection (Factor 2 refinement), confidence computation, and `--explain` reasoning.
 
@@ -53,8 +53,8 @@ All content fetched from GitHub PRs (titles, bodies, diffs, comments) and from J
 - `$ARGUMENTS`: Optional flags
   - `--repo <name>`: Scope to one repository (e.g., `--repo hyperfleet-api` or `--repo openshift/release`). Omit to scan all active repos and the additional PR sources.
   - `--component <name>`: Filter results by JIRA component (`Adapter`, `API`, `Sentinel`, `Architecture`). Only PRs linked to tickets with the matching component are shown.
-  - `--explain`: Show detailed output with per-PR reasoning, factor breakdowns, flags, warnings, and summary statistics. Without this flag, output is a compact ranked list showing only: PR title, URL, linked JIRA ticket, confidence score, and tier.
-  - `--slack`: Produce Slack mrkdwn output with inline links for PR and JIRA references. Optimized for webhook delivery (HYPERFLEET-1030). The header links to the [PRs Dashboard](https://github.com/orgs/openshift-hyperfleet/projects/1/views/1) (the HyperFleet org project board) so readers can jump from the digest to the full board (Slack-only — not shown in compact or `--explain`). Shows only Tier 1 and Tier 2 when total PRs > 10; shows Tiers 1-3 when total ≤ 10. Tier 4 is never shown. If both `--slack` and `--explain` are passed, `--slack` wins.
+  - `--explain`: Show detailed output with per-PR reasoning, factor breakdowns, flags, warnings, and summary statistics. Without this flag, output is a compact list grouped by area showing: PR title, URL, linked JIRA ticket, tier, review status with age and flags, and the requested reviewers with business days waiting.
+  - `--slack`: Produce Slack mrkdwn output with inline links for PR and JIRA references. Optimized for webhook delivery (HYPERFLEET-1030). The header links to the [PRs Dashboard](https://github.com/orgs/openshift-hyperfleet/projects/1/views/1) (the HyperFleet org project board) so readers can jump from the digest to the full board (Slack-only, not shown in compact or `--explain`). PRs are grouped by `area/*` label (unlabeled PRs under "No area", last), each bullet carries its tier emoji, the requested reviewers with business days waiting, and flags (`overdue` when a requested reviewer has waited more than one business day). Shows only Tier 1 and Tier 2 PRs when total PRs > 10; shows Tiers 1-3 when total ≤ 10. Tier 4 is never shown. If both `--slack` and `--explain` are passed, `--slack` wins.
 
 ## Scripts
 
@@ -104,6 +104,11 @@ This computes:
 - **Factor 8** (Story Points, 5%): deterministic from JIRA field
 
 Plus: override rules (CI failing → T4, waiting on author → T4, conflicts → T4, draft → T4, Blocker/Critical → T1, no ticket → cap T3), provisional tiers, sorting.
+
+It also attaches, without affecting the score:
+- `area`: primary area from the first `area/*` label (`"No area"` when unlabeled) plus `others` for any further area labels
+- `review_request`: pending requested reviewers (the reviewer of record from the area's OWNERS pool), `business_days_waiting` since the latest request, and `overdue` (flag `reviewer_overdue`) when a non-draft PR has waited more than one business day
+- flag `no_area_label` when no `area/*` label is present
 
 **DO NOT re-compute** the deterministic factors — the script output IS the scoring. Your role is only to fill in the LLM-required parts (Step 3).
 
@@ -159,7 +164,7 @@ echo 'FINAL_JSON' | jq --arg mode "slack" -rf ${CLAUDE_SKILL_DIR}/scripts/format
 
 Or `--arg mode "compact"` for compact mode.
 
-**DO NOT manually format** the output — the script produces the exact format defined in [output-format.md](output-format.md) with correct Unicode emojis, Slack mrkdwn links, and tier visibility rules. Output the formatter result **exactly as-is** — preserve all newlines, do NOT reflow or merge lines.
+**DO NOT manually format** the output: the script produces the exact format defined in [output-format.md](output-format.md) with correct Unicode emojis, Slack mrkdwn links, area grouping, requested reviewers, and tier visibility rules. Output the formatter result **exactly as-is**, preserve all newlines, do NOT reflow or merge lines.
 
 For **`--slack` mode**: wrap the ENTIRE output in a single code block (triple backticks). This preserves the Slack mrkdwn characters (`*`, `_`, `<url|text>`) and newlines through the terminal. The user copies the content from inside the code block and pastes it into Slack.
 
@@ -169,15 +174,15 @@ For **compact mode**: output directly without code blocks — the markdown rende
 
 Produce the detailed output directly following the format in [output-format.md](output-format.md):
 1. Header with metadata
-2. Tier 1 table + per-PR detail blocks with 8-factor breakdowns and reasoning
+2. Tier 1 table (with Area column) + per-PR detail blocks with area, requested reviewers and business days waiting, 8-factor breakdowns and reasoning
 3. Tier 2 table + per-PR detail blocks
 4. Tier 3 condensed table
 5. Tier 4 grouped by reason
-6. Flags & Warnings
+6. Flags & Warnings (including "Waiting on requested reviewer" from `review_request.overdue` and "No area label")
 7. Summary Statistics
 8. Recommendation line
 
-Use the pre-computed scores from the JSON — do not re-score. Add your reasoning text for Tier 1 and Tier 2 PRs explaining WHY they are ranked where they are.
+Use the pre-computed scores from the JSON, do not re-score. Add your reasoning text for Tier 1 and Tier 2 PRs explaining WHY they are ranked where they are. Take the area and reviewer fields from `area` and `review_request` in the scored JSON; do not infer them from titles or comments.
 
 When a risk label contributed to Factor 4 scoring, mention it in the reasoning (e.g., "Risk label: `risk/high` boosted Factor 4 from LLM-classified 5 to floor 8").
 
