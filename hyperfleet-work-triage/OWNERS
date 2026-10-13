@@ -1,9 +1,7 @@
 approvers:
-  - rafabene
-  - ciaranRoche
-  - sherine-k
-
+- tooling-owners
 reviewers:
-  - rafabene
-  - ciaranRoche
-  - sherine-k
+- tooling-reviewers
+- tooling-owners
+labels:
+- area/tooling

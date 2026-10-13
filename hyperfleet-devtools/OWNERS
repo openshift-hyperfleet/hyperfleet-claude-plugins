@@ -1,3 +1,7 @@
 approvers:
-  - sherine-k
-  - yasun1
+- tooling-owners
+reviewers:
+- tooling-reviewers
+- tooling-owners
+labels:
+- area/tooling

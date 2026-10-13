@@ -1,33 +1,7 @@
 approvers:
-- "86254860"
-- aredenba-rh
-- ciaranRoche
-- crizzo71
-- jsell-rh
-- mbrudnoy
-- Mischulee
-- rafabene
-- rh-amarin
-- sherine-k
-- tirthct
-- vkareh
-- xueli181114
-- yasun1
-- yingzhanredhat
-
+- adapter-owners
 reviewers:
-- "86254860"
-- aredenba-rh
-- ciaranRoche
-- crizzo71
-- jsell-rh
-- mbrudnoy
-- Mischulee
-- rafabene
-- rh-amarin
-- sherine-k
-- tirthct
-- vkareh
-- xueli181114
-- yasun1
-- yingzhanredhat
+- adapter-reviewers
+- adapter-owners
+labels:
+- area/adapter
