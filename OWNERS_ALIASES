@@ -1,0 +1,26 @@
+aliases:
+  adapter-owners:
+  - rh-amarin
+  - rafabene
+  - kuudori
+  adapter-reviewers:
+  - Ruclo
+  - Mischulee
+  - mliptak0
+  - tirthct
+  release-owners:
+  - ma-hill
+  - kuudori
+  release-reviewers:
+  - tirthct
+  - Mischulee
+  tech-leads:
+  - ciaranRoche
+  - rafabene
+  - rh-amarin
+  tooling-owners:
+  - rafabene
+  - pnguyen44
+  tooling-reviewers:
+  - kuudori
+  - tirthct
