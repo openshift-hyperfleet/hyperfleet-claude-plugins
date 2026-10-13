@@ -104,7 +104,7 @@ Team members get updates by running `/plugin marketplace update hyperfleet-claud
 
 This repository utilizes k8s-style OWNERS files. Each plugin is expected to define an OWNERS file with a list of approvers and (optionally) reviewers. PRs making changes to a plugin must be reviewed by the reviewers/approvers listed in that plugin's OWNERS file.
 
-OWNERS files reference aliases from the root `OWNERS_ALIASES` rather than listing logins directly, and both are generated from the ownership document in the architecture repository (`hyperfleet/docs/owners.md`). To change who owns a plugin, change that document first; the OWNERS files here are regenerated from it. Do not hand-edit OWNERS or `OWNERS_ALIASES`, as the next regeneration would overwrite the change.
+OWNERS files reference aliases from the root `OWNERS_ALIASES` rather than listing logins directly, and both are generated from `hyperfleet/docs/owners.yaml` in the architecture repository. To change who owns a plugin, open a PR to that file; a maintainer then runs `make owners` there and `hack/owners/open_prs.sh` opens the regenerated OWNERS PR here. The roles, the criteria and the area table are explained in `hyperfleet/docs/owners.md` next to it. Do not hand-edit OWNERS or `OWNERS_ALIASES`, as the next regeneration would overwrite the change.
 
 Prow applies `area/*` labels from OWNERS files and requests reviewers from the area's pool, so the ownership document also decides who is asked to review.
 

@@ -305,11 +305,18 @@ fetch_pr_details() {
   # currently requested, not when. The issue timeline exposes `review_requested` events
   # with `created_at`, so each pending request is matched to its latest event here.
   # Pages are merged with `jq -s` because a busy PR can have more than 100 timeline events.
-  review_request_events=$(gh api --paginate "repos/$org/$repo/issues/$number/timeline?per_page=100" 2>/dev/null | \
-    jq -s '[.[]? | .[]? | select(.event == "review_requested") |
-      {login: (.requested_reviewer.login // .requested_team.slug // empty),
-       type: (if .requested_team != null then "team" else "user" end),
-       requested_at: .created_at}]' 2>/dev/null) || review_request_events="[]"
+  # The gh output is captured first and parsed only on success, so a failure part way
+  # through pagination cannot leave a partial event list behind.
+  local timeline_pages
+  if timeline_pages=$(gh api --paginate "repos/$org/$repo/issues/$number/timeline?per_page=100" 2>/dev/null); then
+    review_request_events=$(printf '%s' "$timeline_pages" | \
+      jq -s '[.[]? | .[]? | select(.event == "review_requested") |
+        {login: (.requested_reviewer.login // .requested_team.slug // empty),
+         type: (if .requested_team != null then "team" else "user" end),
+         requested_at: .created_at}]' 2>/dev/null) || review_request_events="[]"
+  else
+    review_request_events="[]"
+  fi
   [ -n "$review_request_events" ] || review_request_events="[]"
 
   latest_commit_date=$(gh api --paginate "repos/$org/$repo/pulls/$number/commits" \
@@ -429,7 +436,7 @@ assemble_pr() {
       {login: (.login // .slug // .name // empty),
        type: (if .__typename == "Team" then "team" else "user" end)} |
       . as $req |
-      ([$rr_events[] | select(.login == $req.login) | .requested_at] | max) as $event_at |
+      ([$rr_events[] | select(.login == $req.login and .type == $req.type) | .requested_at] | max) as $event_at |
       $req + {requested_at: ($event_at // $created_at),
               requested_at_source: (if $event_at != null then "timeline" else "pr_created_at" end)}
     ]) as $review_requests |

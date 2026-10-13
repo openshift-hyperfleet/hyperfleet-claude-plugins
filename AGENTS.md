@@ -20,7 +20,7 @@ Before making any changes:
 | Command definitions | `<plugin>/commands/<name>.md` |
 | Agent definitions | `<plugin>/agents/<name>/AGENT.md` |
 | Hook definitions | `<plugin>/hooks/` |
-| PR approval ownership | `<plugin>/OWNERS` (k8s-style, references aliases from the root `OWNERS_ALIASES`; both are generated from `hyperfleet/docs/owners.md` in the architecture repository, so ownership changes go there first) |
+| PR approval ownership | `<plugin>/OWNERS` (k8s-style, references aliases from the root `OWNERS_ALIASES`; both are generated from `hyperfleet/docs/owners.yaml` in the architecture repository, so ownership changes are a PR to that file; `hyperfleet/docs/owners.md` there explains the roles and criteria) |
 | Contributor guide | `CONTRIBUTING.md` |
 | Skill reference data | `<plugin>/skills/<skill-name>/references/` |
 | CI review container | `hyperfleet-code-review/ci/` |
