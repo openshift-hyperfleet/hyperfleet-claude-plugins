@@ -394,7 +394,10 @@ def area_info:
 # measured on its own: a reviewer re-requested this morning does not hide one who
 # has been waiting since last week. The PR is overdue when any requested reviewer
 # has waited more than one business day, and `business_days_waiting` is the
-# longest wait among the pending requests.
+# longest wait among the pending requests. A request time taken from the PR open
+# time (timeline unavailable) is an estimate: it is reported with `estimated:
+# true` and never sets overdue, since an old PR may have had its reviewer
+# requested long after it opened.
 def review_request_info($now_epoch):
   (.review_requests // []) as $reqs |
   (.review_requested_at // null) as $fallback_at |
@@ -403,28 +406,33 @@ def review_request_info($now_epoch):
      (.requested_at // $fallback_at) as $at |
      ($at | safe_parse_iso8601) as $epoch |
      (if $epoch > 0 then business_days_between($epoch; $now_epoch) else 0 end) as $bdays |
+     ((.requested_at_source // "unknown") != "timeline") as $estimated |
      {login: .login,
       type: (.type // "user"),
       requested_at: $at,
       requested_at_source: (.requested_at_source // null),
+      estimated: $estimated,
       business_days_waiting: $bdays,
-      overdue: ($not_draft and $epoch > 0 and $bdays > 1)}]) as $pending |
+      overdue: ($not_draft and $epoch > 0 and $bdays > 1 and ($estimated | not))}]) as $pending |
   ([$pending[] | .login]) as $reviewers |
   (([$pending[] | .requested_at | select(. != null)] | min) // null) as $requested_at |
   (([$pending[] | .business_days_waiting] | max) // 0) as $bdays |
   (any($pending[]; .overdue)) as $overdue |
   (([$pending[] | .business_days_waiting] | unique | length) <= 1) as $uniform |
+  (any($pending[]; .estimated)) as $estimated |
   {reviewers: $reviewers,
    teams: [$pending[] | select(.type == "team") | .login],
    requests: $pending,
    requested_at: $requested_at,
    requested_at_source: ([$pending[] | .requested_at_source] | first // null),
+   estimated: $estimated,
    business_days_waiting: $bdays,
    overdue: $overdue,
    detail: (
+     (if $estimated then " (estimated from the PR open time, not flagged)" else "" end) as $est_note |
      if ($reviewers | length) == 0 then "No reviewer requested"
-     elif $uniform then "\($reviewers | map("@" + .) | join(", ")) requested \($bdays) business day(s) ago\(if $overdue then ", overdue" else "" end)"
-     else "\([$pending[] | "@\(.login) requested \(.business_days_waiting) business day(s) ago"] | join(", "))\(if $overdue then ", overdue" else "" end)"
+     elif $uniform then "\($reviewers | map("@" + .) | join(", ")) requested \($bdays) business day(s) ago\($est_note)\(if $overdue then ", overdue" else "" end)"
+     else "\([$pending[] | "@\(.login) requested \(.business_days_waiting) business day(s) ago"] | join(", "))\($est_note)\(if $overdue then ", overdue" else "" end)"
      end
    )};
 

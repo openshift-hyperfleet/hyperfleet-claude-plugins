@@ -107,7 +107,7 @@ Plus: override rules (CI failing → T4, waiting on author → T4, conflicts →
 
 It also attaches, without affecting the score:
 - `area`: primary area from the first `area/*` label (`"No area"` when unlabeled) plus `others` for any further area labels
-- `review_request`: pending requested reviewers (the reviewer of record from the area's OWNERS pool), `requests` with the business days each pending reviewer has waited, `business_days_waiting` as the longest of those, and `overdue` (flag `reviewer_overdue`) when any requested reviewer on a non-draft PR has waited more than one business day
+- `review_request`: pending requested reviewers (the reviewer of record from the area's OWNERS pool), `requests` with the business days each pending reviewer has waited, `business_days_waiting` as the longest of those, `estimated` when a request time had to be taken from the PR open time, and `overdue` (flag `reviewer_overdue`) when any requested reviewer on a non-draft PR has waited more than one business day; an estimated time is shown with a tilde and never sets `overdue`
 - flag `no_area_label` when no `area/*` label is present
 
 **DO NOT re-compute** the deterministic factors — the script output IS the scoring. Your role is only to fill in the LLM-required parts (Step 3).

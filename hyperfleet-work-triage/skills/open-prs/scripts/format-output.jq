@@ -84,14 +84,17 @@ def area_heading:
 
 # Pending review requests with business days waiting. One figure when every
 # pending reviewer has waited the same time, otherwise one per reviewer so a
-# fresh re-request does not hide an older outstanding one.
+# fresh re-request does not hide an older outstanding one. A tilde marks a wait
+# estimated from the PR open time (timeline unavailable); estimates never flag.
+def bd_text($days; $estimated):
+  "(\(if $estimated then "~" else "" end)\($days // 0)bd)";
 def reviewers_text:
   (.review_request // {}) as $rr |
   ($rr.requests // []) as $reqs |
   if (($rr.reviewers // []) | length) == 0 then "none requested"
   elif (($reqs | length) == 0) or (([$reqs[] | .business_days_waiting] | unique | length) <= 1)
-    then "\($rr.reviewers | map("@" + .) | join(", ")) (\($rr.business_days_waiting // 0)bd)"
-  else ([$reqs[] | "@\(.login) (\(.business_days_waiting // 0)bd)"] | join(", ")) end;
+    then "\($rr.reviewers | map("@" + .) | join(", ")) \(bd_text($rr.business_days_waiting; ($rr.estimated // false)))"
+  else ([$reqs[] | "@\(.login) \(bd_text(.business_days_waiting; (.estimated // false)))"] | join(", ")) end;
 
 # Short flag list: reviewer overdue (>1 business day on a requested reviewer),
 # SLA breach (>3 days with no human review), stale (>7 days).

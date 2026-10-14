@@ -168,6 +168,10 @@ assert_eq "Overdue when any reviewer has waited >1 business day" "true" "$(echo 
 assert_eq "Business days since request (Fri 14:00 -> Mon 10:00)" "1" "$(echo "$PR42" | jq '.review_request.business_days_waiting')"
 assert_eq "Not overdue at exactly 1 business day" "false" "$(echo "$PR42" | jq '.review_request.overdue')"
 assert_eq "Approved PR has no pending request" "0" "$(echo "$PR88" | jq '.review_request.reviewers | length')"
+assert_eq "Request time from PR open is an estimate" "true" "$(echo "$PR33" | jq '.review_request.estimated')"
+assert_eq "Estimated wait is still reported (Thu 4 Jun -> Mon 8 Jun)" "2" "$(echo "$PR33" | jq '.review_request.business_days_waiting')"
+assert_eq "Estimated wait never sets overdue" "false" "$(echo "$PR33" | jq '.review_request.overdue')"
+assert_not_contains "No reviewer overdue flag from an estimated request time" "reviewer_overdue" "$(echo "$PR33" | jq -c '.flags')"
 assert_eq "Area derived from labels when area_labels is absent" '"api"' "$(jq 'del(.prs[].area_labels)' "$FIXTURES" | jq --arg now "$NOW" -f "$SCRIPTS_DIR/score.jq" | jq '.scored_prs[] | select(.repo == "hyperfleet-api" and .number == 115) | .area.primary')"
 
 # --- Run format-output.jq ---
@@ -275,6 +279,7 @@ assert_contains "Area section heading" "### area/api (1 PR)" "$COMPACT_OUT"
 assert_contains "No-area section heading" "### No area (3 PRs)" "$COMPACT_OUT"
 assert_contains "Other areas inline in PR cell" "(+area/contracts)" "$COMPACT_OUT"
 assert_contains "Reviewers column with per-reviewer business days" "| @kuudori (10bd), @pnguyen44 (0bd) |" "$COMPACT_OUT"
+assert_contains "Estimated wait marked with a tilde" "| @ma-hill (~2bd) |" "$COMPACT_OUT"
 assert_contains "Tier 4 row shows override reason" "| 🔵 T4 | Draft | none requested |" "$COMPACT_OUT"
 assert_contains "Flags appended to status" "No reviews, 14d ⚠️ overdue, SLA, stale" "$COMPACT_OUT"
 assert_not_contains "No separate JIRA column" "| JIRA |" "$COMPACT_OUT"
