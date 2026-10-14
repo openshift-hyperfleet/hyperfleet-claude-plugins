@@ -390,25 +390,41 @@ def area_info:
 # --- Review request tracking ---
 # Prow requests reviewers from the area's OWNERS pool, so a pending request names
 # the reviewer of record. GitHub drops the request once the reviewer submits a
-# review, so anything still listed has not been acted on. Waiting on a requested
-# reviewer for more than one business day is flagged as overdue.
+# review, so anything still listed has not been acted on. Each pending request is
+# measured on its own: a reviewer re-requested this morning does not hide one who
+# has been waiting since last week. The PR is overdue when any requested reviewer
+# has waited more than one business day, and `business_days_waiting` is the
+# longest wait among the pending requests.
 def review_request_info($now_epoch):
   (.review_requests // []) as $reqs |
-  ([$reqs[] | .login] | map(select(. != null))) as $reviewers |
-  ((.review_requested_at // ([$reqs[].requested_at] | max)) // null) as $requested_at |
-  ($requested_at | safe_parse_iso8601) as $requested_epoch |
-  (if ($reviewers | length) > 0 and $requested_epoch > 0
-   then business_days_between($requested_epoch; $now_epoch) else 0 end) as $bdays |
-  (($reviewers | length) > 0 and ($requested_epoch > 0) and (.is_draft | not) and $bdays > 1) as $overdue |
+  (.review_requested_at // null) as $fallback_at |
+  (.is_draft | not) as $not_draft |
+  ([$reqs[] | select(.login != null) |
+     (.requested_at // $fallback_at) as $at |
+     ($at | safe_parse_iso8601) as $epoch |
+     (if $epoch > 0 then business_days_between($epoch; $now_epoch) else 0 end) as $bdays |
+     {login: .login,
+      type: (.type // "user"),
+      requested_at: $at,
+      requested_at_source: (.requested_at_source // null),
+      business_days_waiting: $bdays,
+      overdue: ($not_draft and $epoch > 0 and $bdays > 1)}]) as $pending |
+  ([$pending[] | .login]) as $reviewers |
+  (([$pending[] | .requested_at | select(. != null)] | min) // null) as $requested_at |
+  (([$pending[] | .business_days_waiting] | max) // 0) as $bdays |
+  (any($pending[]; .overdue)) as $overdue |
+  (([$pending[] | .business_days_waiting] | unique | length) <= 1) as $uniform |
   {reviewers: $reviewers,
-   teams: [$reqs[] | select(.type == "team") | .login],
+   teams: [$pending[] | select(.type == "team") | .login],
+   requests: $pending,
    requested_at: $requested_at,
-   requested_at_source: ([$reqs[].requested_at_source] | first // null),
+   requested_at_source: ([$pending[] | .requested_at_source] | first // null),
    business_days_waiting: $bdays,
    overdue: $overdue,
    detail: (
      if ($reviewers | length) == 0 then "No reviewer requested"
-     else "\($reviewers | map("@" + .) | join(", ")) requested \($bdays) business day(s) ago\(if $overdue then ", overdue" else "" end)"
+     elif $uniform then "\($reviewers | map("@" + .) | join(", ")) requested \($bdays) business day(s) ago\(if $overdue then ", overdue" else "" end)"
+     else "\([$pending[] | "@\(.login) requested \(.business_days_waiting) business day(s) ago"] | join(", "))\(if $overdue then ", overdue" else "" end)"
      end
    )};
 

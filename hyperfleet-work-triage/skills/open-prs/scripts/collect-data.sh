@@ -422,8 +422,11 @@ assemble_pr() {
   # area/* labels are applied by Prow's owners-label plugin from OWNERS files.
   # reviewRequests lists reviewers still pending (GitHub drops a request once the
   # reviewer submits a review). Each pending request is paired with the newest
-  # matching `review_requested` timeline event; when no event was fetched, the PR
-  # createdAt is used as the request time because Prow requests reviewers at open.
+  # matching `review_requested` timeline event for that reviewer (a re-request
+  # restarts their clock); when no event was fetched, the PR createdAt is used as
+  # the request time because Prow requests reviewers at open. Across reviewers the
+  # oldest pending request is the one that counts, so review_requested_at is the
+  # minimum and a recent re-request of one reviewer cannot mask another's wait.
   jq -c \
     --slurpfile details "$details_file" \
     --slurpfile jira_data "$jira_data_file" \
@@ -457,7 +460,7 @@ assemble_pr() {
       area_labels: [.labels[]?.name // empty | select(startswith("area/"))],
       risk_label: $risk_label,
       review_requests: $review_requests,
-      review_requested_at: ([$review_requests[].requested_at] | max),
+      review_requested_at: ([$review_requests[].requested_at] | min),
       review_decision: .reviewDecision,
       latest_reviews: .latestReviews,
       status_check_rollup: .statusCheckRollup,

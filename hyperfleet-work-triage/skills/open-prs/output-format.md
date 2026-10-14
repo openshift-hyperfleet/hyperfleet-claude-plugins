@@ -67,7 +67,7 @@ Show one table per area. All tiers appear in the compact output; the tier is a c
 | PR | `[repo#number](url) — title`. The repo#number links to the GitHub PR. If a JIRA ticket key appears in the title, it is replaced with a link to the JIRA ticket. Extra area labels follow the title as `(+area/x, area/y)`. | `[hyperfleet-api#115](https://...) — [HYPERFLEET-856](https://redhat.atlassian.net/browse/HYPERFLEET-856) - fix: Deletion observability metrics (+area/auth)` |
 | Tier | Tier emoji and number | `🚨 T1`, `🟡 T2`, `🟢 T3`, `🔵 T4` |
 | Status | Review state and age, followed by flags when present (`⚠️ overdue, SLA, stale`). Tier 4: reason for informational status (`Draft`, `Waiting on author`, `CI failing`, `Merge conflicts`) | `No reviews, 5d ⚠️ overdue, SLA` |
-| Reviewers | Requested reviewers still pending (the reviewer of record, requested from the area's OWNERS pool) and business days since the latest request, or `none requested` | `@kuudori, @pnguyen44 (3bd)` |
+| Reviewers | Requested reviewers still pending (the reviewer of record, requested from the area's OWNERS pool) and business days waiting, one figure when they match and one per reviewer when they differ, or `none requested` | `@kuudori, @pnguyen44 (3bd)` or `@kuudori (3bd), @pnguyen44 (0bd)` |
 
 ### Recommendation
 
@@ -156,8 +156,8 @@ Each PR is a single bullet line:
 - **PR link:** `<github-url|` `` `repo #number` `` `>` — inline code-styled clickable link
 - **Title with inline JIRA link:** The JIRA ticket key in the title is replaced with a Slack link to the ticket. PRs without a ticket key show the title as-is.
 - **Status suffix:** review state and age in italics — e.g., `_No reviews, 5d_`, `_Approved, 2d_`, `_In review, 3d_`
-- **Reviewers:** `👀` followed by the requested reviewers still pending (GitHub logins) and business days since the latest request, e.g. `👀 @kuudori, @pnguyen44 (3bd)`; `👀 none requested` when no request is pending
-- **Flags:** `⚠️` followed by any of `overdue` (requested reviewer waiting more than one business day), `SLA` (more than 3 days with no human review), `stale` (more than 7 days). Omitted when there are no flags.
+- **Reviewers:** `👀` followed by the requested reviewers still pending (GitHub logins) and business days waiting, one figure when they match and one per reviewer when they differ, e.g. `👀 @kuudori, @pnguyen44 (3bd)` or `👀 @kuudori (3bd), @pnguyen44 (0bd)`; `👀 none requested` when no request is pending
+- **Flags:** `⚠️` followed by any of `overdue` (any requested reviewer waiting more than one business day), `SLA` (more than 3 days with no human review), `stale` (more than 7 days). Omitted when there are no flags.
 - **Other areas:** `· _+area/x, area/y_` when the PR carries more than one area label. Omitted otherwise.
 
 Each PR is one bullet point — no multi-line entries.
@@ -462,9 +462,9 @@ Prow requests reviewers from the area's OWNERS pool, so a pending request names 
 
 | Item | Display |
 |------|---------|
-| Pending requested reviewers and business days since the latest request | `@login1, @login2 (Nbd)` |
+| Pending requested reviewers and business days waiting, per reviewer when they differ | `@login1, @login2 (Nbd)` or `@login1 (Nbd), @login2 (Mbd)` |
 | No pending request | `none requested` |
-| Requested reviewer waiting more than 1 business day (non-draft) | flag `overdue` |
+| Any requested reviewer waiting more than 1 business day (non-draft) | flag `overdue` |
 | More than 3 days with no human review | flag `SLA` |
 | More than 7 days old | flag `stale` |
 | Extra area labels beyond the first | `+area/x, area/y` |

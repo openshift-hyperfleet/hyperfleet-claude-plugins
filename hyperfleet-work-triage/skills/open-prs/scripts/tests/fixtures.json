@@ -24,7 +24,7 @@
       "head_branch": "fix/deletion-metrics",
       "labels": ["bug", "risk/medium", "area/api"],
       "area_labels": ["area/api"],
-      "review_requests": [{"login": "kuudori", "type": "user", "requested_at": "2026-05-25T10:01:00Z", "requested_at_source": "timeline"}, {"login": "pnguyen44", "type": "user", "requested_at": "2026-05-25T10:01:00Z", "requested_at_source": "timeline"}],
+      "review_requests": [{"login": "kuudori", "type": "user", "requested_at": "2026-05-25T10:01:00Z", "requested_at_source": "timeline"}, {"login": "pnguyen44", "type": "user", "requested_at": "2026-06-08T09:00:00Z", "requested_at_source": "timeline"}],
       "review_requested_at": "2026-05-25T10:01:00Z",
       "risk_label": "risk/medium",
       "review_decision": "REVIEW_REQUIRED",
