@@ -104,6 +104,10 @@ Team members get updates by running `/plugin marketplace update hyperfleet-claud
 
 This repository utilizes k8s-style OWNERS files. Each plugin is expected to define an OWNERS file with a list of approvers and (optionally) reviewers. PRs making changes to a plugin must be reviewed by the reviewers/approvers listed in that plugin's OWNERS file.
 
+OWNERS files reference aliases from the root `OWNERS_ALIASES` rather than listing logins directly, and both are generated from `hyperfleet/docs/owners.yaml` in the architecture repository. To change who owns a plugin, open a PR to that file; a maintainer then runs `make owners` there and `hack/owners/open_prs.sh` opens the regenerated OWNERS PR here. The roles, the criteria and the area table are explained in `hyperfleet/docs/owners.md` next to it. Do not hand-edit OWNERS or `OWNERS_ALIASES`, as the next regeneration would overwrite the change.
+
+Prow applies `area/*` labels from OWNERS files and requests reviewers from the area's pool, so the ownership document also decides who is asked to review.
+
 See [k8s OWNERS documentation](https://www.kubernetes.dev/docs/guide/owners/) for more information.
 
 ### Submitting Changes
@@ -111,7 +115,7 @@ See [k8s OWNERS documentation](https://www.kubernetes.dev/docs/guide/owners/) fo
 1. Follow the plugin structure outlined in "Adding a Plugin" above
 2. Bump the version number according to semantic versioning
 3. Submit a PR with your changes
-4. Request review from reviewers/approvers listed in the OWNERS file
+4. Prow requests reviewers from the plugin's OWNERS pool; if you need a specific reviewer, pick one from the aliases the OWNERS file references
 
 ## Security Guidelines
 

@@ -151,6 +151,28 @@ echo "--- Test: Flags ---"
 assert_contains "SLA breach flag on 14d PR" "sla_breach" "$(echo "$PR115" | jq -c '.flags')"
 assert_contains "No JIRA ticket flag on draft PR" "no_jira_ticket" "$(echo "$PR120" | jq -c '.flags')"
 assert_contains "Stale flag on 14d PR" "stale" "$(echo "$PR115" | jq -c '.flags')"
+assert_contains "Reviewer overdue flag on PR waiting 10 business days" "reviewer_overdue" "$(echo "$PR115" | jq -c '.flags')"
+assert_not_contains "No reviewer overdue flag on PR requested 1 business day ago" "reviewer_overdue" "$(echo "$PR42" | jq -c '.flags')"
+assert_contains "No area label flag on unlabeled PR" "no_area_label" "$(echo "$PR120" | jq -c '.flags')"
+
+echo ""
+echo "--- Test: Area ownership and review requests ---"
+assert_eq "Primary area from first area/* label" '"adapter"' "$(echo "$PR88" | jq '.area.primary')"
+assert_eq "Other areas listed separately" '["contracts"]' "$(echo "$PR88" | jq -c '.area.others')"
+assert_eq "No area label -> No area" '"No area"' "$(echo "$PR120" | jq '.area.primary')"
+assert_eq "Requested reviewers carried through" '["kuudori","pnguyen44"]' "$(echo "$PR115" | jq -c '.review_request.reviewers')"
+assert_eq "Longest wait wins (kuudori Mon 25 May -> Mon 8 Jun, pnguyen44 re-requested today)" "10" "$(echo "$PR115" | jq '.review_request.business_days_waiting')"
+assert_eq "Per-reviewer wait kept for each pending request" '[["kuudori",10,true],["pnguyen44",0,false]]' "$(echo "$PR115" | jq -c '[.review_request.requests[] | [.login, .business_days_waiting, .overdue]]')"
+assert_eq "requested_at is the oldest pending request" '"2026-05-25T10:01:00Z"' "$(echo "$PR115" | jq '.review_request.requested_at')"
+assert_eq "Overdue when any reviewer has waited >1 business day" "true" "$(echo "$PR115" | jq '.review_request.overdue')"
+assert_eq "Business days since request (Fri 14:00 -> Mon 10:00)" "1" "$(echo "$PR42" | jq '.review_request.business_days_waiting')"
+assert_eq "Not overdue at exactly 1 business day" "false" "$(echo "$PR42" | jq '.review_request.overdue')"
+assert_eq "Approved PR has no pending request" "0" "$(echo "$PR88" | jq '.review_request.reviewers | length')"
+assert_eq "Request time from PR open is an estimate" "true" "$(echo "$PR33" | jq '.review_request.estimated')"
+assert_eq "Estimated wait is still reported (Thu 4 Jun -> Mon 8 Jun)" "2" "$(echo "$PR33" | jq '.review_request.business_days_waiting')"
+assert_eq "Estimated wait never sets overdue" "false" "$(echo "$PR33" | jq '.review_request.overdue')"
+assert_not_contains "No reviewer overdue flag from an estimated request time" "reviewer_overdue" "$(echo "$PR33" | jq -c '.flags')"
+assert_eq "Area derived from labels when area_labels is absent" '"api"' "$(jq 'del(.prs[].area_labels)' "$FIXTURES" | jq --arg now "$NOW" -f "$SCRIPTS_DIR/score.jq" | jq '.scored_prs[] | select(.repo == "hyperfleet-api" and .number == 115) | .area.primary')"
 
 # --- Run format-output.jq ---
 
@@ -166,7 +188,17 @@ if ! SLACK_OUT=$(echo "$SCORED" | jq --arg mode "slack" -rf "$SCRIPTS_DIR/format
 fi
 
 assert_contains "Slack header emoji" "🚨 *Open PRs" "$SLACK_OUT"
-assert_contains "Tier 1 section" "🚨 *Tier 1" "$SLACK_OUT"
+assert_contains "Area section header with best-tier emoji" "🚨 *area/adapter (1 PR)*" "$SLACK_OUT"
+assert_contains "Other area labels shown inline" "_+area/contracts_" "$SLACK_OUT"
+assert_not_contains "No-area section absent when all unlabeled PRs are Tier 4" "*No area (" "$SLACK_OUT"
+NOAREA_SLACK=$(echo "$SCORED" | jq '.scored_prs |= [.[] | select(.number == 120) | .provisional_tier = 2 | .override_info = {override: null, reason: null}]' | \
+  jq --arg mode "slack" -rf "$SCRIPTS_DIR/format-output.jq" 2>&1)
+assert_contains "No-area section shown for actionable unlabeled PR" "🟡 *No area (1 PR)*" "$NOAREA_SLACK"
+assert_contains "Per-PR tier emoji on bullet" "• 🚨 <https://github.com/openshift-hyperfleet/hyperfleet-adapter/pull/88" "$SLACK_OUT"
+assert_contains "Requested reviewers with per-reviewer days when they differ" "👀 @kuudori (10bd), @pnguyen44 (0bd)" "$SLACK_OUT"
+assert_contains "Overdue reviewer flag" "⚠️ overdue, SLA, stale" "$SLACK_OUT"
+assert_contains "No reviewer requested shown" "👀 none requested" "$SLACK_OUT"
+assert_not_contains "Tier section headers no longer used" "*Tier 1" "$SLACK_OUT"
 assert_contains "PR link format" "<https://github.com/openshift-hyperfleet/" "$SLACK_OUT"
 assert_contains "JIRA link inline in title" "<https://redhat.atlassian.net/browse/HYPERFLEET-1100|HYPERFLEET-1100>" "$SLACK_OUT"
 assert_not_contains "No separate JIRA pipe in Slack" "| <https://redhat.atlassian.net" "$SLACK_OUT"
@@ -180,14 +212,10 @@ else
   PASS=$((PASS + 1))
 fi
 
-# Tier 4 section header should NOT appear in Slack
-if echo "$SLACK_OUT" | grep -q '\*Tier 4'; then
-  printf "  ✗ Tier 4 section should not appear in Slack output\n"
-  FAIL=$((FAIL + 1))
-else
-  printf "  ✓ Tier 4 section not shown in Slack output\n"
-  PASS=$((PASS + 1))
-fi
+# Tier 4 PRs should NOT appear in Slack
+assert_not_contains "Tier 4 draft PR not shown in Slack output" "hyperfleet-api #120" "$SLACK_OUT"
+assert_not_contains "Tier 4 CI-failing PR not shown in Slack output" "hyperfleet-e2e #33" "$SLACK_OUT"
+assert_contains "Tier 4 count in summary line" "5 PRs in Tier 4 not shown" "$SLACK_OUT"
 
 echo ""
 echo "--- Test: Slack format — Tier 3 hidden when >10 PRs ---"
@@ -201,13 +229,21 @@ jq '
     $orig[] | .number += 1000 | .provisional_tier = 3 | .override_info = {override: null, reason: null}
   ] | .[0:12])
 ' "$MANY_TMP" | jq --arg mode "slack" -rf "$SCRIPTS_DIR/format-output.jq" > "${MANY_TMP}.slack"
-if grep -q '\*Tier 3' "${MANY_TMP}.slack"; then
-  printf "  ✗ Tier 3 section should not appear when >10 PRs\n"
+if grep -q '#1[0-9][0-9][0-9]`' "${MANY_TMP}.slack"; then
+  printf "  ✗ Tier 3 PRs should not appear when >10 PRs\n"
   FAIL=$((FAIL + 1))
 else
   printf "  ✓ Tier 3 hidden when >10 PRs\n"
   PASS=$((PASS + 1))
 fi
+assert_contains "Hidden Tier 3 count in summary line" "more PRs in Tier 3-4 (not shown)" "$(cat "${MANY_TMP}.slack")"
+
+echo ""
+echo "--- Test: Slack format, Tier 3 shown when no Tier 1-2 PRs ---"
+T3ONLY_SLACK=$(echo "$SCORED" | jq '.scored_prs |= [.[] | select(.override_info.override == null) | .provisional_tier = 3]' | \
+  jq --arg mode "slack" -rf "$SCRIPTS_DIR/format-output.jq" 2>&1)
+assert_contains "Tier 3 PR shown under its area when nothing more urgent" "🟢 *area/api (1 PR)*" "$T3ONLY_SLACK"
+assert_contains "Green header when only Tier 3" "🟢 *Open PRs" "$T3ONLY_SLACK"
 
 echo ""
 echo "--- Test: effective_tier — draft PR with provisional_tier=1 still renders in Tier 4 (HYPERFLEET-1515) ---"
@@ -222,11 +258,12 @@ echo "$SCORED" | jq '
   ]
 ' > "$TIER_GUARD_TMP"
 GUARD_SLACK=$(jq --arg mode "slack" -rf "$SCRIPTS_DIR/format-output.jq" "$TIER_GUARD_TMP" 2>&1)
-assert_not_contains "Misassigned draft NOT in Tier 1 (slack)" "hyperfleet-api #130" "$(echo "$GUARD_SLACK" | grep -A5 'Tier 1')"
+assert_not_contains "Misassigned draft NOT shown in Slack" "hyperfleet-api #130" "$GUARD_SLACK"
 GUARD_COMPACT=$(jq --arg mode "compact" -rf "$SCRIPTS_DIR/format-output.jq" "$TIER_GUARD_TMP" 2>&1)
-assert_not_contains "Misassigned draft NOT in Tier 1 (compact)" "hyperfleet-api#130" "$(echo "$GUARD_COMPACT" | grep -A5 'Tier 1')"
-# Verify it IS in Tier 4
-assert_contains "Misassigned draft appears in Tier 4 (compact)" "hyperfleet-api#130" "$(echo "$GUARD_COMPACT" | grep -A10 'Tier 4')"
+GUARD_LINE=$(echo "$GUARD_COMPACT" | grep -F 'hyperfleet-api#130')
+assert_not_contains "Misassigned draft NOT marked Tier 1 (compact)" "🚨 T1" "$GUARD_LINE"
+# Verify it IS marked Tier 4 with the override reason
+assert_contains "Misassigned draft marked Tier 4 (compact)" "🔵 T4 | Draft" "$GUARD_LINE"
 
 echo ""
 echo "--- Test: Compact format ---"
@@ -237,7 +274,17 @@ if ! COMPACT_OUT=$(echo "$SCORED" | jq --arg mode "compact" -rf "$SCRIPTS_DIR/fo
 fi
 
 assert_contains "Compact header" "## Open PRs — openshift-hyperfleet" "$COMPACT_OUT"
-assert_contains "Tier table header (3 columns)" "| # | PR | Status |" "$COMPACT_OUT"
+assert_contains "Area table header (5 columns)" "| # | PR | Tier | Status | Reviewers |" "$COMPACT_OUT"
+assert_contains "Area section heading" "### area/api (1 PR)" "$COMPACT_OUT"
+assert_contains "No-area section heading" "### No area (3 PRs)" "$COMPACT_OUT"
+assert_contains "Other areas inline in PR cell" "(+area/contracts)" "$COMPACT_OUT"
+assert_contains "Reviewers column with per-reviewer business days" "| @kuudori (10bd), @pnguyen44 (0bd) |" "$COMPACT_OUT"
+assert_contains "Estimated wait marked with a tilde" "| @ma-hill (~2bd) |" "$COMPACT_OUT"
+MIXED_OUT=$(echo "$SCORED" | jq '.scored_prs |= [.[] | select(.repo == "hyperfleet-e2e" and .number == 33) | .review_request.requests += [{login: "tirthct", type: "user", business_days_waiting: 2, estimated: false, overdue: true}] | .review_request.reviewers += ["tirthct"]]' | \
+  jq --arg mode "compact" -rf "$SCRIPTS_DIR/format-output.jq" 2>&1)
+assert_contains "Equal waits with mixed certainty keep per-reviewer form" "| @ma-hill (~2bd), @tirthct (2bd) |" "$MIXED_OUT"
+assert_contains "Tier 4 row shows override reason" "| 🔵 T4 | Draft | none requested |" "$COMPACT_OUT"
+assert_contains "Flags appended to status" "No reviews, 14d ⚠️ overdue, SLA, stale" "$COMPACT_OUT"
 assert_not_contains "No separate JIRA column" "| JIRA |" "$COMPACT_OUT"
 assert_contains "JIRA ticket linked in title" "[HYPERFLEET-856](https://redhat.atlassian.net/browse/HYPERFLEET-856)" "$COMPACT_OUT"
 assert_contains "Recommendation line" "**Start with:**" "$COMPACT_OUT"

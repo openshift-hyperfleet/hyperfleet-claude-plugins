@@ -377,6 +377,65 @@ def score_factor8:
     end
   end;
 
+# --- Area ownership (from Prow area/* labels) ---
+# A PR with several area labels is grouped under its first label; the rest are
+# listed in `others` so the formatter can show them inline. No label -> "No area".
+def area_info:
+  ((.area_labels // [.labels[]? | select(startswith("area/"))]) | map(sub("^area/"; ""))) as $areas |
+  {labels: $areas,
+   primary: ($areas[0] // "No area"),
+   others: ($areas[1:] // []),
+   has_area: ($areas | length > 0)};
+
+# --- Review request tracking ---
+# Prow requests reviewers from the area's OWNERS pool, so a pending request names
+# the reviewer of record. GitHub drops the request once the reviewer submits a
+# review, so anything still listed has not been acted on. Each pending request is
+# measured on its own: a reviewer re-requested this morning does not hide one who
+# has been waiting since last week. The PR is overdue when any requested reviewer
+# has waited more than one business day, and `business_days_waiting` is the
+# longest wait among the pending requests. A request time taken from the PR open
+# time (timeline unavailable) is an estimate: it is reported with `estimated:
+# true` and never sets overdue, since an old PR may have had its reviewer
+# requested long after it opened.
+def review_request_info($now_epoch):
+  (.review_requests // []) as $reqs |
+  (.review_requested_at // null) as $fallback_at |
+  (.is_draft | not) as $not_draft |
+  ([$reqs[] | select(.login != null) |
+     (.requested_at // $fallback_at) as $at |
+     ($at | safe_parse_iso8601) as $epoch |
+     (if $epoch > 0 then business_days_between($epoch; $now_epoch) else 0 end) as $bdays |
+     ((.requested_at_source // "unknown") != "timeline") as $estimated |
+     {login: .login,
+      type: (.type // "user"),
+      requested_at: $at,
+      requested_at_source: (.requested_at_source // null),
+      estimated: $estimated,
+      business_days_waiting: $bdays,
+      overdue: ($not_draft and $epoch > 0 and $bdays > 1 and ($estimated | not))}]) as $pending |
+  ([$pending[] | .login]) as $reviewers |
+  (([$pending[] | .requested_at | select(. != null)] | min) // null) as $requested_at |
+  (([$pending[] | .business_days_waiting] | max) // 0) as $bdays |
+  (any($pending[]; .overdue)) as $overdue |
+  (([$pending[] | .business_days_waiting] | unique | length) <= 1) as $uniform |
+  (any($pending[]; .estimated)) as $estimated |
+  {reviewers: $reviewers,
+   teams: [$pending[] | select(.type == "team") | .login],
+   requests: $pending,
+   requested_at: $requested_at,
+   requested_at_source: ([$pending[] | .requested_at_source] | first // null),
+   estimated: $estimated,
+   business_days_waiting: $bdays,
+   overdue: $overdue,
+   detail: (
+     (if $estimated then " (estimated from the PR open time, not flagged)" else "" end) as $est_note |
+     if ($reviewers | length) == 0 then "No reviewer requested"
+     elif $uniform then "\($reviewers | map("@" + .) | join(", ")) requested \($bdays) business day(s) ago\($est_note)\(if $overdue then ", overdue" else "" end)"
+     else "\([$pending[] | "@\(.login) requested \(.business_days_waiting) business day(s) ago"] | join(", "))\($est_note)\(if $overdue then ", overdue" else "" end)"
+     end
+   )};
+
 # --- Data Completeness (for confidence) ---
 def data_completeness:
   . as $pr |
@@ -413,7 +472,9 @@ def generate_flags($now_epoch):
     (if ($pr.jira_keys | length) == 0 then "no_jira_ticket" else empty end),
     (if $age_days > 7 then "stale" else empty end),
     (if ($pr.labels | any(. == "needs-rebase")) then "needs_rebase" else empty end),
-    (if ($pr.scores.factor8.score // 0) >= 10 then "high_story_points" else empty end)
+    (if ($pr.scores.factor8.score // 0) >= 10 then "high_story_points" else empty end),
+    (if ($pr.review_request.overdue // false) then "reviewer_overdue" else empty end),
+    (if $pr.area.has_area == false then "no_area_label" else empty end)
   ];
 
 # --- Override rules ---
@@ -512,6 +573,10 @@ def assign_tier:
     factor7: score_factor7,
     factor8: score_factor8
   }} |
+
+  # Area ownership and reviewer of record (not part of the weighted score)
+  . + {area: area_info} |
+  . + {review_request: review_request_info($now_epoch)} |
 
   # Apply overrides
   . + {override_info: apply_overrides} |

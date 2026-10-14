@@ -2,8 +2,10 @@
 
 This document defines the output format for the `/open-prs` skill. There are three modes:
 
-- **Default (compact):** A ranked list grouped by tier. Shows PR title, URL, linked JIRA ticket, review status with age, and tier.
-- **`--slack` (Slack-ready):** Paste-ready output for Slack channels. No markdown tables, Slack-native formatting. Shows Tier 1-2 (or 1-3 if ≤ 10 PRs). Tier 4 never shown.
+- **Default (compact):** PRs grouped by area (`area/*` label), ranked by priority score inside each area. Shows PR title, URL, linked JIRA ticket, tier, review status with age and flags, and the requested reviewers with business days waiting.
+- **`--slack` (Slack-ready):** Paste-ready output for Slack channels. No markdown tables, Slack-native formatting. Same area grouping; shows Tier 1-2 PRs (or 1-3 if ≤ 10 PRs). Tier 4 never shown.
+
+**Area grouping (compact and Slack):** Prow applies `area/*` labels from OWNERS files and requests reviewers from the area's OWNERS pool, so the area is the ownership unit. A PR with several area labels appears under its first label with the others shown inline (`+area/contracts`). PRs with no area label go under `No area`, which is always the last group. Areas are ordered by their most urgent PR (best tier, then highest score). Inside an area, PRs keep their priority order.
 - **`--explain` (detailed):** Full output with per-PR reasoning, factor breakdowns, flags & warnings, and summary statistics.
 
 ---
@@ -15,7 +17,7 @@ This document defines the output format for the `/open-prs` skill. There are thr
 ```text
 ## Open PRs — openshift-hyperfleet
 
-**Generated:** YYYY-MM-DD HH:MM UTC | **N PRs** across M repos | Sorted by priority score | `/open-prs --explain` for full analysis
+**Generated:** YYYY-MM-DD HH:MM UTC | **N PRs** across M repos | Grouped by area, ranked by priority score | `/open-prs --explain` for full analysis
 ```
 
 If `--repo` or `--component` filters were applied, add:
@@ -30,47 +32,42 @@ If JIRA is unavailable:
 **Note:** JIRA unavailable — GitHub-only mode, confidence reduced.
 ```
 
-### Tier tables
+### Area tables
 
-Show each non-empty tier as a compact table. Omit empty tiers entirely.
+Show one table per area. All tiers appear in the compact output; the tier is a column, and Tier 4 rows show the override reason instead of review status. Omit areas with no PRs.
 
 ```text
-### Tier 1 (N PRs)
+### area/api (N PRs)
 
-| # | PR | Status |
-|---|----|--------|
-| 1 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Approved, 2d |
-| 2 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | No reviews, 5d |
+| # | PR | Tier | Status | Reviewers |
+|---|----|------|--------|-----------|
+| 1 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | 🚨 T1 | No reviews, 5d ⚠️ overdue, SLA | @reviewer1, @reviewer2 (3bd) |
+| 4 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title (+area/auth) | 🟡 T2 | In review, 3d | @reviewer1 (1bd) |
+| - | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | 🔵 T4 | Draft | none requested |
 
-### Tier 2 (N PRs)
+### area/sentinel (N PRs)
 
-| # | PR | Status |
-|---|----|--------|
-| 3 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | In review, 3d |
+| # | PR | Tier | Status | Reviewers |
+|---|----|------|--------|-----------|
+| 2 | [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | 🚨 T1 | Approved, 2d | none requested |
 
-### Tier 3 (N PRs)
+### No area (N PRs)
 
-| # | PR | Status |
-|---|----|--------|
-| 6 | [repo#number](url) — PR title without ticket | No reviews, 1d |
-
-### Tier 4 (N PRs)
-
-| PR | Status |
-|----|--------|
-| [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Draft |
-| [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Waiting on author |
-| [repo#number](url) — PR title without ticket | CI failing |
-| [repo#number](url) — [TICKET-KEY](jira-url) - type: PR title | Merge conflicts |
+| # | PR | Tier | Status | Reviewers |
+|---|----|------|--------|-----------|
+| 6 | [repo#number](url) — PR title without ticket | 🟢 T3 | No reviews, 1d | @reviewer2 (1bd) |
+| - | [repo#number](url) — PR title without ticket | 🔵 T4 | CI failing | none requested |
 ```
 
 **Column definitions (compact):**
 
 | Column | Content | Example |
 |--------|---------|---------|
-| # | Rank position (continuous across tiers 1-3) | `1` |
-| PR | `[repo#number](url) — title`. The repo#number links to the GitHub PR. If a JIRA ticket key appears in the title, it is replaced with a link to the JIRA ticket. | `[hyperfleet-api#115](https://...) — [HYPERFLEET-856](https://redhat.atlassian.net/browse/HYPERFLEET-856) - fix: Deletion observability metrics` |
-| Status | Review state and age. Tiers 1-3: `Approved, 2d`, `No reviews, 5d`, `In review, 3d`. Tier 4: reason for informational status (`Draft`, `Waiting on author`, `CI failing`, `Merge conflicts`) | `No reviews, 5d` |
+| # | Rank position by priority score across all areas (tiers 1-3 only; `-` for Tier 4) | `1` |
+| PR | `[repo#number](url) — title`. The repo#number links to the GitHub PR. If a JIRA ticket key appears in the title, it is replaced with a link to the JIRA ticket. Extra area labels follow the title as `(+area/x, area/y)`. | `[hyperfleet-api#115](https://...) — [HYPERFLEET-856](https://redhat.atlassian.net/browse/HYPERFLEET-856) - fix: Deletion observability metrics (+area/auth)` |
+| Tier | Tier emoji and number | `🚨 T1`, `🟡 T2`, `🟢 T3`, `🔵 T4` |
+| Status | Review state and age, followed by flags when present (`⚠️ overdue, SLA, stale`). Tier 4: reason for informational status (`Draft`, `Waiting on author`, `CI failing`, `Merge conflicts`) | `No reviews, 5d ⚠️ overdue, SLA` |
+| Reviewers | Requested reviewers still pending (the reviewer of record, requested from the area's OWNERS pool) and business days waiting, one figure when they match and one per reviewer when they differ, or `none requested`. A tilde marks a wait estimated from the PR open time because the request event could not be fetched; estimates never raise `overdue` | `@kuudori, @pnguyen44 (3bd)`, `@kuudori (3bd), @pnguyen44 (0bd)` or `@ma-hill (~2bd)` |
 
 ### Recommendation
 
@@ -111,10 +108,10 @@ When the user passes `--slack`, produce Slack mrkdwn output with inline links fo
 - If total PRs ≤ 10: show Tiers 1, 2, and 3
 - NEVER show Tier 4 — not actionable, adds noise to the channel
 
-**Tier emojis and labels:**
-- Tier 1: `🚨 *Tier 1 — Immediate Attention (N PRs)*`
-- Tier 2: `🟡 *Tier 2 — Should Review Soon (N PRs)*`
-- Tier 3: `🟢 *Tier 3 — This Week (N PRs)*`
+**Area sections and tier emojis:**
+- One section per area: `EMOJI *area/name (N PRs)*` where EMOJI is the best tier in that section (🚨 Tier 1, 🟡 Tier 2, 🟢 Tier 3). Unlabeled PRs go under `*No area (N PRs)*`, last.
+- Each PR bullet starts with its own tier emoji (🚨, 🟡, 🟢) since tiers are no longer section headers.
+- Tier visibility rules above decide which PRs are included; an area with no visible PRs is omitted.
 
 **Header emoji** — varies based on the highest tier with PRs:
 - 🚨 if Tier 1 PRs exist
@@ -132,18 +129,19 @@ This link is Slack-only — it is not shown in compact or `--explain` output. It
 
 ```text
 HEADER_EMOJI *Open PRs — openshift-hyperfleet*
-_YYYY-MM-DD HH:MM UTC | N PRs across M repos_
+_YYYY-MM-DD HH:MM UTC | N PRs across M repos | grouped by area_
 📋 <https://github.com/orgs/openshift-hyperfleet/projects/1/views/1|PRs Dashboard>
 
-🟡 *Tier 2 — Should Review Soon (N PRs)*
+🚨 *area/api (2 PRs)*
 
-• <https://github.com/openshift-hyperfleet/hyperfleet-api-spec/pull/44|`hyperfleet-api-spec #44`> : <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978> - feat: Add PUT for internal status endpoints — _In review, 3d_
+• 🚨 <https://github.com/openshift-hyperfleet/hyperfleet-api-spec/pull/44|`hyperfleet-api-spec #44`> : <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978> - feat: Add PUT for internal status endpoints — _No reviews, 5d_ · 👀 @kuudori, @pnguyen44 (3bd) ⚠️ overdue, SLA
+• 🟡 <https://github.com/openshift-hyperfleet/hyperfleet-api/pull/137|`hyperfleet-api #137`> : <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978> - fix: Change status endpoint from POST to PUT — _In review, 3d_ · 👀 @mliptak0 (1bd) · _+area/auth_
 
-• <https://github.com/openshift-hyperfleet/architecture/pull/137|`architecture #137`> : <https://redhat.atlassian.net/browse/HYPERFLEET-978|HYPERFLEET-978> - fix: Change status endpoint from POST to PUT — _No reviews, 5d_
+🟡 *area/architecture (1 PR)*
 
-• <https://github.com/openshift-hyperfleet/architecture/pull/122|`architecture #122`> : <https://redhat.atlassian.net/browse/HYPERFLEET-896|HYPERFLEET-896> - feat: Config Driven Generic Resource API Design — _Approved, 2d_
+• 🟡 <https://github.com/openshift-hyperfleet/architecture/pull/122|`architecture #122`> : <https://redhat.atlassian.net/browse/HYPERFLEET-896|HYPERFLEET-896> - feat: Config Driven Generic Resource API Design — _Approved, 2d_ · 👀 none requested
 
-_N more PRs in Tier 3-4. Run `/open-prs` for full list._
+_N more PRs in Tier 3-4 (not shown). Run `/open-prs` for full list._
 ```
 
 ### Per-PR format
@@ -151,12 +149,16 @@ _N more PRs in Tier 3-4. Run `/open-prs` for full list._
 Each PR is a single bullet line:
 
 ```text
-• <PR_URL|`repo #number`> : <JIRA_URL|TICKET-KEY> - type: PR title — _review status, age_
+• TIER_EMOJI <PR_URL|`repo #number`> : <JIRA_URL|TICKET-KEY> - type: PR title — _review status, age_ · 👀 @reviewer1, @reviewer2 (Nbd) ⚠️ flags · _+area/other_
 ```
 
+- **Tier emoji:** 🚨 Tier 1, 🟡 Tier 2, 🟢 Tier 3
 - **PR link:** `<github-url|` `` `repo #number` `` `>` — inline code-styled clickable link
 - **Title with inline JIRA link:** The JIRA ticket key in the title is replaced with a Slack link to the ticket. PRs without a ticket key show the title as-is.
 - **Status suffix:** review state and age in italics — e.g., `_No reviews, 5d_`, `_Approved, 2d_`, `_In review, 3d_`
+- **Reviewers:** `👀` followed by the requested reviewers still pending (GitHub logins) and business days waiting, one figure when they match and one per reviewer when they differ, e.g. `👀 @kuudori, @pnguyen44 (3bd)` or `👀 @kuudori (3bd), @pnguyen44 (0bd)`, with a tilde (`~2bd`) when the time is estimated from the PR open time; `👀 none requested` when no request is pending
+- **Flags:** `⚠️` followed by any of `overdue` (any requested reviewer waiting more than one business day on a request with a known time; estimated times never flag), `SLA` (more than 3 days with no human review), `stale` (more than 7 days). Omitted when there are no flags.
+- **Other areas:** `· _+area/x, area/y_` when the PR carries more than one area label. Omitted otherwise.
 
 Each PR is one bullet point — no multi-line entries.
 
@@ -251,9 +253,9 @@ If `--repo` or `--component` filters were applied, add:
 ```text
 ### Tier 1 (N PRs)
 
-| # | PR | JIRA | Priority | Age | Size | Reviews | CI | Score | Confidence |
-|---|----|----- |----------|-----|------|---------|----|-------|------------|
-| 1 | [repo#number](url) | TICKET-KEY (Priority) | Priority | Xd | +A/-D (F files) | Status | Status | XX/100 | Label (XX%) |
+| # | PR | Area | JIRA | Priority | Age | Size | Reviews | CI | Score | Confidence |
+|---|----|------|----- |----------|-----|------|---------|----|-------|------------|
+| 1 | [repo#number](url) | area/api | TICKET-KEY (Priority) | Priority | Xd | +A/-D (F files) | Status | Status | XX/100 | Label (XX%) |
 ```
 
 **Column definitions:**
@@ -262,6 +264,7 @@ If `--repo` or `--component` filters were applied, add:
 |--------|---------|---------|
 | # | Rank position | `1` |
 | PR | `[repo#number](url)` — linked to GitHub | `[hyperfleet-api#115](https://...)` |
+| Area | First `area/*` label, with extra labels after a `+`; `No area` when unlabeled | `area/api +area/auth` |
 | JIRA | `TICKET-KEY (Priority)` or `No ticket` | `HYPERFLEET-856 (High)` |
 | Priority | Derived priority label from scoring | `High` |
 | Age | Days since PR creation | `12d` or `4h` |
@@ -279,7 +282,7 @@ After the table, show a detailed block for each PR:
 ---
 
 #### #1: repo#number — PR title
-**Author:** @login | **Assigned reviewers:** @reviewer1, @reviewer2
+**Author:** @login | **Area:** area/api (+area/auth) | **Requested reviewers:** @reviewer1, @reviewer2 (3 business days waiting, overdue)
 **JIRA:** [TICKET-KEY](jira-url) | **Type:** Bug | **Story Points:** 5 | **Component:** API
 **Domain:** Security fix | Bug fix
 
@@ -320,9 +323,9 @@ Condensed format — table only, with a brief one-line reasoning per PR instead 
 ```text
 ### Tier 3 (N PRs)
 
-| # | PR | JIRA | Age | Size | Reviews | Score | Confidence | Reason |
-|---|----|----- |-----|------|---------|-------|------------|--------|
-| 8 | [repo#42](url) | HYPERFLEET-900 | 2d | +45/-10 | No reviews | 38/100 | High (75%) | Normal-priority feature, recently opened |
+| # | PR | Area | JIRA | Age | Size | Reviews | Reviewers | Score | Confidence | Reason |
+|---|----|------|----- |-----|------|---------|-----------|-------|------------|--------|
+| 8 | [repo#42](url) | area/sentinel | HYPERFLEET-900 | 2d | +45/-10 | No reviews | @pnguyen44 (1bd) | 38/100 | High (75%) | Normal-priority feature, recently opened |
 ```
 
 ---
@@ -360,6 +363,12 @@ If there are no Tier 4 PRs, omit this section entirely.
   - [repo#XX](url) — Xd without review
   - [repo#YY](url) — Xd without review
 
+- **Waiting on requested reviewer:** N PRs have a review request pending for more than 1 business day
+  - [repo#XX](url) — @reviewer1, @reviewer2 requested Xbd ago (area/api)
+
+- **No area label:** N PRs carry no `area/*` label, so no OWNERS pool was asked to review
+  - [repo#XX](url) — "PR title"
+
 - **Large PRs (>500 lines):** N PRs may benefit from splitting
   - [repo#XX](url) — XXXX lines changed across XX files
 
@@ -396,6 +405,8 @@ Only show flag categories that have at least one entry. If no flags, omit the se
 | PRs with passing CI | N (XX%) |
 | PRs with failing CI | N (XX%) |
 | PRs waiting >3d for first review | N (XX%) |
+| PRs waiting >1 business day on a requested reviewer | N (XX%) |
+| PRs with no area label | N (XX%) |
 | JIRA-linked PRs | N/N (XX%) |
 | Avg confidence score | XX% |
 ```
@@ -435,7 +446,7 @@ If ALL PRs are Tier 4 (no actionable PRs in Tiers 1-3):
 
 ### Review status formatting
 
-Note: Reviewers are auto-assigned. Status is based on actual engagement, not assignment.
+Note: Review status reflects actual engagement (reviews, comments, approvals). Pending review requests are shown separately (see "Reviewer and flag formatting" below).
 
 | State | Display |
 |-------|---------|
@@ -444,6 +455,21 @@ Note: Reviewers are auto-assigned. Status is based on actual engagement, not ass
 | Changes requested (formally or via unresolved comments) | `Changes requested` |
 | All required approvals received | `Approved` |
 | Active discussion between author and reviewer | `In discussion` |
+
+### Reviewer and flag formatting
+
+Prow requests reviewers from the area's OWNERS pool, so a pending request names the reviewer of record. GitHub drops the request once that reviewer submits a review, so only reviewers who have not acted yet are listed.
+
+| Item | Display |
+|------|---------|
+| Pending requested reviewers and business days waiting, per reviewer when they differ, tilde when estimated from the PR open time | `@login1, @login2 (Nbd)`, `@login1 (Nbd), @login2 (Mbd)` or `@login1 (~Nbd)` |
+| No pending request | `none requested` |
+| Any requested reviewer waiting more than 1 business day (non-draft, request time known) | flag `overdue` |
+| More than 3 days with no human review | flag `SLA` |
+| More than 7 days old | flag `stale` |
+| Extra area labels beyond the first | `+area/x, area/y` |
+
+Flags are rendered together after the status as `⚠️ overdue, SLA, stale` (only those that apply). Business days exclude Saturday and Sunday.
 
 ### CI status formatting
 

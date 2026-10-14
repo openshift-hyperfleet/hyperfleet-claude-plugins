@@ -214,7 +214,7 @@ Measures where the PR is in the review lifecycle and whether it needs reviewer a
 
 ### Scoring Rubric
 
-**Note:** Reviewers are auto-assigned in this organization, so `reviewRequests` being populated does NOT mean someone consciously asked for a review. The key signal is whether anyone has actually **engaged** (commented, reviewed, approved) — not whether reviewers are assigned.
+**Note:** Prow requests reviewers from the PR's area OWNERS pool (two per PR via Blunderbuss), so `reviewRequests` names the reviewer of record. GitHub drops a request once that reviewer submits a review, so a request still pending means the reviewer has not acted yet. Factor 5 still scores actual engagement (comments, reviews, approvals); the pending request is tracked separately (see "Review request tracking" below) and does not change the Factor 5 score.
 
 | Score | Criteria |
 |-------|----------|
@@ -237,7 +237,7 @@ Determine review state from `latestReviews` and `reviewDecision` — these show 
 1. `latestReviews`: State of each reviewer's latest review (APPROVED, CHANGES_REQUESTED, COMMENTED). This is the most reliable signal.
 2. `reviewDecision`: Overall decision (APPROVED, REVIEW_REQUIRED, CHANGES_REQUESTED). This is the aggregate status.
 
-**Do NOT rely on `reviewRequests`** for determining whether a PR needs review attention. Reviewers are auto-assigned in this organization, so this field is always populated for new PRs. It does not indicate a conscious request for review.
+**Review request tracking.** `collect-data.sh` carries each pending request in `review_requests` (login, user or team, and the timestamp of the latest `review_requested` event from the issue timeline; when the timeline cannot be fetched the PR `createdAt` is used, since Prow requests reviewers when the PR opens, and `requested_at_source` records which one was used). `score.jq` measures each pending request on its own (`review_request.requests`), reports `review_request.business_days_waiting` as the longest wait, and sets `review_request.overdue` (flag `reviewer_overdue`) when any requested reviewer on a non-draft PR has waited more than one business day, so a reviewer re-requested today does not hide one who has been waiting since last week. When the request time had to be taken from the PR `createdAt` (`requested_at_source: pr_created_at`), the request is marked `estimated`, the wait is shown with a tilde, and it never sets `overdue`, because an older PR may have had its reviewer requested well after it opened. This is a visibility rule for the digest, not a scoring factor: the weighted score is unchanged. The digest groups PRs by `area/*` label and shows the requested reviewers and business days waiting next to each PR so the reviewer of record is visible.
 
 **To detect "author addressed changes":** Fetch the latest commit date via:
 ```bash

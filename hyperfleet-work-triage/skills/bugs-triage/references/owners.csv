@@ -1,13 +1,23 @@
 type,name,primary_owner,secondary_owner
-component,Hyperfleet API,Yanming Sun,Angel Marin
-component,Broker,Angel Marin,dandan wang
-component,Adapter,Xue Li,Angel Marin
-component,Sentinel,Rafael Benevides,"Phuongnhat Nguyen, Yanming Sun"
-component,CICD,Ying Zhang,
-component,Claude Code Plugin,Rafael Benevides,Yanming Sun
-domain,Hyperfleet Architecture,Victor Kareh Fabregas,Ciaran Roche
-domain,CLM Architecture,Ciaran Roche,Angel Marin
-domain,CICD Framework,Xue Li,
-domain,Test Automation Framework,Yanming Sun,Ying Zhang
-domain,Deployment Strategy,Ciaran Roche,Rafael Benevides
-domain,Implementation Standard,"Angel Marin, Rafael Benevides",Ciaran Roche
+component,Hyperfleet API,Dmitrii Andreev,Phuongnhat Nguyen
+component,Broker,Angel Marin,Dmitrii Andreev
+component,Adapter,Angel Marin,"Rafael Benevides, Dmitrii Andreev"
+component,Sentinel,Phuongnhat Nguyen,"Dmitrii Andreev, Angel Marin"
+component,CICD,Mallory Hill,Dmitrii Andreev
+component,Claude Code Plugin,Rafael Benevides,Phuongnhat Nguyen
+domain,Hyperfleet Architecture,Ciaran Roche,"Michael, Rafael Benevides, Angel Marin"
+domain,CLM Architecture,Ciaran Roche,"Michael, Rafael Benevides, Angel Marin"
+domain,CICD Framework,Mallory Hill,Dmitrii Andreev
+domain,Test Automation Framework,Dmitrii Andreev,Mallory Hill
+domain,Deployment Strategy,Mallory Hill,"Dmitrii Andreev, Rafael Benevides"
+domain,Implementation Standard,Ciaran Roche,"Michael, Rafael Benevides, Angel Marin"
+domain,Tenancy and Auth,Phuongnhat Nguyen,Martin Liptak
+domain,Generic Model and Search,Dmitrii Andreev,Phuongnhat Nguyen
+domain,Contracts,Angel Marin,"Martin Liptak, Dmitrii Andreev, Ciaran Roche"
+domain,Desire Delivery and Applier,Dmitrii Andreev,"Angel Marin, Phuongnhat Nguyen"
+domain,Gateway,Martin Liptak,Dmitrii Andreev
+domain,Observability,Phuongnhat Nguyen,Dmitrii Andreev
+domain,Performance,Phuongnhat Nguyen,Dmitrii Andreev
+domain,Operator,Dmitrii Andreev,
+domain,OCI,Rafael Benevides,Ciaran Roche
+domain,Platform Libraries,Dmitrii Andreev,Mallory Hill
