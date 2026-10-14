@@ -280,6 +280,9 @@ assert_contains "No-area section heading" "### No area (3 PRs)" "$COMPACT_OUT"
 assert_contains "Other areas inline in PR cell" "(+area/contracts)" "$COMPACT_OUT"
 assert_contains "Reviewers column with per-reviewer business days" "| @kuudori (10bd), @pnguyen44 (0bd) |" "$COMPACT_OUT"
 assert_contains "Estimated wait marked with a tilde" "| @ma-hill (~2bd) |" "$COMPACT_OUT"
+MIXED_OUT=$(echo "$SCORED" | jq '.scored_prs |= [.[] | select(.repo == "hyperfleet-e2e" and .number == 33) | .review_request.requests += [{login: "tirthct", type: "user", business_days_waiting: 2, estimated: false, overdue: true}] | .review_request.reviewers += ["tirthct"]]' | \
+  jq --arg mode "compact" -rf "$SCRIPTS_DIR/format-output.jq" 2>&1)
+assert_contains "Equal waits with mixed certainty keep per-reviewer form" "| @ma-hill (~2bd), @tirthct (2bd) |" "$MIXED_OUT"
 assert_contains "Tier 4 row shows override reason" "| 🔵 T4 | Draft | none requested |" "$COMPACT_OUT"
 assert_contains "Flags appended to status" "No reviews, 14d ⚠️ overdue, SLA, stale" "$COMPACT_OUT"
 assert_not_contains "No separate JIRA column" "| JIRA |" "$COMPACT_OUT"
