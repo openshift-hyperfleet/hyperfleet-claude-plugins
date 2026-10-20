@@ -18,23 +18,20 @@ kubectl get namespace e2e-<run-id> --no-headers 2>/dev/null
 kubectl get namespaces -o name | grep -E '^namespace/e2e-'
 ```
 
-## Maestro DB Accumulation
+## Remote Delivery (cl-desire, Redis, Applier)
+
+When `cl-desire` is stuck and not converging, check the logs in this order:
 
 ```bash
-# Exact service match — fail if ambiguous (multiple namespaces with a 'maestro' service)
-MAESTRO_NS=$(kubectl get svc --all-namespaces --no-headers 2>/dev/null | awk '$2 == "maestro" {print $1}')
-if [ "$(echo "$MAESTRO_NS" | wc -l)" -ne 1 ] || [ -z "$MAESTRO_NS" ]; then
-  echo "ERROR: Expected exactly 1 namespace with 'maestro' service, found: $MAESTRO_NS" >&2
-else
-  # All commands in a single Bash invocation — poll readiness instead of fixed sleep
-  timeout 10 kubectl port-forward -n "$MAESTRO_NS" svc/maestro 8001:8000 & PF_PID=$!
-  for i in $(seq 1 10); do curl -s --max-time 1 http://localhost:8001/api/maestro/v1/resource-bundles?size=0 >/dev/null 2>&1 && break; sleep 0.5; done
-  kill -0 $PF_PID 2>/dev/null && curl -s --max-time 5 "http://localhost:8001/api/maestro/v1/resource-bundles?size=1" | jq '.total'
-  kill $PF_PID 2>/dev/null
-fi
-```
+# The desire store: is it up, and does it accept connections?
+kubectl logs -n <namespace> -l app.kubernetes.io/instance=redis --tail=200
 
-If `total` >> 100, the Maestro REST API's default page size may be excluding test resources. See hyperfleet-e2e PR #79, HYPERFLEET-992.
+# The remote adapter: did it write the desires?
+kubectl logs -n <namespace> -l app.kubernetes.io/instance=cl-desire --tail=200
+
+# The applier: did it apply them, and did it report status back?
+kubectl logs -n <namespace> -l app.kubernetes.io/instance=hyperfleet-applier --tail=200
+```
 
 ## Orphaned K8s Resources
 
@@ -44,9 +41,6 @@ kubectl get clusterroles -o name | grep adapter-
 
 # Orphaned test namespaces
 kubectl get namespaces -o name | grep -E 'e2e-|test-'
-
-# Orphaned ManifestWorks
-kubectl get appliedmanifestworks -A --no-headers 2>/dev/null | wc -l
 ```
 
 ## Pod Health and Crash Detection

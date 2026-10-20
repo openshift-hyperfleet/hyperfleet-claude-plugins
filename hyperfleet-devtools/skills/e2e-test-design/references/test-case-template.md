@@ -61,8 +61,8 @@
 test-design/testcases/
 ├── cluster.md                          # Cluster lifecycle
 ├── nodepool.md                         # Nodepool lifecycle
-├── adapter.md                          # Adapter framework tests
-├── adapter-with-maestro-transport.md   # Maestro transport layer
+├── adapter-failover.md                 # Adapter framework tests
+├── adapter-with-remote-transport.md    # Remote transport tests
 ├── concurrent-processing.md            # Concurrency tests
 └── {feature-name}.md                   # New features
 ```

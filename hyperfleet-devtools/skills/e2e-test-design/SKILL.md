@@ -88,9 +88,9 @@ Map every acceptance criterion from the Jira epic to test coverage BEFORE design
 - Every AC must appear in the matrix
 - "Full" = no new test needed. "Partial" = design for gap only. "NONE" = design new tests
 - Only design new test cases for "Partial" and "NONE" gaps
-- **Cross-file implicit coverage**: An AC can be "Full" if multiple test files collectively prove it. Example: "operational parity between transport modes" is proven if both `cluster.md` (k8s transport) and `adapter-with-maestro-transport.md` (Maestro transport) tests pass and produce equivalent end states. Don't require a single test to prove what separate test suites already demonstrate together
+- **Cross-file implicit coverage**: An AC can be "Full" if multiple test files collectively prove it. Example: "operational parity between transport modes" is proven if both `cluster.md` (local Kubernetes transport) and `adapter-with-remote-transport.md` (remote transport) tests pass and produce equivalent end states. Don't require a single test to prove what separate test suites already demonstrate together
 - **Development-time guarantees vs runtime behavior**: ACs like "zero code changes required" or "no breaking changes" are design constraints, not runtime behaviors. Mark these as N/A for E2E — they're verified by the fact that existing tests continue to pass after the feature ships
-- **Transport/config-agnostic tests**: Tests that validate "all deployed adapters" (e.g., concurrent processing) are transport-agnostic. If a Maestro adapter is deployed in the test environment, these tests already exercise it. Don't create transport-specific duplicates
+- **Transport/config-agnostic tests**: Tests that validate "all deployed adapters" (e.g., concurrent processing) are transport-agnostic. If a remote-transport adapter (e.g., `cl-desire`) is deployed in the test environment, these tests already exercise it. Don't create transport-specific duplicates
 
 ### Implicit AC Extraction (MANDATORY)
 

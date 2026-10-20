@@ -168,7 +168,7 @@ Analyzes HyperFleet E2E CI pipeline failures and provides structured root cause 
 - Matches errors against 30+ documented failure patterns
 - Checks recent commits, PRs, and JIRA with time-bounded queries
 - Cross-run comparison: detects GKE version changes, config drift, code changes
-- Live cluster inspection via kubectl/gcloud (pod state, GKE node operations, Maestro DB)
+- Live cluster inspection via kubectl/gcloud (pod state, GKE node operations)
 - Forensic certification gate with confidence scoring (HIGH/MEDIUM/LOW)
 
 **Usage**:
@@ -181,7 +181,7 @@ Analyzes HyperFleet E2E CI pipeline failures and provides structured root cause 
 /hyperfleet-devtools:e2e-debug periodic-ci-openshift-hyperfleet-hyperfleet-e2e-main-e2e-tier0-nightly
 ```
 
-**External Systems Accessed**: Prow/GCS artifacts (public, no auth), GitHub API (`gh` CLI), JIRA (`jira` CLI), Kubernetes (`kubectl`), Google Cloud (`gcloud`), Maestro REST API (via `kubectl port-forward`). Only `gh` is required — all others are optional with graceful degradation.
+**External Systems Accessed**: Prow/GCS artifacts (public, no auth), GitHub API (`gh` CLI), JIRA (`jira` CLI), Kubernetes (`kubectl`), Google Cloud (`gcloud`). Only `gh` is required — all others are optional with graceful degradation.
 
 See [skills/e2e-debug/SKILL.md](./skills/e2e-debug/SKILL.md) for detailed documentation.
 

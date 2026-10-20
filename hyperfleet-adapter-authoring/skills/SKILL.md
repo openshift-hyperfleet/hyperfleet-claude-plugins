@@ -53,16 +53,14 @@ Ask the user:
 Ask the user:
 
 - **How should resources be delivered?**
-  - **Kubernetes (direct)**: Resources applied directly to the management cluster via Kubernetes API
-  - **Maestro**: Resources wrapped in a ManifestWork and sent to a remote spoke cluster via Maestro/OCM
+  - **Kubernetes (local, default)**: Resources applied directly to the cluster the adapter is configured for, via the Kubernetes API
+  - **Remote transport**: Resources written to a dedicated store; the remote cluster side applies them and mirrors the live object back
 
-**If Maestro is selected**, also ask:
-- **What Maestro endpoint URLs should be used?** (default: http://host.docker.internal:8100 for HTTP, host.docker.internal:8090 for gRPC)
-- Run this command to list available consumers:
-  ```bash
-  curl -s http://host.docker.internal:8100/api/maestro/v1/consumers | jq '.items[].name'
-  ```
-- **Which consumer should be used?** (e.g., "cluster1", "local-cluster")
+**If a remote transport is selected**, also ask:
+- **What is the transport name?** (e.g., `remote-primary` -- declared in the deployment config under `transports` with `type: remote`)
+- **Which store and target_cluster should be used?** (see "Transports and stores" in the adapter repo's Configuration Reference)
+- **Which resource plurals will the adapter manage?** (every manifest kind needs an entry in the transport's `resource_plurals`, which maps `apiVersion/Kind` keys to plural resource names -- the "Remote transports" section of the adapter authoring guide shows how to derive the entries)
+- Remind the user: every remote manifest must carry the `hyperfleet.io/generation: "{{ .generation }}"` annotation -- a remote transport rejects a manifest without it
 
 ### Step 4: Resources to Create
 

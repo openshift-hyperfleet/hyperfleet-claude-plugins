@@ -78,12 +78,12 @@ API_ADAPTERS_NODEPOOL="adapter1,adapter2"
 # deploy-scripts/.env.example
 
 # Cluster Tier0 Adapters
-CLUSTER_TIER0_ADAPTERS_DEPLOYMENT="cl-maestro,cl-m-ds,cl-quota"
-API_ADAPTERS_CLUSTER="cl-maestro,cl-m-ds,cl-quota"
+CLUSTER_TIER0_ADAPTERS_DEPLOYMENT="cl-namespace,cl-job,cl-deployment,cl-desire"
+API_ADAPTERS_CLUSTER="cl-namespace,cl-job,cl-deployment,cl-desire"
 
 # NodePool Tier0 Adapters
-NODEPOOL_TIER0_ADAPTERS_DEPLOYMENT="np-maestro,np-validator"
-API_ADAPTERS_NODEPOOL="np-maestro,np-validator"
+NODEPOOL_TIER0_ADAPTERS_DEPLOYMENT="np-configmap"
+API_ADAPTERS_NODEPOOL="np-configmap"
 ```
 
 ## Test Implementation Pattern
@@ -100,7 +100,7 @@ Describe("Tier0 Test Suite")
   It("test description"):
     - Create resource (or use pre-created one)
     - Verify API responses
-    - Verify resources via K8s/Maestro
+    - Verify resources via K8s
     - Verify conditions
 
   AfterEach:
@@ -134,7 +134,7 @@ Every Tier0 test follows the standard 4-step E2E workflow:
 - Verify all required adapters have executed
 
 **3. Verify Resources (if needed)**
-- Use K8s helpers, Maestro, or third-party clients to verify actual resources
+- Use K8s helpers or third-party clients to verify actual resources
 - Verify resource isolation, metadata, labels, etc.
 
 **4. Cleanup**

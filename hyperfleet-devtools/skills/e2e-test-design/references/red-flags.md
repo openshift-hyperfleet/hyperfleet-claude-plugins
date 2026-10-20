@@ -31,7 +31,7 @@
 | Proposing test for single-component failure (TLS, auth, client config) | Apply scope boundary filter — single-component errors belong in integration tests |
 | Creating test when multiple test files already prove the AC collectively | Check cross-file implicit coverage — don't require one test to prove what separate suites demonstrate |
 | Duplicating transport-specific test when existing test is transport-agnostic | Tests validating "all deployed adapters" already cover any transport mode deployed |
-| Testing internal behavior of third-party systems (Maestro cleanup, broker dedup) | Only test what HyperFleet observes via API or K8s resource status |
+| Testing internal behavior of third-party systems (e.g. broker dedup) | Only test what HyperFleet observes via API or K8s resource status |
 | Testing design-time constraints ("zero code changes", "no breaking changes") | These are verified by existing tests continuing to pass, not by new E2E tests |
 | Carrying candidates through overlap analysis before checking scope | Apply pre-filter BEFORE overlap analysis to avoid wasted effort |
 | **Risk & coverage** | |
