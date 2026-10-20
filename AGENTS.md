@@ -35,7 +35,7 @@ Before making any changes:
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.8.2 |
-| `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.4.0 |
+| `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.4.1 |
 | `hyperfleet-hooks` | - | - | - | 1 | 0.2.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |
 | `hyperfleet-release` | 1 (`release-notes`) | - | - | - | 0.1.0 |
@@ -101,3 +101,37 @@ See `CONTRIBUTING.md` for adding/modifying plugins, local development, versionin
 
 1. **`marketplace.json` does not track versions.** Only `plugin.json` does. Always bump version there before PR.
 2. **Dynamic context runs at load time.** `` !`command` `` executes when skill loads, before any user interaction. Keep scripts fast, read-only, and fail-safe.
+
+## hyperfleet-work-triage/skills/open-prs/
+
+### Testing
+
+After modifying any file in the skill's `scripts/` directory, run the test suite:
+
+```bash
+bash hyperfleet-work-triage/skills/open-prs/scripts/tests/run-tests.sh
+```
+
+All tests must pass before opening a PR. The tests validate:
+- Deterministic scoring (`score.jq`): factor scores, overrides, tier assignment, sorting
+- Output formatting (`format-output.jq`): Slack and compact modes, emoji correctness, tier visibility
+- Edge cases: zero PRs, JIRA unavailable, draft/CI-failing/waiting-on-author overrides
+- Override enforcement: `effective_tier` in `format-output.jq` prevents overridden PRs from leaking into wrong tiers even if `provisional_tier` is misassigned
+
+### Architecture
+
+~80% of the skill logic is in deterministic shell/jq scripts. The LLM only handles Factor 4 (diff classification) and Factor 2 refinement (informal blocking signals from JIRA comments).
+
+Script and file paths below are relative to the skill directory:
+
+| Script | What it does |
+|--------|-------------|
+| `scripts/collect-data.sh` | Parallel data fetching from GitHub + JIRA |
+| `scripts/score.jq` | 8-factor scoring, overrides, tier assignment, sorting |
+| `scripts/format-output.jq` | Output formatting for compact and Slack modes |
+
+### Key files
+
+- `SKILL.md` — orchestration instructions for the LLM
+- `prioritization-algorithm.md` — scoring rubrics (source of truth for `score.jq`)
+- `output-format.md` — output templates (source of truth for `format-output.jq`)
