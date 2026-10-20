@@ -120,7 +120,7 @@ All tests must pass before opening a PR. The tests validate:
 
 ### Architecture
 
-~80% of the skill logic is in deterministic shell/jq scripts. The LLM only handles Factor 4 (diff classification) and Factor 2 refinement (informal blocking signals from JIRA comments).
+~80% of the skill logic is in deterministic shell/jq scripts. The LLM handles only the judgment-based remainder: Factor 4 (diff classification), Factor 2 refinement (informal blocking signals from JIRA comments), confidence computation, and `--explain` reasoning.
 
 Script and file paths below are relative to the skill directory:
 
