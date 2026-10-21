@@ -60,7 +60,6 @@ Ask the user:
 - **What is the transport name?** (e.g., `remote-primary` -- declared in the deployment config under `transports` with `type: remote`)
 - **Which store and target_cluster should be used?** (see "Transports and stores" in the adapter repo's Configuration Reference)
 - **Which resource plurals will the adapter manage?** (every manifest kind needs an entry in the transport's `resource_plurals`, which maps `apiVersion/Kind` keys to plural resource names -- the "Remote transports" section of the adapter authoring guide shows how to derive the entries)
-- Remind the user: every remote manifest must carry the `hyperfleet.io/generation: "{{ .generation }}"` annotation -- a remote transport rejects a manifest without it
 
 ### Step 4: Resources to Create
 
@@ -86,11 +85,14 @@ Ask the user:
 
 ### Step 7: Generate
 
+Remind the user: **every manifest must carry the `hyperfleet.io/generation: "{{ .generation }}"` annotation** -- see the "The generation annotation" section of the adapter authoring guide for how it drives create, update and skip.
+
 Generate both files:
 
 1. `adapter-config.yaml` -- deployment configuration
 2. `adapter-task-config.yaml` -- business logic configuration
 
+Verify that the `hyperfleet.io/generation: "{{ .generation }}"` annotation is present on all resource manifests.
 Offer to also generate dry-run mock files (event.json, api-responses.json, discovery-overrides.json) for local testing.
 
 ---

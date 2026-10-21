@@ -75,8 +75,8 @@ Before walking artifacts, fetch `finished.json` from the run root to confirm the
 **For Prow jobs:**
 
 1. Fetch the build log from the GCS web interface. The Prow URL maps to a GCS path:
-   - URL: `https://prow.ci.openshift.org/view/gs/test-platform-results/logs/<job-name>/<run-id>`
-   - GCS web: `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/<job-name>/<run-id>/`
+   - URL: `https://prow.ci.openshift.org/view/gs/test-platform-results-public/logs/<job-name>/<run-id>`
+   - GCS web: `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public/logs/<job-name>/<run-id>/`
 
 2. **Walk the ENTIRE artifact tree. No shortcuts. No skipping.** (Future: consider [prow-mcp-server](https://github.com/redhat-community-ai-tools/prow-mcp-server) as an alternative to WebFetch + HTML parsing for more robust GCS artifact access.) The GCS artifacts are the primary and most reliable source of truth. They are always available regardless of kubectl access. You MUST recursively list and read every file in every directory starting from the run root. Do not cherry-pick. Do not skip directories you think are unimportant. Do not assume you know what's there.
 
@@ -287,7 +287,7 @@ jira issue list -q"project = HYPERFLEET AND (summary ~ 'flaky' OR summary ~ 'e2e
 Instead, use the GCS artifact listing to check prior runs:
 
 1. Fetch the job's GCS directory listing:
-   `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/<job-name>/`
+   `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public/logs/<job-name>/`
 2. Identify the 5 most recent run IDs from the directory listing (they are numeric, sorted ascending)
 3. For each, fetch `<run-id>/finished.json` — it contains `{"passed": true/false, "result": "SUCCESS"/"FAILURE", "timestamp": ...}`
 4. Report the pass/fail pattern (e.g., "Last 5 runs: PASS, PASS, FAIL, PASS, PASS") to determine regression vs. flakiness

@@ -175,7 +175,7 @@ Analyzes HyperFleet E2E CI pipeline failures and provides structured root cause 
 
 ```text
 # Debug a specific Prow run
-/hyperfleet-devtools:e2e-debug https://prow.ci.openshift.org/view/gs/test-platform-results/logs/periodic-ci-...-tier0-nightly/2058843047478693888
+/hyperfleet-devtools:e2e-debug https://prow.ci.openshift.org/view/gs/test-platform-results-public/logs/periodic-ci-...-tier0-nightly/2058843047478693888
 
 # Debug the latest run of a job
 /hyperfleet-devtools:e2e-debug periodic-ci-openshift-hyperfleet-hyperfleet-e2e-main-e2e-tier0-nightly

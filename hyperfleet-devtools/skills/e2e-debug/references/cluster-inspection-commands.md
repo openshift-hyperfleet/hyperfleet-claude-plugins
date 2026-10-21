@@ -22,6 +22,8 @@ kubectl get namespaces -o name | grep -E '^namespace/e2e-'
 
 When `cl-desire` is stuck and not converging, check the logs in this order:
 
+**Live environment only** (the run's namespace still exists):
+
 ```bash
 # The desire store: is it up, and does it accept connections?
 kubectl logs -n <namespace> -l app.kubernetes.io/instance=redis --tail=200
@@ -32,6 +34,10 @@ kubectl logs -n <namespace> -l app.kubernetes.io/instance=cl-desire --tail=200
 # The applier: did it apply them, and did it report status back?
 kubectl logs -n <namespace> -l app.kubernetes.io/instance=hyperfleet-applier --tail=200
 ```
+
+**After the run has finished** (the CI namespace is deleted): the same components' logs are
+captured in the setup step's artifacts — the layout, URL mapping, and filename patterns are in
+`references/ci-quick-reference.md` (GCS Artifact Structure).
 
 ## Orphaned K8s Resources
 
