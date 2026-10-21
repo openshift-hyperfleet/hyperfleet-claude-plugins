@@ -29,7 +29,7 @@ Cross-reference the error from the logs against these categories. The "Handbook 
 | `Finalized=False` during deletion | Adapter cleanup incomplete | Adapter Debugging + Resource Cleanup | Resource has `deleted_time` set. Check if adapter is still cleaning up (`CleanupInProgress`) or unhealthy (`AdapterUnhealthy`) |
 | A negative test expects the adapter to report failure/`nil` status, but the adapter reports success instead, following an adapter framework change | Adapter behavioral drift after refactor | Adapter Debugging | Check whether a recent adapter parameter-resolution/defaulting refactor changed how missing or invalid params are handled — it may now silently resolve a default instead of surfacing the failure path the test expects. See HYPERFLEET-1339 |
 | No status reported for an adapter | Event delivery failure | Timeout Tuning | Check Sentinel metrics and broker logs |
-| Test returns `nil` for a resource lookup with no error | Silent parameter ignored | N/A | An API parameter (e.g., `labelSelector`) may be silently ignored — the API returns 200 OK with unfiltered/wrong data instead of an error. Logs will look clean. Requires live DesireStore/API query to diagnose. Check the API docs for supported query parameters |
+| Test returns `nil` for a resource lookup with no error | Silent parameter ignored | N/A | An API parameter (e.g., `labelSelector`) may be silently ignored — the API returns 200 OK with unfiltered/wrong data instead of an error. Logs will look clean. Requires a live API query to diagnose. Check the API docs for supported query parameters |
 
 ## Prow Infrastructure Errors (Not HyperFleet Code Issues)
 
