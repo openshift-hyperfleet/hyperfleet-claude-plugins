@@ -105,14 +105,9 @@ Before walking artifacts, fetch `finished.json` from the run root to confirm the
    - **Cleanup-cloud-provider** logs capture Pub/Sub resource cleanup status
    - **Any other step** may contain data you haven't seen before — read it
 
-   **Component log filenames** in the setup artifacts directory include pod IDs and are not predictable. Match by prefix:
-   - `api-hyperfleet-api-*` — API server logs (excludes postgresql)
-   - `api-hyperfleet-api-postgresql-*` — PostgreSQL database logs
-   - `sentinel-clusters-*` / `sentinel-nodepools-*` — Sentinel logs
-   - `adapter-clusters-cl-*` / `adapter-nodepools-np-*` — Adapter logs
-   - `all-resources.txt` — Full K8s resource dump
-   
-   **Never construct filenames by guessing pod IDs.** Always list the directory first.
+   **Component log filenames** include pod IDs and are not predictable.
+   The artifact tree and filename patterns are documented in
+   `references/ci-quick-reference.md` ("GCS Artifact Structure").
 
    **Critical timing note:** Setup-time component logs are captured BEFORE tests run. They confirm healthy initial state but do NOT capture crashes during test execution. The cleanup step logs are the closest thing to post-failure state — they run AFTER the test fails and interact with the same pods/namespace.
 
