@@ -290,7 +290,11 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.8.2 - Current Release
+### v0.8.3 - Current Release
+- ✅ **Remote Transport Alignment**: Replace Maestro-era references with the current remote delivery stack (cl-desire, Redis desire store, applier) across e2e-debug, e2e-test-design, and e2e-test-automation
+- ✅ **E2E CI Failure Debugger**: Fix setup-artifact guidance — component log filename patterns now match real Prow artifacts, with `ci-quick-reference.md` as the single source of truth
+
+### v0.8.2
 - ✅ **Renovate PR Manager**: Add `references` bump type for Konflux references PRs
 
 ### v0.8.0
@@ -346,6 +350,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.8.2
-**Last Updated**: 2026-08-10
+**Version**: 0.8.3
+**Last Updated**: 2026-10-22
 **Status**: ✅ Production Ready
