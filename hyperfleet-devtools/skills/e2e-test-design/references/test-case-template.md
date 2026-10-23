@@ -59,11 +59,16 @@
 
 ```text
 test-design/testcases/
-├── cluster.md                          # Cluster lifecycle
-├── nodepool.md                         # Nodepool lifecycle
-├── adapter.md                          # Adapter framework tests
-├── adapter-with-maestro-transport.md   # Maestro transport layer
+├── cluster.md                          # Cluster creation lifecycle
+├── nodepool.md                         # Nodepool creation lifecycle
+├── update-cluster.md                   # Cluster update lifecycle (PATCH)
+├── update-nodepool.md                  # Nodepool update lifecycle (PATCH)
+├── delete-cluster.md                   # Cluster deletion lifecycle
+├── delete-nodepool.md                  # Nodepool deletion lifecycle
+├── adapter-with-remote-transport.md    # Adapter framework tests (remote transport)
+├── adapter-failover.md                 # Adapter failover scenarios
 ├── concurrent-processing.md            # Concurrency tests
+├── update-delete-test-matrix.md        # Consolidated update/delete test matrix (cluster + nodepool)
 └── {feature-name}.md                   # New features
 ```
 

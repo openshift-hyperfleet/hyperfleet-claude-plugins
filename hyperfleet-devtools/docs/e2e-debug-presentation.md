@@ -2,6 +2,8 @@
 
 > Copy each slide section into a Google Slide. Speaker notes are included below each slide.
 > Data period: May 12 – June 5, 2026 (90 Prow nightly runs across 3 tiers).
+> This presentation, as of October 2026, describes outdated Maestro concepts.
+> Maestro-based delivery was replaced by desire-based delivery.
 
 ---
 

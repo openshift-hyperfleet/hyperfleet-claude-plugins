@@ -111,7 +111,7 @@ Every Tier1/Tier2 test follows this workflow:
 - **May verify failure conditions** (Applied=False, Available=False, etc.)
 
 **4. Verify Adapter-Specific Behavior**
-- Use K8s helpers, Maestro, or third-party clients
+- Use K8s helpers or third-party clients
 - Verify test-specific adapter behavior (e.g., failure reflection, metadata)
 
 **5. Cleanup (AfterEach)**
@@ -350,7 +350,7 @@ Describe("[Suite: cluster][metadata] Cluster Adapter Metadata Validation")
 Example: Testing "system handles adapter unavailability"
 
 WRONG implementation:
-1. Stop/delete base adapter (e.g., cl-maestro)
+1. Stop/delete base adapter (e.g., cl-namespace)
 2. Create resource
 3. Verify system handles missing adapter
 4. Restart base adapter

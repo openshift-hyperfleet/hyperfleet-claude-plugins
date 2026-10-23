@@ -57,8 +57,8 @@ You must always move "Up" this ladder. Any move "Down" is an architectural failu
    * **Test description**: Extract the exact test description that will be used in the `It()` block
 
 ### Phase 2: The "Anti-Imperative" Gate
-1. **The Verification Gate**: You are **PROHIBITED** from using raw client calls (e.g., `h.MaestroClient.Get...` or `h.K8sClient.AppsV1()...`).
-2. **Mandatory Abstraction**: You must find or create a helper (e.g., `h.GetMaestroResource`, `h.GetDeployment`) that abstracts the low-level client logic, handling context and retries automatically.
+1. **The Verification Gate**: You are **PROHIBITED** from using raw client calls (e.g., `h.K8sClient.AppsV1()...`).
+2. **Mandatory Abstraction**: You must find or create a helper (e.g., `h.GetConfigMap`, `h.GetNamespace`) that abstracts the low-level client logic, handling context and retries automatically.
 
 ### Phase 3: Code Implementation
 
@@ -72,7 +72,7 @@ You must always move "Up" this ladder. Any move "Down" is an architectural failu
 **For Scenario 2 (Update Existing Test Automation)**:
 1. **Read Existing Test Code**: Understand current implementation and test structure.
 2. **Identify Issues**:
-   * Anti-patterns: `exec.Command` usage, raw `h.K8sClient` or `h.MaestroClient` calls
+   * Anti-patterns: `exec.Command` usage, raw `h.K8sClient` calls
    * Logic gaps: Missing steps from test case document
    * Missing cleanup: No `AfterEach` or incomplete teardown
 3. **Refactor with Helpers**:

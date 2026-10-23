@@ -168,20 +168,20 @@ Analyzes HyperFleet E2E CI pipeline failures and provides structured root cause 
 - Matches errors against 30+ documented failure patterns
 - Checks recent commits, PRs, and JIRA with time-bounded queries
 - Cross-run comparison: detects GKE version changes, config drift, code changes
-- Live cluster inspection via kubectl/gcloud (pod state, GKE node operations, Maestro DB)
+- Live cluster inspection via kubectl/gcloud (pod state, GKE node operations)
 - Forensic certification gate with confidence scoring (HIGH/MEDIUM/LOW)
 
 **Usage**:
 
 ```text
 # Debug a specific Prow run
-/hyperfleet-devtools:e2e-debug https://prow.ci.openshift.org/view/gs/test-platform-results/logs/periodic-ci-...-tier0-nightly/2058843047478693888
+/hyperfleet-devtools:e2e-debug https://prow.ci.openshift.org/view/gs/test-platform-results-public/logs/periodic-ci-...-tier0-nightly/2058843047478693888
 
 # Debug the latest run of a job
 /hyperfleet-devtools:e2e-debug periodic-ci-openshift-hyperfleet-hyperfleet-e2e-main-e2e-tier0-nightly
 ```
 
-**External Systems Accessed**: Prow/GCS artifacts (public, no auth), GitHub API (`gh` CLI), JIRA (`jira` CLI), Kubernetes (`kubectl`), Google Cloud (`gcloud`), Maestro REST API (via `kubectl port-forward`). Only `gh` is required — all others are optional with graceful degradation.
+**External Systems Accessed**: Prow/GCS artifacts (public, no auth), GitHub API (`gh` CLI), JIRA (`jira` CLI), Kubernetes (`kubectl`), Google Cloud (`gcloud`). Only `gh` is required — all others are optional with graceful degradation.
 
 See [skills/e2e-debug/SKILL.md](./skills/e2e-debug/SKILL.md) for detailed documentation.
 
@@ -290,7 +290,11 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.8.2 - Current Release
+### v0.8.3 - Current Release
+- ✅ **Remote Transport Alignment**: Replace Maestro-era references with the current remote delivery stack (cl-desire, Redis desire store, applier) across e2e-debug, e2e-test-design, and e2e-test-automation
+- ✅ **E2E CI Failure Debugger**: Fix setup-artifact guidance — component log filename patterns now match real Prow artifacts, with `ci-quick-reference.md` as the single source of truth
+
+### v0.8.2
 - ✅ **Renovate PR Manager**: Add `references` bump type for Konflux references PRs
 
 ### v0.8.0
@@ -346,6 +350,6 @@ See [OWNERS](./OWNERS) file for current maintainers and reviewers.
 
 ---
 
-**Version**: 0.8.2
-**Last Updated**: 2026-08-10
+**Version**: 0.8.3
+**Last Updated**: 2026-10-22
 **Status**: ✅ Production Ready

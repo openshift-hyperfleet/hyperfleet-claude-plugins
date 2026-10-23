@@ -5,8 +5,8 @@ Before overlap analysis, apply these filters to each candidate. Any candidate th
 ```markdown
 | Candidate | Filter Applied | Verdict | Reason |
 |---|---|---|---|
-| Candidate A | Component boundary | DROP | TLS cert validation is single-component (adapter->Maestro client), not cross-component E2E |
-| Candidate B | Implicit coverage | DROP | Parity proven by cluster.md (k8s) + maestro.md (Maestro) both passing — no single test needed |
+| Candidate A | Component boundary | DROP | TLS cert validation is single-component (adapter - desire client), not cross-component E2E |
+| Candidate B | Implicit coverage | DROP | Parity proven by cluster.md (local transport) + adapter-with-remote-transport.md (remote transport) both passing — no single test needed |
 | Candidate C | Implicit cross-file coverage | DROP | concurrent-processing.md validates all deployed adapters regardless of transport mode |
 ```
 
@@ -23,13 +23,12 @@ DROP if the failure/behavior happens entirely within one component:
 ## Filter 2: Implicit Cross-File Coverage
 
 Check if the AC is already proven by **multiple existing test files collectively passing**:
-- If test file A proves "k8s transport works" and test file B proves "Maestro transport works," then "operational parity" is implicitly proven — no side-by-side comparison test needed
+- If test file A proves "local Kubernetes transport works" and test file B proves "remote transport works," then "operational parity" is implicitly proven — no side-by-side comparison test needed
 - If a test validates "all deployed adapters," it covers any adapter type deployed in the environment (transport-agnostic)
 
 ## Filter 3: Third-Party System Internals
 
 DROP candidates that test internal behavior of external/third-party systems:
-- Maestro's resource-bundle lifecycle management -> Maestro's scope
 - Broker's message deduplication guarantees -> Broker's scope
 - K8s garbage collection behavior -> K8s scope
 - Only test what HyperFleet components observe via API or K8s resource status

@@ -75,8 +75,8 @@ Before walking artifacts, fetch `finished.json` from the run root to confirm the
 **For Prow jobs:**
 
 1. Fetch the build log from the GCS web interface. The Prow URL maps to a GCS path:
-   - URL: `https://prow.ci.openshift.org/view/gs/test-platform-results/logs/<job-name>/<run-id>`
-   - GCS web: `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/<job-name>/<run-id>/`
+   - URL: `https://prow.ci.openshift.org/view/gs/test-platform-results-public/logs/<job-name>/<run-id>`
+   - GCS web: `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public/logs/<job-name>/<run-id>/`
 
 2. **Walk the ENTIRE artifact tree. No shortcuts. No skipping.** (Future: consider [prow-mcp-server](https://github.com/redhat-community-ai-tools/prow-mcp-server) as an alternative to WebFetch + HTML parsing for more robust GCS artifact access.) The GCS artifacts are the primary and most reliable source of truth. They are always available regardless of kubectl access. You MUST recursively list and read every file in every directory starting from the run root. Do not cherry-pick. Do not skip directories you think are unimportant. Do not assume you know what's there.
 
@@ -105,14 +105,9 @@ Before walking artifacts, fetch `finished.json` from the run root to confirm the
    - **Cleanup-cloud-provider** logs capture Pub/Sub resource cleanup status
    - **Any other step** may contain data you haven't seen before — read it
 
-   **Component log filenames** in the setup artifacts directory include pod IDs and are not predictable. Match by prefix:
-   - `api-hyperfleet-api-*` — API server logs (excludes postgresql)
-   - `api-hyperfleet-api-postgresql-*` — PostgreSQL database logs
-   - `sentinel-clusters-*` / `sentinel-nodepools-*` — Sentinel logs
-   - `adapter-clusters-cl-*` / `adapter-nodepools-np-*` — Adapter logs
-   - `all-resources.txt` — Full K8s resource dump
-   
-   **Never construct filenames by guessing pod IDs.** Always list the directory first.
+   **Component log filenames** include pod IDs and are not predictable.
+   The artifact tree and filename patterns are documented in
+   `references/ci-quick-reference.md` ("GCS Artifact Structure").
 
    **Critical timing note:** Setup-time component logs are captured BEFORE tests run. They confirm healthy initial state but do NOT capture crashes during test execution. The cleanup step logs are the closest thing to post-failure state — they run AFTER the test fails and interact with the same pods/namespace.
 
@@ -159,7 +154,7 @@ If a data point is unavailable (e.g., no test step exists because setup failed),
 
 **Extract infrastructure context from artifacts you already read.** If a file is missing or empty, note what's unavailable and proceed — do not guess or infer missing data:
 
-- **Node assignments:** from `all-resources.txt` in the setup artifacts — which GKE node is each pod running on. Record the node name for the API pod, PostgreSQL pod, and Maestro pod specifically. If `all-resources.txt` is missing or empty, note "node assignments unknown" — this limits the ability to correlate with GKE node operations in Step 5c
+- **Node assignments:** from `all-resources.txt` in the setup artifacts — which GKE node is each pod running on. Record the node name for the API pod, PostgreSQL pod, and desire-store (Redis) pod specifically. If `all-resources.txt` is missing or empty, note "node assignments unknown" — this limits the ability to correlate with GKE node operations in Step 5c
 - **GKE cluster zone:** from setup `build-log.txt` — the zone is logged during kubeconfig generation (e.g., `us-central1-a`). Record this for use in `gcloud` commands in Step 5c. Do NOT hardcode the zone — always extract it from the artifacts
 - **Helm chart versions:** from setup `build-log.txt` — what chart versions were deployed (e.g., `hyperfleet-api-1.1.0`, `hyperfleet-adapter-2.0.0`)
 - **E2e commit:** from `clone-records.json` or `clone-log.txt` — which e2e repo commit was used
@@ -287,7 +282,7 @@ jira issue list -q"project = HYPERFLEET AND (summary ~ 'flaky' OR summary ~ 'e2e
 Instead, use the GCS artifact listing to check prior runs:
 
 1. Fetch the job's GCS directory listing:
-   `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/<job-name>/`
+   `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public/logs/<job-name>/`
 2. Identify the 5 most recent run IDs from the directory listing (they are numeric, sorted ascending)
 3. For each, fetch `<run-id>/finished.json` — it contains `{"passed": true/false, "result": "SUCCESS"/"FAILURE", "timestamp": ...}`
 4. Report the pass/fail pattern (e.g., "Last 5 runs: PASS, PASS, FAIL, PASS, PASS") to determine regression vs. flakiness
@@ -341,11 +336,11 @@ Score your log-based diagnosis before proceeding to live cluster inspection. Thi
 
 Skip this step entirely ONLY if NEITHER kubectl NOR gcloud is available. Steps 5a, 5b, and 5d require only kubectl. Step 5c requires gcloud — skip it individually if gcloud is not available. This step is **read-only** — never modify cluster state, delete resources, or scale deployments.
 
-The shared Prow GKE cluster (`hyperfleet-dev-prow`) and its backing services persist across test runs. Even after a run's namespace is deleted, persistent state accumulates in Maestro's PostgreSQL DB, cloud provider resources (Pub/Sub topics/subscriptions), and cluster-scoped K8s objects. This accumulated state causes failures that GCS log artifacts alone cannot explain.
+The shared Prow GKE cluster (`hyperfleet-dev-prow`) and its backing services persist across test runs. Even after a run's namespace is deleted, persistent state accumulates in cloud provider resources (Pub/Sub topics/subscriptions) and cluster-scoped K8s objects. This accumulated state causes failures that GCS log artifacts alone cannot explain.
 
 ### 5a. Verify kubectl context and discover the namespace
 
-Verify kubectl points at the correct cluster (cluster name from Step 1e). If context mismatches, use `AskUserQuestion` to ask the user to switch, or skip kubectl checks. The CI namespace is `e2e-<run-id>` — typically deleted for completed runs. For cluster-scoped resources (ClusterRoles, ManifestWorks) and persistent services (Maestro), the test namespace is irrelevant.
+Verify kubectl points at the correct cluster (cluster name from Step 1e). If context mismatches, use `AskUserQuestion` to ask the user to switch, or skip kubectl checks. The CI namespace is `e2e-<run-id>` — typically deleted for completed runs. For cluster-scoped resources, the test namespace is irrelevant.
 
 ### 5b. Cross-validate log findings against live state
 
@@ -354,7 +349,7 @@ Run the checks from `references/cluster-inspection-commands.md` that are relevan
 | Failure category | Required checks |
 |---|---|
 | Timeout / crash / `connection refused` | Pod health, GKE node operations, node events, node-specific check |
-| Maestro / ManifestWork / ResourceBundle | Maestro DB accumulation |
+| Remote delivery | Remote delivery logs (cl-desire adapter, applier, Redis) |
 | Helm ownership conflict / resource collision | Orphaned K8s resources |
 | Adapter condition stuck | Sentinel metrics, live API status |
 | Broker / event delivery | Pub/Sub leaks |
@@ -379,7 +374,7 @@ Run the GKE operations, maintenance policy, node-specific, and Pub/Sub checks fr
 After running the relevant checks above:
 - If live data **confirms** the log-based hypothesis → keep confidence level, add live data as supporting evidence
 - If live data **contradicts** the log-based hypothesis → downgrade confidence and revise the root cause
-- If live data reveals **additional context** not visible in logs (e.g., 231 stale ResourceBundles in Maestro) → upgrade the diagnosis with the new root cause
+- If live data reveals **additional context** not visible in logs (e.g., a leaked Pub/Sub subscription from a prior run) → upgrade the diagnosis with the new root cause
 
 ---
 

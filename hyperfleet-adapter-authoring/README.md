@@ -27,7 +27,7 @@ Use any of these phrases:
 | Topic | Details |
 |-------|---------|
 | Resource types | Cluster adapters and NodePool adapters |
-| Transport types | Kubernetes direct and Maestro (ManifestWork via OCM) |
+| Transport types | Kubernetes direct (local) and remote transports |
 | Config schema | Full `AdapterConfig` and `AdapterTaskConfig` structure with all fields |
 | Param sources | `event.*`, `env.*`, `secret.*`, `configmap.*` |
 | Preconditions | API calls, captures (`field` / `expression`), condition operators |

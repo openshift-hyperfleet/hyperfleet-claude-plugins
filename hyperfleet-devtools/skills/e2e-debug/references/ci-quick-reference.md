@@ -34,12 +34,16 @@ Jobs follow the pattern `periodic-ci-openshift-hyperfleet-hyperfleet-e2e-<branch
 │       ├── openshift-hyperfleet-e2e-setup/
 │       │   ├── build-log.txt             # Setup step log (deploy script output)
 │       │   └── artifacts/                # Component logs captured here
-│       │       ├── api-hyperfleet-api-*-logs.txt
-│       │       ├── api-hyperfleet-api-postgresql-*-logs.txt
-│       │       ├── sentinel-clusters-*-logs.txt
-│       │       ├── sentinel-nodepools-*-logs.txt
-│       │       ├── adapter-clusters-cl-*-logs.txt
-│       │       ├── adapter-nodepools-np-*-logs.txt
+│       │       ├── hyperfleet-api-*-logs.txt
+│       │       ├── hyperfleet-api-postgresql-*-logs.txt
+│       │       ├── hyperfleet-gateway-*-logs.txt
+│       │       ├── hyperfleet-mock-oidc-*-logs.txt
+│       │       ├── clusters-hyperfleet-sentinel-*-logs.txt
+│       │       ├── nodepools-hyperfleet-sentinel-*-logs.txt
+│       │       ├── cl-*-hyperfleet-adapter-*-logs.txt   # cluster adapters: cl-namespace, cl-job, cl-deployment, cl-desire
+│       │       ├── np-*-hyperfleet-adapter-*-logs.txt   # nodepool adapters: np-configmap
+│       │       ├── hyperfleet-applier-*-logs.txt        # remote delivery: the applier
+│       │       ├── redis-*-logs.txt                     # remote delivery: the desire store
 │       │       └── all-resources.txt     # Full K8s resource dump
 │       ├── openshift-hyperfleet-e2e-test/
 │       │   ├── build-log.txt             # Test output (Ginkgo results)
@@ -55,8 +59,8 @@ Jobs follow the pattern `periodic-ci-openshift-hyperfleet-hyperfleet-e2e-<branch
 
 ## URL Mapping
 
-- **Prow UI:** `https://prow.ci.openshift.org/view/gs/test-platform-results/logs/<job-name>/<run-id>`
-- **GCS web:** `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/<job-name>/<run-id>/`
+- **Prow UI:** `https://prow.ci.openshift.org/view/gs/test-platform-results-public/logs/<job-name>/<run-id>`
+- **GCS web:** `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public/logs/<job-name>/<run-id>/`
 
 ## Key Repos
 

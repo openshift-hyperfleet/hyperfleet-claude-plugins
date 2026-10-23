@@ -22,9 +22,6 @@ gh api repos/openshift-hyperfleet/hyperfleet-adapter/contents/charts/examples/ku
 
 The authoring guide and examples directory contain templates for:
 - Kubernetes cluster adapter
-- Maestro cluster adapter
-- NodePool adapter
-- No-Op/Validation adapter
-- AdapterConfig for both Kubernetes direct and Maestro transports
+- Remote transport cluster adapter
 
 Do NOT hardcode template content here -- always fetch the latest from the source repo.
