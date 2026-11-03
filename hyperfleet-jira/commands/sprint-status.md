@@ -13,82 +13,131 @@ Comprehensive sprint health report for team leads and scrum masters.
 
 ## Instructions
 
-1. **Get current sprint info:**
+1. **Locate the collector script.** It ships with this command in the plugin. No globs: an unmatched glob aborts the shell in zsh.
    ```bash
-   jira sprint list --current -p HYPERFLEET --plain 2>/dev/null
+   SPRINT=""
+   for root in "$CLAUDE_PLUGIN_ROOT" \
+               "$HOME/.claude/plugins/cache/hyperfleet-claude-plugins/hyperfleet-jira" \
+               "$HOME/.claude/plugins/marketplaces/hyperfleet-claude-plugins/hyperfleet-jira"; do
+     [ -n "$root" ] || continue
+     found=$(find "$root" -maxdepth 3 -name sprint_status.py -type f 2>/dev/null | head -1)
+     [ -n "$found" ] && { SPRINT="$found"; break; }
+   done
+   echo "$SPRINT"
    ```
+   If `$SPRINT` is empty, stop and say so. The script is the command: do not fall back to hand-written JQL.
 
-2. **Get all tickets in current sprint:**
+2. **Run it:**
    ```bash
-   jira sprint list --current -p HYPERFLEET --plain 2>/dev/null
+   python3 "$SPRINT" --project HYPERFLEET --format markdown
    ```
+   Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` to report on a sprint other than the active one, `--stale-days` to move the staleness threshold, `--blocker-priority` to change which priority counts as top, `--link-style markdown|slack|bare` to match the destination, `--no-baseline` to skip the previous sprint lookup.
 
-3. **Get tickets by status - To Do:**
-   ```bash
-   jira issue list -q"project = HYPERFLEET AND status = 'To Do'" --created-after "-30d" --plain 2>/dev/null
-   ```
+   The script reads the sprint metadata and goal, every issue in the sprint, the story points, the movement signals, the open blockers, the previous sprint's baseline, and a capacity projection. It returns the report in one document.
 
-4. **Get tickets by status - In Progress:**
-   ```bash
-   jira issue list -q"project = HYPERFLEET AND status = 'In Progress'" --plain 2>/dev/null
-   ```
+3. **Do not recompute by hand, and do not re-query Jira.** These four queries look right and return wrong answers:
+   - `status = Done`, `status = 'To Do'`, `priority = Highest`, `priority = High` match nothing in HYPERFLEET, which uses `Backlog` / `In Progress` / `Review` / `Closed` and `Major` / `Normal`. Use status categories, which the script does.
+   - `jira issue list` omits custom fields, so it cannot produce story points. Only `jira issue view --raw` has them.
+   - `jira issue list --paginate <from>:<limit>` ignores `<from>` and caps at 100, so a sprint above 100 issues truncates silently. The script pages by key range instead.
+   - `updated` is polluted by bulk edits: on Sprint 19, 18 tickets shared one timestamp. Movement is the most recent of the exact last status change, the last human comment and the assignment to the current owner. A `New -> Backlog` reclassification is not movement; `In Progress -> Review` is.
 
-5. **Get tickets by status - Done (this sprint):**
-   ```bash
-   jira issue list -q"project = HYPERFLEET AND status = Done" --updated-after "-14d" --plain 2>/dev/null
-   ```
+4. **Reproduce the script's output.** Present its sections as given: Sprint Overview, Progress by status, Risk assessment, Carry-over, Capacity, Team workload. Keep the numbers verbatim, including the ones that look wrong; if a number is wrong, fix the script, not the text.
 
-6. **Find blockers (high priority not done):**
-   ```bash
-   jira issue list -q"project = HYPERFLEET AND priority = Highest AND status != Done" --plain 2>/dev/null
-   jira issue list -q"project = HYPERFLEET AND priority = High AND status != Done" --plain 2>/dev/null
-   ```
+   Three definitions matter when you read it:
+   - **Progress** is shown twice, by story points and by item count. The bar and the headline percentage use story points. Say which one you are quoting.
+   - **Movement** is the most recent of the exact last status change, the last human comment and the assignment to the current owner. The status and assignment parts need `JIRA_API_TOKEN`; without it the report falls back to `statusCategoryChangedDate` and comments only, so an item can look older than it is.
+   - **Capacity** is a projection from the previous sprint's pace, not a commitment. At the start of a sprint it is mostly noise; from mid-sprint on it is the number to argue with.
 
-7. **Find unassigned tickets:**
-   ```bash
-   jira issue list -q"project = HYPERFLEET AND assignee is EMPTY AND sprint in openSprints()" --plain 2>/dev/null
-   ```
+5. **Add Recommendations.** The script cannot write these: they need a decision.
+   - Each recommendation names who decides and a due date. A follow-up with no name and no date is not a follow-up.
+   - `Owner` in the report body means the Jira assignee; `decided by` means the person accountable for the recommendation. They are different roles and the report must not reuse the word `owner` for both: a recommendation about unassigned tickets has a decider, not an owner.
+   - Order by what unblocks the most work: an unassigned item that blocks seven others outranks an unassigned item that blocks none.
+   - When the `Blocked by open work` list is long, recommend clearing the blockers rather than chasing the blocked items. The blocked owners cannot move.
+   - Never recommend "add more people" without naming the item and the person.
+   - For large work items (5 and 8 SP), point the lead to `/sprint-pulse-check` instead of expanding this report.
+
+6. **Keep the report in English.** The chat reply that accompanies it follows the user's language.
+
+## Ticket References
+
+Every key in the report must be resolvable, and no table may turn into link soup.
+
+- Print the base URL once, in Sprint Overview. The script emits it as `Jira: <server>/browse/`, read from the `server:` entry in `~/.config/.jira/.config.yml`. It is the fallback for every key that stays bare.
+- Link each item's own key once, at the start of its Blockers, Highest-priority, Stale or Carry-Over line. That is where the reader acts. Blocker keys inside the same line stay bare: that is what keeps a long line readable.
+- The report's tables carry no ticket keys. If a table ever lists tickets, link the key there too.
+- Never link the same ticket twice in the same section.
+
+Match the syntax to the destination, because only one of the three renders all of them:
+
+| Destination | Syntax | How |
+|---|---|---|
+| Chat / TUI | `[HYPERFLEET-XXXX](url)` | default; the script emits this |
+| Slack | `<url\|HYPERFLEET-XXXX>` | run the script with `--link-style slack` |
+| Plain log / paste | `HYPERFLEET-XXXX` | run the script with `--link-style bare` |
 
 ## Output Format
 
+The script's `--format markdown` output **is** the report: present it as Markdown, then add Recommendations.
+
+**Never wrap the whole report in a code fence.** A fenced block disables Markdown, so the tables reach the reader as rows of `|` characters. The fences in the shapes below are illustrative; do not copy them into the reply. Use a fenced `text` block only when the destination cannot render tables (Slack, email, a plain log file), and say which destination you are formatting for.
+
+The sections below describe the report's shape so you can check that nothing is missing, not a template to retype.
+
 ### Sprint Overview
-```
+```text
 Sprint: [Sprint Name]
-Duration: [Start Date] - [End Date]
+Goal: [Sprint Goal]
+Duration: [Start Date] - [End Date] (N days)
 Days Remaining: X days
+Previous sprint baseline: X SP committed / X SP delivered (X%) across N items
+Scope: X SP committed vs X SP delivered in the previous sprint (+/-X%)
+Jira: https://<server>/browse/
 ```
 
 ### Progress Summary
-| Status | Count | Story Points |
-|--------|-------|--------------|
-| To Do | X | X pts |
-| In Progress | X | X pts |
-| Done | X | X pts |
-| **Total** | **X** | **X pts** |
+```text
+| Status | Category | Count | Story Points |
+|--------|----------|-------|--------------|
+| [real status name] | [To Do / In Progress / Done] | X | X |
+| **Total** |  | **X** | **X** |
 
-Progress: [=========>    ] 65% complete
+Progress: [=====>      ] X% by SP (X of X) | X% by count (X of X)
+```
 
 ### Risk Assessment
 
-#### Blockers & High Priority
-- TICKET-1: [Summary] - Assigned to [Name] - [X days in status]
-- TICKET-2: [Summary] - **UNASSIGNED**
+#### Blocked by open work
+- KEY: [Summary] - [Owner or UNASSIGNED] - [Status] - blocked by KEY (Status), KEY (Status)
 
-#### At-Risk Items
-- Tickets in progress > 5 days without update
-- Tickets without story points
-- Unassigned tickets
+#### Highest-priority open items
+- KEY: [Summary] - [Owner or UNASSIGNED] - [Status] - [X days without movement]
 
-#### Carry-Over Risk
-- Tickets likely to spill: X
-- Story points at risk: X
+#### Stale in progress/review
+- KEY: [Summary] - [Owner or UNASSIGNED] - [Status] - [X days without movement]
+
+#### Missing data
+- Unestimated open items: X
+- Unassigned open items: X / X SP
+
+### Carry-Over and Capacity
+```text
+Needs a decision: X items / X SP (X unassigned, X stale, X unestimated; a ticket can be listed twice)
+Capacity: X SP remaining; at the previous sprint's pace the team delivers X SP
+in the X days left (X SP over capacity, or X SP of headroom)
+```
+
+Headroom is a finding, not a compliment: it means the sprint committed less than
+the team delivers. Report it with the same weight as an overage.
 
 ### Team Workload
-| Team Member | To Do | In Progress | Done |
-|-------------|-------|-------------|------|
-| [Name] | X | X | X |
+Open items only: closed work is already in the Progress Summary, and mixing the
+two makes the Unassigned row disagree with the Missing data section.
+
+| Team Member | [Status] | [Status] | ... | Open SP |
+|-------------|----------|----------|-----|---------|
+| [Name] | X | X | ... | X |
+| Unassigned | X | X | ... | X |
 
 ### Recommendations
-- List actionable items for the team lead
-- Highlight tickets needing attention
-- Suggest re-assignments if workload is unbalanced
+- [Action] - decided by: [Name] - due: [date]
+- [Action] - decided by: [Name] - due: [date]

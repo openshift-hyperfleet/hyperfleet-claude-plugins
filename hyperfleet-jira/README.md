@@ -11,6 +11,7 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 
 ### For Team Leads
 - **`/sprint-status`** - Comprehensive sprint health overview
+- **`/sprint-pulse-check`** - Twice-weekly nudge queue for large work items (5 and 8 SP)
 - **`/team-weekly-update`** - Weekly team progress report grouped by activity type and epic
 - **`/triage`** - Audit tickets for missing fields and quality issues
 
@@ -57,6 +58,7 @@ rm -rf "jira_${VERSION#v}_linux_x86_64" "jira_${VERSION#v}_linux_x86_64.tar.gz"
    ```bash
    export JIRA_API_TOKEN="your-api-token"
    ```
+   The collector scripts also use this token for the Jira REST API, because jira-cli does not expose the changelog. The changelog carries the exact status transition and the assignee change. Without it, movement falls back to the status category date and comments only, so an item can look older than it is.
 
 3. **Initialize jira-cli for HyperFleet:**
    ```bash
@@ -122,10 +124,24 @@ Comprehensive sprint health report:
 /sprint-status HF    # Specific project
 ```
 Output includes:
-- Progress by status and story points
-- Blockers and at-risk items
-- Team workload distribution
-- Carry-over risk assessment
+- Progress by status, by story points and by item count
+- Blocked items, highest-priority open items, and stale in-progress work
+- Team workload distribution, including unassigned work
+- Carry-over candidates and a capacity projection from the previous sprint's pace
+
+The numbers come from `scripts/sprint_status.py` (`--format json` or the rendered `--format markdown`), not from hand-written JQL: story points need `issue view --raw`, and `issue list` truncates at 100 issues without saying so.
+
+#### `/sprint-pulse-check` (Team Leads)
+Nudge queue for the large items, run a couple of times per week:
+```
+/sprint-pulse-check
+/sprint-pulse-check HF    # Specific project
+```
+Output includes:
+- Items >= 5 SP ranked by days without movement (last status change, last human comment, or assignment to the current owner)
+- The specific ask per item, pointing at the blocker or the reviewer when the delay is not the owner's
+- Assignment gap: large items with no owner, and which of them block other work
+- Concentration: owners holding more than one large item
 
 #### `/team-weekly-update` (Team Leads)
 Weekly progress report for team updates:
