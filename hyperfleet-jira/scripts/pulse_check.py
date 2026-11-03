@@ -162,13 +162,17 @@ def suggested_ask(item: dict, ref=None) -> str:
 
 
 def decorate_ask(item: dict, style: str) -> str:
-    """Fold this ticket's pull request into the ask, or say it has none.
+    """Fold this ticket's pull request into the ask, or say that Jira links none.
 
     Ownership comes from the title, so a link Jira shows that is titled for another
     ticket is not this ticket's pull request and never appears here: the reviewer
     it named would open someone else's diff. That leaves an item in Review whose
-    generic ask says "ask a reviewer to approve or reject" with nothing to open, so
-    the ask names the two moves its owner can make instead.
+    generic ask says "ask a reviewer to approve or reject" with nothing to open.
+
+    The replacement says "Jira links none", not "there is none": the panel is the
+    only source this script reads, and a repository without the GitHub integration
+    shows no link on every one of its tickets. The two moves an owner can make are
+    the same either way - attach the pull request, or move the ticket back.
     """
     ask = item["ask"]
     prs = pr_refs(item, style)
@@ -180,7 +184,7 @@ def decorate_ask(item: dict, style: str) -> str:
             return f"{ask} {prs}"
         return f"{ask} - {prs}"
     if item.get("status") == "Review" and ask.startswith("Ask a reviewer"):
-        return "Post this ticket's pull request, or move it back to In Progress"
+        return "Attach this ticket's pull request, or move it back to In Progress"
     return ask
 
 

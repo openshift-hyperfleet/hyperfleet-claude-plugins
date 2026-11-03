@@ -85,6 +85,8 @@ The pull request's **title** decides ownership, not the link. Jira links a pull 
 
 The segment only ever lists what the ticket owns, so never name another ticket's pull request in a recommendation, in an ask or as a fallback explanation.
 
+**The panel is the only source, so absence means absence of a link.** A repository without the GitHub-for-Jira integration shows no link on any of its tickets - `hyperfleet-api` was in that state on Sprint 19, where ten API items carried no link while their pull requests existed and were open. Never write that a ticket has no pull request: write that Jira links none, and make the recommendation about the link - attach the pull request, or move the ticket back - which is the same action whether the pull request is missing or merely unlinked. Do not reach for GitHub to fill the gap: a second source changes what "the report says" means, and the reader cannot tell which sentence came from which system.
+
 The panel carries the link and not the state, so a pull request listed here may already be merged - the link says "there is something to review", never "it is still pending". When the lookup fails, the Method section says so in its own `signal: partial` line instead of silently dropping the link.
 
 ## Output Format

@@ -574,7 +574,7 @@ class CrossReferenceAskTest(unittest.TestCase):
     def test_a_review_item_with_no_pull_request_asks_for_the_missing_artifact(self):
         self.assertEqual(
             pc.decorate_ask(self.item(), "markdown"),
-            "Post this ticket's pull request, or move it back to In Progress",
+            "Attach this ticket's pull request, or move it back to In Progress",
         )
 
 

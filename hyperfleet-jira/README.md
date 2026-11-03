@@ -140,6 +140,7 @@ Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` for anothe
 Two rules decide what the output is worth:
 
 - **A pull request belongs to the ticket its title names**, and only to it. Jira attaches a pull request to every ticket its title mentions, so `architecture#255`, titled `HYPERFLEET-1636`, is `HYPERFLEET-1636`'s pull request and never `HYPERFLEET-1669`'s, even when the panel shows it on both. A link titled for another ticket, or for no ticket at all, is not printed on the ticket's line: the reviewer named there would open someone else's diff, and two stalls would read as one shared blocker.
+- **"No link" is not "no pull request".** The development panel is the only source, and a repository without the GitHub-for-Jira integration shows no link on any of its tickets - `hyperfleet-api` was in that state on Sprint 19, where ten API items had no link and open pull requests. The report says Jira links none, and the recommendation is about the link: attach the pull request, or move the ticket back.
 - **A listed pull request may already be merged.** The development panel carries the link, not the state, so the line says "there is something to review", never "it is still pending". `--no-prs` skips the lookup; a failed read is reported as a partial signal instead of a silent gap.
 
 #### `/hyperfleet-jira:sprint-pulse-check` (Team Leads)
