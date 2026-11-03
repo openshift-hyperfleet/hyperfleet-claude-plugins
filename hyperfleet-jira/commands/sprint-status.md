@@ -85,6 +85,8 @@ The pull request's **title** decides ownership, not the link. Jira links a pull 
 
 The segment only ever lists what the ticket owns, so never name another ticket's pull request in a recommendation, in an ask or as a fallback explanation.
 
+**Ownership is decided per pull request, by its own title - never by comparison.** A ticket can own several at once: `HYPERFLEET-1669` had `hyperfleet-api#416` and `hyperfleet-infra#120` open under its key, and both are its pull requests because both titles name it. The report lists them all and never elects which one is "the real work", never calls one a duplicate and never asks anyone to choose: choosing would mean reading diffs, which the report does not do, and the title is the only rule it applies. The `+N` after a truncated list is a line-width limit, not a ranking - the remaining pull requests are still the ticket's.
+
 **Jira reports two kinds of record, and the script reads both.** The GitHub app posts through `dev-status` - every repository, with a `status`; a link attached by hand lives in `remotelink` - no status. Reading only `remotelink` is what made `architecture#255` visible and every `hyperfleet-api` pull request invisible, so both are merged and deduplicated by URL.
 
 **When Jira reports a state, print it.** `PR [#181](url) (merged)` and `PR [#177](url)` say different things: one is a ticket waiting for its status, the other a ticket waiting for a reviewer. A remote link carries no state, so the suffix is absent there - unknown, not open. Never invent one.

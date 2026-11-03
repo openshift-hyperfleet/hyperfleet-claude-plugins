@@ -716,7 +716,12 @@ def pr_ref(pr: dict, style: str) -> str:
 
 
 def pr_refs(item: dict, style: str, limit: int = 2) -> str:
-    """`PR #1, #2 +1` for an item, or "" when Jira links no pull request."""
+    """`PR #1, #2 +1` for an item, or "" when Jira reports no pull request.
+
+    `limit` is a line-width cap, not a choice: every pull request in the list
+    belongs to the ticket by its own title, and the count after `+` says how many
+    are not shown. Nothing is dropped from ownership, only from the line.
+    """
     prs = item.get("pr") or []
     if not prs:
         return ""
