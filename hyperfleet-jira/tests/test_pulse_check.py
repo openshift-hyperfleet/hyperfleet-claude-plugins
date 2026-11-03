@@ -506,6 +506,49 @@ class AskTest(unittest.TestCase):
         ask = self.ask("Backlog", 70, ["HYPERFLEET-1", "HYPERFLEET-2", "HYPERFLEET-3"])
         self.assertIn("+1 more", ask)
 
+    def test_a_review_blocker_names_every_requested_reviewer(self):
+        item = {
+            "summary": "x",
+            "status": "Backlog",
+            "days_without_movement": 70,
+            "open_blockers": ["HYPERFLEET-1709"],
+            "blocker_detail": [
+                {
+                    "key": "HYPERFLEET-1709",
+                    "status": "Review",
+                    "owner": "Phuongnhat Nguyen",
+                    "days_in_status": 5,
+                    "reviewers": ["Tirth Chetan Thakkar", "Rafael Benevides"],
+                    "has_live_pr": True,
+                }
+            ],
+        }
+        ask = pc.suggested_ask(item)
+        self.assertIn("Tirth and Rafael to approve or reject", ask)
+        # The owner of a ticket in Review is the author of the diff, not its reviewer.
+        self.assertNotIn("Phuongnhat", ask)
+
+    def test_a_review_blocker_without_reviewer_data_does_not_name_the_author(self):
+        item = {
+            "summary": "x",
+            "status": "Backlog",
+            "days_without_movement": 70,
+            "open_blockers": ["HYPERFLEET-1636"],
+            "blocker_detail": [
+                {
+                    "key": "HYPERFLEET-1636",
+                    "status": "Review",
+                    "owner": "Martin Liptak",
+                    "days_in_status": 7,
+                    "reviewers": [],
+                    "has_live_pr": True,
+                }
+            ],
+        }
+        ask = pc.suggested_ask(item)
+        self.assertIn("a reviewer to approve or reject", ask.lower())
+        self.assertNotIn("Martin", ask)
+
     def test_review_blocker_leads_and_carries_its_age(self):
         item = {
             "status": "Backlog",
@@ -586,6 +629,26 @@ class CrossReferenceAskTest(unittest.TestCase):
         self.assertIn("(merged)", ask)
         self.assertNotIn("Ask a reviewer", ask)
 
+    def test_the_ask_names_the_requested_reviewers(self):
+        item = self.item(
+            pr=[
+                {
+                    "number": 257,
+                    "url": "https://github.com/o/r/pull/257",
+                    "status": "OPEN",
+                    "reviewers": ["Tirth Chetan Thakkar", "Rafael Benevides"],
+                }
+            ]
+        )
+        ask = pc.decorate_ask(item, "markdown")
+        self.assertTrue(
+            ask.startswith(
+                "Ask Tirth and Rafael to approve or reject "
+                "PR [#257](https://github.com/o/r/pull/257)"
+            ),
+            ask,
+        )
+
     def test_a_closed_pull_request_is_not_what_the_ask_asks_to_review(self):
         item = self.item(
             pr=[
@@ -597,6 +660,84 @@ class CrossReferenceAskTest(unittest.TestCase):
         self.assertTrue(ask.startswith("Ask a reviewer"))
         self.assertIn("[#177](https://github.com/o/r/pull/177)", ask)
         self.assertNotIn("#122", ask)
+
+
+class BuildWiringTest(unittest.TestCase):
+    """A blocker in Review is not in the queue, and its reviewer is the whole ask."""
+
+    def args(self):
+        return mock.Mock(
+            project="HYPERFLEET",
+            jira="jira",
+            min_sp=5,
+            max_rows=7,
+            action_after=5,
+            sp_field="customfield_10028",
+            sp_field_name="Story Points",
+            today="2026-11-03",
+            jobs=1,
+            no_prs=False,
+            link_style="markdown",
+            next_pulse=None,
+        )
+
+    def test_a_review_blocker_outside_the_queue_gets_its_reviewers(self):
+        docs = {
+            "HYPERFLEET-1534": doc(
+                "HYPERFLEET-1534",
+                owner="Phuongnhat Nguyen",
+                status="Backlog",
+                changed="2026-08-27",
+                links=[blocked_by_link("HYPERFLEET-1636")],
+            ),
+            "HYPERFLEET-1636": doc(
+                "HYPERFLEET-1636",
+                owner="Martin Liptak",
+                status="Review",
+                changed="2026-10-27",
+            ),
+        }
+        seen = {}
+
+        def fake_pull_requests(items, jobs):
+            seen["keys"] = [item["key"] for item in items]
+            for item in items:
+                item["pr"] = (
+                    [
+                        {
+                            "number": 255,
+                            "url": "https://github.com/o/r/pull/255",
+                            "status": "OPEN",
+                            "reviewers": ["Tirth Chetan Thakkar"],
+                        }
+                    ]
+                    if item["key"] == "HYPERFLEET-1636"
+                    else []
+                )
+            return {"available": True, "failed": 0, "checked": len(items), "found": 1}
+
+        with mock.patch.object(pc, "active_sprint", return_value={"id": "1", "name": "Sprint 19"}), \
+             mock.patch.object(pc, "large_item_keys", return_value=["HYPERFLEET-1534"]), \
+             mock.patch.object(pc, "fetch_all", side_effect=lambda keys, *a: {k: docs[k] for k in keys}), \
+             mock.patch.object(
+                 pc,
+                 "apply_changelog_signals",
+                 side_effect=lambda items, today, jobs: {
+                     "available": True,
+                     "failed": 0,
+                     "checked": len(items),
+                     "status_dates": 0,
+                     "assignments": 0,
+                 },
+             ), \
+             mock.patch.object(pc, "apply_pull_requests", side_effect=fake_pull_requests), \
+             mock.patch.object(pc, "jira_base_url", return_value="https://example.atlassian.net/browse/"):
+            data = pc.build(self.args())
+
+        self.assertIn("HYPERFLEET-1636", seen["keys"])
+        ask = next(i for i in data["queue"] if i["key"] == "HYPERFLEET-1534")["ask"]
+        self.assertIn("Tirth", ask)
+        self.assertNotIn("Martin", ask)
 
 
 class RenderTest(unittest.TestCase):

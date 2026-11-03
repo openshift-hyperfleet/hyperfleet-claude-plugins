@@ -137,7 +137,7 @@ The numbers come from `scripts/sprint_status.py` (`--format json` or the rendere
 
 Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` for another sprint, `--stale-days`, `--blocker-priority`, `--link-style markdown|slack|bare`, `--no-baseline`, `--no-prs`.
 
-Two rules decide what the output is worth:
+These rules decide what the output is worth:
 
 - **A pull request belongs to the ticket its title names**, and only to it. Jira attaches a pull request to every ticket its title mentions, so `architecture#255`, titled `HYPERFLEET-1636`, is `HYPERFLEET-1636`'s pull request and never `HYPERFLEET-1669`'s, even when the panel shows it on both. A link titled for another ticket, or for no ticket at all, is not printed on the ticket's line: the reviewer named there would open someone else's diff, and two stalls would read as one shared blocker.
 - **Ownership is per pull request, by its own title.** A ticket can own several - the same work opened in two repositories, or a follow-up after a merge - and each is listed as its own. The `+N` on a long list is a width limit, not a ranking, and the report never asks anyone which one is the real work.
@@ -156,6 +156,7 @@ Output includes:
 - Assignment gap: large items with no owner, and which of them block other work
 - Concentration: owners holding more than one large item
 - The pull request of an item in `Review`, inside the ask, under the same ownership rule as `/sprint-status`
+- The reviewers the ask names, never the author: `dev-status` reports every requested reviewer, and the ask names all of them: `Ask Tirth and Rafael to approve or reject PR [#257](url)`. Naming one would decide who reviews, and naming the assignee would point at the person who wrote the diff. The author, a reviewer who already approved and Jira's `User ` placeholder are dropped; a hand-attached link with no reviewer list falls back to `Ask a reviewer` instead of guessing.
 
 #### `/hyperfleet-jira:team-weekly-update` (Team Leads)
 Weekly progress report for team updates:

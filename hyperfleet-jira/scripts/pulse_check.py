@@ -102,6 +102,55 @@ def is_spike(item: dict) -> bool:
     return item.get("summary", "").lstrip().upper().startswith(("SPIKE", "[SPIKE]"))
 
 
+# A merged or declined diff is nobody's next decision: the ticket needs a status,
+# not a reviewer. Jira reports "OPEN" and the two closed states for the GitHub app,
+# and nothing at all for a link attached by hand.
+CLOSED_STATES = ("MERGED", "DECLINED")
+
+
+def live_pull_requests(item: dict) -> list[dict]:
+    """The pull requests of `item` that a reviewer can still act on."""
+    return [
+        pr
+        for pr in item.get("pr") or []
+        if (pr.get("status") or "").upper() not in CLOSED_STATES
+    ]
+
+
+def reviewers_of(item: dict) -> list[str]:
+    """Everyone the ticket's live pull requests are waiting on, without repeats.
+
+    An item can own several open pull requests in different repositories, each with
+    its own reviewers; the ask speaks for the ticket, so the union is what it names.
+    """
+    names: list[str] = []
+    for pr in live_pull_requests(item):
+        for name in pr.get("reviewers") or []:
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def given_names(reviewers: list[str]) -> str:
+    """`Tirth`, `Tirth and Rafael`, `Tirth, Rafael and Martin`.
+
+    First names keep the table cell readable, which is the same reason the Owner
+    column shows one. The pull request is linked beside the ask, so a reader who
+    needs the full identity has it one click away.
+    """
+    firsts: list[str] = []
+    for full in reviewers:
+        parts = (full or "").split()
+        if not parts:
+            continue
+        first = parts[0]
+        if first not in firsts:
+            firsts.append(first)
+    if len(firsts) <= 1:
+        return "".join(firsts)
+    return f"{', '.join(firsts[:-1])} and {firsts[-1]}"
+
+
 def suggested_ask(item: dict, ref=None) -> str:
     """One imperative per item: verb first, then who and what artifact.
 
@@ -110,6 +159,10 @@ def suggested_ask(item: dict, ref=None) -> str:
     The item's own age lives in the `Status . age` cell, so the text never
     repeats it; a blocker"s age does appear, because that clock is not in the
     table and it is what makes the blocker urgent or not.
+
+    Who the ask names follows the state: a blocker in `Review` names every
+    requested reviewer Jira reports, because the owner of that ticket wrote the
+    diff; the owner is named only when Jira reports no pull request at all.
 
     `ref` renders a key for the destination, so a blocker named in the ask is a
     link like every other key in the report. It defaults to the bare key, which
@@ -126,11 +179,29 @@ def suggested_ask(item: dict, ref=None) -> str:
         for d in detail:
             days = d.get("days_in_status")
             when = f" {days}d" if days is not None else ""
-            if d["status"] == "Review" and d.get("owner"):
-                clauses.append(
-                    f"ask {d['owner'].split()[0]} to approve or reject {ref(d['key'])} "
-                    f"(Review{when})"
-                )
+            if d["status"] == "Review":
+                # The reviewer moves this ticket; the owner is usually the author.
+                # Jira reports every requested reviewer, so the ask names all of
+                # them instead of picking one - the choice of who reviews stays
+                # with them.
+                names = given_names(d.get("reviewers") or [])
+                if names:
+                    clauses.append(
+                        f"ask {names} to approve or reject {ref(d['key'])} (Review{when})"
+                    )
+                elif d.get("has_live_pr"):
+                    # A pull request exists but Jira reports no reviewer for it,
+                    # so a name here would be a guess. The owner is the author.
+                    clauses.append(
+                        f"ask a reviewer to approve or reject {ref(d['key'])} (Review{when})"
+                    )
+                elif d.get("owner"):
+                    clauses.append(
+                        f"ask {d['owner'].split()[0]} to approve or reject {ref(d['key'])} "
+                        f"(Review{when})"
+                    )
+                else:
+                    clauses.append(f"assign {ref(d['key'])}")
             elif not d.get("owner"):
                 clauses.append(f"assign {ref(d['key'])}")
             elif d["status"] == "In Progress":
@@ -175,6 +246,9 @@ def decorate_ask(item: dict, style: str) -> str:
     ones become the ask. When every one of them is closed, the ticket needs a
     status, not a reviewer.
 
+    With a live pull request the ask names the reviewers waiting on it, all of
+    them: choosing one would decide who reviews.
+
     With no pull request at all, the ask says "Jira links none", not "there is
     none": the panel is the only source this script reads, and the two moves an
     owner can make are the same either way - attach the pull request, or move the
@@ -182,12 +256,17 @@ def decorate_ask(item: dict, style: str) -> str:
     """
     ask = item["ask"]
     owned = list(item.get("pr") or [])
-    live = [pr for pr in owned if (pr.get("status") or "").upper() not in ("MERGED", "DECLINED")]
+    live = live_pull_requests(item)
     if live:
         # The pull request is where a reviewer acts, so it rides in the ask
         # rather than in a seventh column. The generic review ask names no
         # ticket, so the PR becomes its object instead of a suffix.
         prs = pr_refs({"pr": live}, style)
+        names = given_names(reviewers_of(item))
+        if names and ask.startswith("Ask a reviewer"):
+            # Same rule as a blocker in Review: name every requested reviewer,
+            # never the owner, who is the author of the diff being reviewed.
+            return f"Ask {names} to approve or reject {prs}"
         if ask.startswith("Ask a reviewer"):
             return f"{ask} {prs}"
         return f"{ask} - {prs}"
@@ -245,25 +324,41 @@ def build(args) -> dict:
     def ref(key: str) -> str:
         return ticket_ref(key, base_url, args.link_style)
 
+    for item in items:
+        item["open_blockers"] = open_links(item["blocked_by"], category_of)
+        item["blocked"] = bool(item["open_blockers"])
+        item["blocks_open"] = open_links(item["blocks"], category_of)
+
+    # A blocker in Review is a pull request someone else has to decide on, so the
+    # ask has to name that ticket's reviewers. The panel is already read for the
+    # queue, and reading the blockers' takes the same call - without it the ask
+    # falls back to the blocker's owner, who is usually the author of the diff.
+    review_keys = {item["key"] for item in items if item["status"] == "Review"}
+    review_keys |= {
+        key
+        for item in items
+        for key in item["blocked_by"]
+        if by_key.get(key, {}).get("status") == "Review"
+    }
+    pr_targets = [by_key[key] for key in sorted(review_keys) if key in by_key]
     pr_signal = (
-        apply_pull_requests(items, args.jobs)
+        apply_pull_requests(pr_targets, args.jobs)
         if not args.no_prs
         else {"available": True, "failed": 0, "checked": 0, "found": 0, "skipped": True}
     )
 
     for item in items:
-        item["open_blockers"] = open_links(item["blocked_by"], category_of)
-        item["blocked"] = bool(item["open_blockers"])
         item["blocker_detail"] = [
             {
                 "key": k,
                 "status": status_of.get(k, "?"),
                 "owner": owner_of.get(k) or None,
                 "days_in_status": by_key[k]["days_in_status"] if k in by_key else None,
+                "reviewers": reviewers_of(by_key[k]) if k in by_key else [],
+                "has_live_pr": bool(live_pull_requests(by_key[k])) if k in by_key else False,
             }
             for k in item["open_blockers"]
         ]
-        item["blocks_open"] = open_links(item["blocks"], category_of)
         item["ask"] = suggested_ask(item, ref)
         item["ask"] = decorate_ask(item, args.link_style)
 

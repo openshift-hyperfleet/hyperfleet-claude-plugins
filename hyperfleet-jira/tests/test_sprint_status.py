@@ -527,6 +527,22 @@ class DevelopmentPanelTest(unittest.TestCase):
         self.assertEqual([pr["number"] for pr in prs], [416])
         self.assertEqual(prs[0]["status"], "MERGED")
 
+    def test_the_requested_reviewers_ride_along(self):
+        pr = self.pr(416, "HYPERFLEET-1669 - fix: claims")
+        pr["author"] = {"name": "Leonardo Dorneles"}
+        pr["reviewers"] = [
+            {"name": "Michaela Parilova", "approved": False},
+            {"name": "User ", "approved": False},
+            {"name": "Leonardo Dorneles", "approved": False},
+            {"name": "Tirth Chetan Thakkar", "approved": True},
+        ]
+        (prs, error), _ = self.read(panel=[pr])
+        self.assertIsNone(error)
+        # The author is not asked to approve their own diff, an approved reviewer
+        # has already decided, and `User ` is what the panel shows for an account
+        # it cannot resolve.
+        self.assertEqual(prs[0]["reviewers"], ["Michaela Parilova"])
+
     def test_a_pull_request_titled_for_another_ticket_does_not_appear(self):
         (prs, _), _ = self.read(panel=[self.pr(255, "HYPERFLEET-1636 - docs: contract")])
         self.assertEqual(prs, [])
@@ -538,6 +554,8 @@ class DevelopmentPanelTest(unittest.TestCase):
         ]
         (prs, _), _ = self.read(panel=[], links=links)
         self.assertEqual([pr["number"] for pr in prs], [255])
+        # A hand-attached link carries no reviewer list: unknown, not empty.
+        self.assertNotIn("reviewers", prs[0])
 
     def test_the_same_pull_request_from_both_sources_is_listed_once_with_its_state(self):
         url = "https://github.com/openshift-hyperfleet/hyperfleet-api/pull/416"

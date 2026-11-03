@@ -579,10 +579,34 @@ def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list
                 "title": pr.get("name") or "",
                 "status": (pr.get("status") or "").upper() or None,
                 "updated": pr.get("lastUpdate") or "",
+                "reviewers": requested_reviewers(pr),
             }
         )
     return prs, None
 
+
+def requested_reviewers(pr: dict) -> list[str]:
+    """The people a pull request is waiting on, in the order Jira lists them.
+
+    Three entries never belong in an ask:
+
+    - the author, because nobody approves their own diff
+    - `approved: true`, because that reviewer already decided
+    - Jira's `User ` placeholder, which is what the panel shows for a GitHub
+      account it can no longer resolve. On Sprint 19 most reviewers were this
+      placeholder, so keeping it would fill the ask with a name nobody answers to.
+    """
+    author = ((pr.get("author") or {}).get("name") or "").strip()
+    names: list[str] = []
+    for reviewer in pr.get("reviewers") or []:
+        name = ((reviewer or {}).get("name") or "").strip()
+        if not name or name == "User" or name == author:
+            continue
+        if reviewer.get("approved"):
+            continue
+        if name not in names:
+            names.append(name)
+    return names
 
 
 def read_pull_requests(
@@ -636,6 +660,7 @@ def read_pull_requests(
         if state:
             record["status"] = state["status"]
             record["updated"] = state["updated"]
+            record["reviewers"] = state["reviewers"]
         unique.setdefault(pr["url"], record)
 
     # Numbers restart in every repository, so they only break ties: a pull request
@@ -654,6 +679,10 @@ def apply_pull_requests(items: list[dict], jobs: int) -> dict:
     `pr` is ownership - the title names the ticket. An item in Review with an empty
     list carries no pull request Jira knows about, which is not the same as no pull
     request: a repository without the GitHub app reports nothing here.
+
+    The caller passes what it needs, not only the queue: a blocker in Review is
+    someone else's pull request, and the ask that names its reviewers needs the
+    same read. Extra descriptors are cheap - the lookup only touches Review items.
     """
     for item in items:
         item["pr"] = []
