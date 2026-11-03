@@ -46,12 +46,14 @@ from jira_common import (
     JiraError,
     active_sprint,
     apply_changelog_signals,
+    apply_pull_requests,
     describe,
     fetch_all,
     jira_base_url,
     jql_project,
     open_links,
     parse_date,
+    pr_refs,
     project_key,
     search_keys,
     sprint_rows,
@@ -398,6 +400,11 @@ def build(args) -> dict:
 
     totals = summarise(items)
     open_items = [item for item in items if not item["is_done"]]
+    pr_signal = (
+        apply_pull_requests(open_items, args.jobs)
+        if not args.no_prs
+        else {"available": True, "failed": 0, "checked": 0, "found": 0, "skipped": True}
+    )
     open_statuses = [
         bucket["status"] for bucket in totals["by_status"] if bucket["category"] != "Done"
     ]
@@ -491,6 +498,7 @@ def build(args) -> dict:
         "baseline": baseline,
         "capacity": projection,
         "changelog_signal": signals,
+        "pr_signal": pr_signal,
         "notes": {
             "progress_basis": "percent_by_sp is closed story points over total story points",
             "movement_basis": (
@@ -524,6 +532,10 @@ def render_text(data: dict) -> str:
 
     def ref(key: str) -> str:
         return ticket_ref(key, base_url, style)
+
+    def pr_tail(item: dict) -> str:
+        rendered = pr_refs(item, style)
+        return f" - {rendered}" if rendered else ""
 
     lines: list[str] = []
 
@@ -593,7 +605,7 @@ def render_text(data: dict) -> str:
             owner = item["owner"] or "UNASSIGNED"
             lines.append(
                 f"- {ref(item['key'])}: {item['summary']} - {owner} - {item['status']} - "
-                f"blocked by {detail}"
+                f"blocked by {detail}{pr_tail(item)}"
             )
         if blockers["blocked_items"] > 10:
             lines.append(f"+{blockers['blocked_items'] - 10} more blocked items")
@@ -609,7 +621,7 @@ def render_text(data: dict) -> str:
             owner = item["owner"] or "UNASSIGNED"
             lines.append(
                 f"- {ref(item['key'])}: {item['summary']} - {owner} - {item['status']} "
-                f"({item['days_without_movement']}d without movement)"
+                f"({item['days_without_movement']}d without movement){pr_tail(item)}"
             )
     else:
         seen = ", ".join(blockers["priorities_seen"]) or "none recorded"
@@ -627,7 +639,7 @@ def render_text(data: dict) -> str:
         owner = item["owner"] or "UNASSIGNED"
         lines.append(
             f"- {ref(item['key'])}: {item['summary']} - {owner} - {item['status']} "
-            f"({item['days_without_movement']}d)"
+            f"({item['days_without_movement']}d){pr_tail(item)}"
         )
     if at_risk["stale_items"] > 5:
         lines.append(f"+{at_risk['stale_items'] - 5} more stale items")
@@ -689,6 +701,17 @@ def render_text(data: dict) -> str:
             "- signal: partial - no JIRA_API_TOKEN, so movement ignores exact status "
             "changes and assignments"
         )
+    prs = data.get("pr_signal") or {}
+    if prs.get("failed"):
+        lines.append(
+            f"- signal: partial - {prs['failed']} of {prs['checked']} pull request reads "
+            "failed, so those items carry no pull request link"
+        )
+    elif prs.get("available") is False and not prs.get("skipped"):
+        lines.append(
+            "- signal: partial - pull request links unavailable ("
+            f"{prs.get('reason') or 'no JIRA_API_TOKEN'})"
+        )
     return "\n".join(lines)
 
 
@@ -702,6 +725,11 @@ def main() -> int:
     parser.add_argument("--stale-days", type=int, default=5, help="days without movement that count as stale")
     parser.add_argument("--today", help="YYYY-MM-DD, for reproducible runs")
     parser.add_argument("--no-baseline", action="store_true", help="skip the previous sprint lookup")
+    parser.add_argument(
+        "--no-prs",
+        action="store_true",
+        help="skip the pull request lookup for items in review",
+    )
     parser.add_argument("--jobs", type=int, default=8)
     parser.add_argument(
         "--link-style",

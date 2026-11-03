@@ -344,6 +344,74 @@ class TicketRefTest(unittest.TestCase):
         self.assertEqual(ss.ticket_ref("HYPERFLEET-1", None, "markdown"), "HYPERFLEET-1")
 
 
+class PullRequestTest(unittest.TestCase):
+    """The development panel lists branches and commits beside pull requests."""
+
+    pr = {"number": 104, "url": "https://github.com/o/r/pull/104"}
+
+    def payload(self):
+        return [
+            {"object": {"url": "https://github.com/o/r/pull/104"}},
+            {"object": {"url": "https://github.com/o/r/pull/104"}},
+            {"object": {"url": "https://github.com/o/r/tree/pr-links"}},
+            {"object": {"url": "https://github.com/o/r/commit/abc123"}},
+            {"object": {"url": "https://github.com/o/r/pull/99"}},
+            {"object": {"url": "http://github.com/o/r/pull/7"}},
+        ]
+
+    def test_only_pull_request_urls_count_and_a_duplicate_is_listed_once(self):
+        prs = jc.pull_requests_from(self.payload())
+        self.assertEqual([pr["number"] for pr in prs], [104, 99])
+
+    def test_the_newest_pull_request_comes_first(self):
+        prs = jc.pull_requests_from(
+            [
+                {"object": {"url": "https://github.com/o/r/pull/9"}},
+                {"object": {"url": "https://github.com/o/r/pull/120"}},
+                {"object": {"url": "https://github.com/o/r/pull/11"}},
+            ]
+        )
+        self.assertEqual([pr["number"] for pr in prs], [120, 11, 9])
+
+    def test_markdown_links_the_number_not_the_url(self):
+        self.assertEqual(
+            jc.pr_ref(self.pr, "markdown"),
+            "[#104](https://github.com/o/r/pull/104)",
+        )
+
+    def test_slack_wraps_the_url_with_the_number_as_text(self):
+        self.assertEqual(
+            jc.pr_ref(self.pr, "slack"),
+            "<https://github.com/o/r/pull/104|#104>",
+        )
+
+    def test_bare_style_keeps_the_url_the_reader_would_lose(self):
+        self.assertIn("https://github.com/o/r/pull/104", jc.pr_ref(self.pr, "bare"))
+
+    def test_pr_refs_caps_the_list_and_counts_the_rest(self):
+        item = {
+            "pr": [
+                {"number": number, "url": f"https://github.com/o/r/pull/{number}"}
+                for number in (3, 2, 1)
+            ]
+        }
+        self.assertTrue(jc.pr_refs(item, "markdown").endswith("+1"))
+
+    def test_an_item_without_a_pull_request_renders_nothing(self):
+        self.assertEqual(jc.pr_refs({"pr": []}, "markdown"), "")
+
+    def test_only_review_items_are_looked_up(self):
+        items = [
+            {"key": "HYPERFLEET-1", "status": "Review"},
+            {"key": "HYPERFLEET-2", "status": "Backlog"},
+        ]
+        with mock.patch.object(jc, "jira_api", return_value=None):
+            signal = jc.apply_pull_requests(items, 2)
+        self.assertEqual(signal["checked"], 1)
+        self.assertFalse(signal["available"])
+        self.assertEqual(items[1]["pr"], [])
+
+
 class PreviousSprintTest(unittest.TestCase):
     rows = [
         {"id": "1", "name": "Sprint 17", "start": "2026-09-01", "end": "2026-09-21", "state": "closed"},
@@ -419,6 +487,32 @@ class RenderSignalTest(unittest.TestCase):
         text = ss.render_text(self.data())
         for basis in ("movement basis", "progress basis", "baseline basis"):
             self.assertIn(basis, text)
+
+    def test_a_review_item_carries_its_pull_request(self):
+        data = self.data()
+        data["jira_base_url"] = "https://example.atlassian.net/browse/"
+        data["link_style"] = "markdown"
+        data["at_risk"]["stale"] = [
+            {
+                "key": "HYPERFLEET-9",
+                "summary": "An item",
+                "owner": "A Person",
+                "status": "Review",
+                "days_without_movement": 7,
+                "pr": [{"number": 104, "url": "https://github.com/o/r/pull/104"}],
+            }
+        ]
+        data["at_risk"]["stale_items"] = 1
+        self.assertIn(
+            "(7d) - PR [#104](https://github.com/o/r/pull/104)", ss.render_text(data)
+        )
+
+    def test_a_failed_pull_request_read_is_named(self):
+        data = self.data()
+        data["pr_signal"] = {"available": False, "failed": 2, "checked": 5, "found": 1}
+        self.assertIn(
+            "signal: partial - 2 of 5 pull request reads failed", ss.render_text(data)
+        )
 
     def test_a_failed_changelog_read_is_named_in_the_report(self):
         data = self.data()

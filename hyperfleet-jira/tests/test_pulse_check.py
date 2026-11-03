@@ -651,6 +651,14 @@ class RenderTest(unittest.TestCase):
         self.assertIn("Escalation 20+ days: HYPERFLEET-2", text)
         self.assertNotIn("](", text)
 
+    def test_a_failed_pull_request_read_is_named(self):
+        data = self.data()
+        data["pr_signal"] = {"available": False, "failed": 1, "checked": 3, "found": 0}
+        self.assertIn(
+            "Signal: partial - 1 of 3 pull request reads failed",
+            pc.render_text(data),
+        )
+
     def test_a_failed_changelog_read_is_named_in_the_report(self):
         data = self.data()
         data["changelog_signal"] = {

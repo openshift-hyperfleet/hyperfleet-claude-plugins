@@ -40,11 +40,13 @@ from jira_common import (
     JiraError,
     active_sprint,
     apply_changelog_signals,
+    apply_pull_requests,
     describe,
     fetch_all,
     jira_base_url,
     open_links,
     parse_date,
+    pr_refs,
     project_key,
     run_jira,
     status_category,
@@ -204,6 +206,12 @@ def build(args) -> dict:
     def ref(key: str) -> str:
         return ticket_ref(key, base_url, args.link_style)
 
+    pr_signal = (
+        apply_pull_requests(items, args.jobs)
+        if not args.no_prs
+        else {"available": True, "failed": 0, "checked": 0, "found": 0, "skipped": True}
+    )
+
     for item in items:
         item["open_blockers"] = open_links(item["blocked_by"], category_of)
         item["blocked"] = bool(item["open_blockers"])
@@ -218,6 +226,15 @@ def build(args) -> dict:
         ]
         item["blocks_open"] = open_links(item["blocks"], category_of)
         item["ask"] = suggested_ask(item, ref)
+        prs = pr_refs(item, args.link_style)
+        if prs:
+            # The pull request is where a reviewer acts, so it rides in the ask
+            # rather than in a seventh column. The generic review ask names no
+            # ticket, so the PR becomes its object instead of a suffix.
+            if item["ask"].startswith("Ask a reviewer"):
+                item["ask"] = f"{item['ask']} {prs}"
+            else:
+                item["ask"] = f"{item['ask']} - {prs}"
 
     owned = [i for i in items if i["owner"]]
     unowned = [i for i in items if not i["owner"]]
@@ -255,6 +272,7 @@ def build(args) -> dict:
             "because bulk edits inflate it"
         ),
         "changelog_signal": signals,
+        "pr_signal": pr_signal,
         "totals": {
             "items": len(items),
             "sp": sum(i["sp"] for i in items),
@@ -381,6 +399,17 @@ def render_text(data: dict) -> str:
             "Signal: partial - no JIRA_API_TOKEN, so movement ignores exact status "
             "changes and assignments"
         )
+    prs = data.get("pr_signal") or {}
+    if prs.get("failed"):
+        lines.append(
+            f"Signal: partial - {prs['failed']} of {prs['checked']} pull request reads "
+            "failed, so those items carry no pull request link"
+        )
+    elif prs.get("available") is False and not prs.get("skipped"):
+        lines.append(
+            "Signal: partial - pull request links unavailable "
+            f"({prs.get('reason') or 'no JIRA_API_TOKEN'})"
+        )
     lines.append(data["definition"])
     lines.append(f"Next pulse: {data['next_pulse'] or 'to be scheduled'}")
     return "\n".join(lines)
@@ -403,6 +432,11 @@ def main() -> int:
     parser.add_argument("--sp-field", default="customfield_10028", help="custom field id holding story points")
     parser.add_argument("--sp-field-name", default="Story Points", type=field_name, help="JQL name of the story points field")
     parser.add_argument("--today", help="YYYY-MM-DD, for reproducible runs")
+    parser.add_argument(
+        "--no-prs",
+        action="store_true",
+        help="skip the pull request lookup for items in review",
+    )
     parser.add_argument("--next-pulse", help="YYYY-MM-DD printed in the text output")
     parser.add_argument(
         "--link-style",

@@ -481,6 +481,124 @@ def read_changelog(
         return (None, None), str(exc)
 
 
+PR_URL = re.compile(r"/pull/(\d+)")
+
+
+def pull_requests_from(payload: list) -> list[dict]:
+    """[(number, url)] of the pull requests in a remote-link payload.
+
+    Jira's development panel stores a branch and a commit as remote links too,
+    with the same shape as a pull request, so the URL decides: only `/pull/<n>`
+    counts. Duplicates are common (a PR appears once per branch event), so the
+    number dedupes them.
+
+    Order is newest first, by number: within one repository the number grows, so
+    the highest one is the latest attempt at the ticket.
+    """
+    found: dict[int, str] = {}
+    for link in payload or []:
+        if not isinstance(link, dict):
+            continue
+        url = ((link.get("object") or {}).get("url") or "").strip()
+        match = PR_URL.search(url)
+        if not match or not url.startswith("https://"):
+            continue
+        found.setdefault(int(match.group(1)), url)
+    return [{"number": number, "url": found[number]} for number in sorted(found, reverse=True)]
+
+
+def read_pull_requests(
+    key: str, api: tuple[str, str] | None
+) -> tuple[list[dict], str | None]:
+    """(pull requests Jira links to the issue, error).
+
+    The panel shows the link, not the state: an open and a merged pull request
+    look the same here, so this says "there is something to review", never "it is
+    still under review".
+    """
+    if not api:
+        return [], "no JIRA_API_TOKEN or jira-cli login"
+    server, auth = api
+    request = urllib.request.Request(
+        f"{server}/rest/api/3/issue/{key}/remotelink",
+        headers={"Authorization": f"Basic {auth}", "Accept": "application/json"},
+    )
+    try:
+        with open_changelog(request) as response:
+            payload = json.load(response)
+    except (
+        urllib.error.URLError,
+        http.client.HTTPException,
+        OSError,
+        ValueError,
+    ) as exc:
+        return [], f"{key}: {type(exc).__name__}"
+    return pull_requests_from(payload), None
+
+
+def apply_pull_requests(items: list[dict], jobs: int) -> dict:
+    """Attach `pr` to the items in review; every other item gets an empty list.
+
+    A pull request exists only once work has something to show, so the lookup is
+    scoped to `Review`: it is the one status where the reader's next click is the
+    pull request rather than the ticket.
+    """
+    for item in items:
+        item["pr"] = []
+
+    in_review = [item for item in items if item.get("status") == "Review"]
+    if not in_review:
+        return {"available": True, "failed": 0, "checked": 0, "found": 0}
+
+    api = jira_api()
+    if not api:
+        return {
+            "available": False,
+            "failed": 0,
+            "checked": len(in_review),
+            "found": 0,
+            "reason": "no JIRA_API_TOKEN or jira-cli login",
+        }
+
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        results = list(pool.map(lambda item: read_pull_requests(item["key"], api), in_review))
+
+    failed = found = 0
+    for item, (prs, error) in zip(in_review, results):
+        if error:
+            failed += 1
+        if prs:
+            found += 1
+            item["pr"] = prs
+
+    return {
+        "available": failed == 0,
+        "failed": failed,
+        "checked": len(in_review),
+        "found": found,
+    }
+
+
+def pr_ref(pr: dict, style: str) -> str:
+    """A pull request rendered for the destination, like `ticket_ref`."""
+    number, url = pr["number"], pr["url"]
+    if style == "bare":
+        return f"#{number} ({url})"
+    if style == "slack":
+        return f"<{url}|#{number}>"
+    return f"[#{number}]({url})"
+
+
+def pr_refs(item: dict, style: str, limit: int = 2) -> str:
+    """`PR #1, #2 +1` for an item, or "" when Jira links no pull request."""
+    prs = item.get("pr") or []
+    if not prs:
+        return ""
+    shown = ", ".join(pr_ref(pr, style) for pr in prs[:limit])
+    more = f" +{len(prs) - limit}" if len(prs) > limit else ""
+    return f"PR {shown}{more}"
+
+
 def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
     """Reset the movement clock on an exact status change or a new owner.
 
