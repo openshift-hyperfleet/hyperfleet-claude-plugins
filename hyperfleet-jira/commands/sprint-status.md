@@ -50,6 +50,7 @@ Comprehensive sprint health report for team leads and scrum masters.
 
 5. **Add Recommendations.** The script cannot write these: they need a decision.
    - Each recommendation names who decides and a due date. A follow-up with no name and no date is not a follow-up.
+   - Name the person who can say yes alone: the requested reviewer on the pull request, the assignee for a status that was never updated. When the decision belongs to a group, write the role and not its members - `decided by: Tech leads`, never a list of names. A list goes stale with the next reorganisation, and a partial list reads as the whole group. The role resolves through `OWNERS_ALIASES` in this repository; do not invent one.
    - `Owner` in the report body means the Jira assignee; `decided by` means the person accountable for the recommendation. They are different roles and the report must not reuse the word `owner` for both: a recommendation about unassigned tickets has a decider, not an owner.
    - Order by what unblocks the most work: an unassigned item that blocks seven others outranks an unassigned item that blocks none.
    - When the `Blocked by open work` list is long, recommend clearing the blockers rather than chasing the blocked items. The blocked owners cannot move.
@@ -147,5 +148,5 @@ two makes the Unassigned row disagree with the Missing data section.
 | Unassigned | X | X | ... | X |
 
 ### Recommendations
-- [Action] - decided by: [Name] - due: [date]
-- [Action] - decided by: [Name] - due: [date]
+- [Action] - decided by: [Name, or role when the group decides] - due: [date]
+- [Action] - decided by: [Name, or role when the group decides] - due: [date]

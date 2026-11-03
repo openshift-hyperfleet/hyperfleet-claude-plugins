@@ -5,15 +5,15 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 ## Features
 
 ### For Engineers
-- **`/my-sprint`** - View current sprint and your assigned tickets
-- **`/my-tasks`** - List all your assigned tasks across projects
-- **`/new-comments`** - Find tickets with comments you may have missed
+- **`/hyperfleet-jira:my-sprint`** - View current sprint and your assigned tickets
+- **`/hyperfleet-jira:my-tasks`** - List all your assigned tasks across projects
+- **`/hyperfleet-jira:new-comments`** - Find tickets with comments you may have missed
 
 ### For Team Leads
-- **`/sprint-status`** - Comprehensive sprint health overview
-- **`/sprint-pulse-check`** - Twice-weekly nudge queue for large work items (5 SP and above)
-- **`/team-weekly-update`** - Weekly team progress report grouped by activity type and epic
-- **`/triage`** - Audit tickets for missing fields and quality issues
+- **`/hyperfleet-jira:sprint-status`** - Comprehensive sprint health overview
+- **`/hyperfleet-jira:sprint-pulse-check`** - Twice-weekly nudge queue for large work items (5 SP and above)
+- **`/hyperfleet-jira:team-weekly-update`** - Weekly team progress report grouped by activity type and epic
+- **`/hyperfleet-jira:triage`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
 - **jira-ticket-creator** - Creates well-structured tickets with What/Why/Acceptance Criteria, duplicate check, story points, activity type, component, parent epic, and validation gate
@@ -94,10 +94,12 @@ rm -rf "jira_${VERSION#v}_linux_x86_64" "jira_${VERSION#v}_linux_x86_64.tar.gz"
 
 ### Commands
 
-#### `/my-sprint`
+Commands are namespaced by plugin: invoke them as `/hyperfleet-jira:<command>`. The examples below spell the namespace out, because a command such as `/sprint-status` is common enough to collide with another installed plugin.
+
+#### `/hyperfleet-jira:my-sprint`
 Shows your current sprint at a glance:
-```
-/my-sprint
+```text
+/hyperfleet-jira:my-sprint
 ```
 Output includes:
 - Sprint name and days remaining
@@ -105,51 +107,61 @@ Output includes:
 - Story points summary
 - Blockers or high-priority items
 
-#### `/my-tasks`
+#### `/hyperfleet-jira:my-tasks`
 Lists all your assigned tickets:
-```
-/my-tasks
+```text
+/hyperfleet-jira:my-tasks
 ```
 
-#### `/new-comments`
+#### `/hyperfleet-jira:new-comments`
 Find tickets with recent comments:
-```
-/new-comments
+```text
+/hyperfleet-jira:new-comments
 ```
 
-#### `/sprint-status` (Team Leads)
+#### `/hyperfleet-jira:sprint-status` (Team Leads)
 Comprehensive sprint health report:
-```
-/sprint-status
-/sprint-status HF    # Specific project
+```text
+/hyperfleet-jira:sprint-status
+/hyperfleet-jira:sprint-status HF    # Specific project
 ```
 Output includes:
 - Progress by status, by story points and by item count
 - Blocked items, highest-priority open items, and stale in-progress work
 - Team workload distribution, including unassigned work
 - Carry-over totals (items, story points, and reasons) and a capacity projection from the previous sprint's pace
+- Every ticket key as a link, in every section, including the blocker keys inside a line
+- The pull requests of the items in `Review`, taken from the links the team attached in Jira
 
 The numbers come from `scripts/sprint_status.py` (`--format json` or the rendered `--format markdown`), not from hand-written JQL: story points need `issue view --raw`, and `issue list` truncates at 100 issues without saying so.
 
-#### `/sprint-pulse-check` (Team Leads)
+Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` for another sprint, `--stale-days`, `--blocker-priority`, `--link-style markdown|slack|bare`, `--no-baseline`, `--no-prs`.
+
+Two rules decide what the output is worth:
+
+- **A pull request belongs to the ticket its title names**, not to every ticket Jira links it to. Jira attaches a pull request to every ticket its title mentions, so the link alone would report another ticket's diff as this one's. A title with no ticket key is dropped for the same reason.
+- **A listed pull request may already be merged.** The development panel carries the link, not the state, so the line says "there is something to review", never "it is still pending". `--no-prs` skips the lookup; a failed read is reported as a partial signal instead of a silent gap.
+
+#### `/hyperfleet-jira:sprint-pulse-check` (Team Leads)
 Nudge queue for the large items, run a couple of times per week:
-```
-/sprint-pulse-check
-/sprint-pulse-check HF    # Specific project
+```text
+/hyperfleet-jira:sprint-pulse-check
+/hyperfleet-jira:sprint-pulse-check HF    # Specific project
 ```
 Output includes:
 - Items >= 5 SP ranked by days without movement (last status change, last human comment, or assignment to the current owner)
 - The specific ask per item, pointing at the blocker or the reviewer when the delay is not the owner's
 - Assignment gap: large items with no owner, and which of them block other work
 - Concentration: owners holding more than one large item
+- The pull request of an item in `Review`, inside the ask, under the same ownership rule as `/sprint-status`
 
-#### `/team-weekly-update` (Team Leads)
+#### `/hyperfleet-jira:team-weekly-update` (Team Leads)
 Weekly progress report for team updates:
-```
-/team-weekly-update                    # All teams in HYPERFLEET
-/team-weekly-update HYPERFLEET         # Specific project
-/team-weekly-update HYPERFLEET 6278    # Specific team
-/team-weekly-update "" 6278            # Default project with team filter
+```text
+/hyperfleet-jira:team-weekly-update                    # All teams in HYPERFLEET
+/hyperfleet-jira:team-weekly-update HYPERFLEET         # Specific project
+/hyperfleet-jira:team-weekly-update HYPERFLEET 6278    # Specific team
+/hyperfleet-jira:team-weekly-update "" 6278            # Default project with team filter
 ```
 Output includes:
 - Closed issues from the last 7 days (Story, Task, Bug)
@@ -158,11 +170,11 @@ Output includes:
 - Epic status tracking
 - Issues without parent epics highlighted
 
-#### `/triage` (Team Leads)
+#### `/hyperfleet-jira:triage` (Team Leads)
 Audit tickets for quality:
-```
-/triage
-/triage backlog    # Check backlog instead of sprint
+```text
+/hyperfleet-jira:triage
+/hyperfleet-jira:triage backlog    # Check backlog instead of sprint
 ```
 Checks for:
 - Missing story points
@@ -207,12 +219,11 @@ The estimator analyzes:
 - Team velocity patterns
 
 #### Ticket Implementation Validation
-Check if a ticket's requirements are implemented:
+A skill, so it is triggered by asking rather than by a slash command:
+```text
+Is HYPERFLEET-123 implemented?
+Is HYPERFLEET-123 implemented in the remote repo?   # infers the repo from the ticket
 ```
-/is-ticket-implemented HYPERFLEET-123          # local codebase
-/is-ticket-implemented HYPERFLEET-123 github   # remote (infers repo from ticket)
-```
-Or ask naturally: "Is HYPERFLEET-123 implemented?" / "Check if this ticket is done"
 
 Generates an acceptance report with:
 - Completion percentage
