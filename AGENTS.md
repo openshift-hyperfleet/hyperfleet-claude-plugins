@@ -81,6 +81,22 @@ Primarily Markdown and JSON, but also includes:
 
 See `CONTRIBUTING.md` for adding/modifying plugins, local development, versioning, PR workflow, and security guidelines.
 
+## Testing
+
+Two suites, both run from the repository root. Neither has CI: nothing runs them unless you do.
+
+| Plugin | Command |
+|--------|---------|
+| `hyperfleet-jira` | `cd hyperfleet-jira && python3 -m unittest discover -s tests` |
+| `hyperfleet-work-triage` | `bash hyperfleet-work-triage/skills/open-prs/scripts/tests/run-tests.sh` (details below) |
+
+Rules for a change to a plugin that has a suite:
+
+- **Run the suite before opening the PR.** A red test is a review comment you wrote yourself.
+- **A script change needs one live run.** The tests stub Jira, so they prove the branches, not the report: run the collector against a real sprint and check that two runs in a row agree.
+- **A command file is a contract about script output.** A sentence in `commands/*.md` that describes what a script emits is executable prose. Change the script and the sentence in the same PR; change the sentence and read the branch it describes. This divergence has reached review twice in this repository.
+- **A docs-only change still has to be true.** Confirm the command you document exists in `commands/` (a skill is not a command) and that every flag matches the script's `argparse`.
+
 ## Boundaries
 
 **DO:**
