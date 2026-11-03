@@ -567,6 +567,44 @@ class DevelopmentPanelTest(unittest.TestCase):
         self.assertEqual(len(prs), 1)
         self.assertEqual(prs[0]["status"], "MERGED")
 
+    def test_a_remote_link_failure_still_returns_the_panel_pull_requests(self):
+        def open_(request):
+            url = request.full_url
+            if "remotelink" in url:
+                raise jc.urllib.error.URLError("boom")
+            if "issue/summary" in url:
+                return self.Response(
+                    {"summary": {"pullrequest": {"byInstanceType": {self.app: {"count": 1}}}}}
+                )
+            if "issue/detail" in url:
+                return self.Response(
+                    {"detail": [{"pullRequests": [self.pr(416, "HYPERFLEET-1669 - fix: claims")]}]}
+                )
+            raise AssertionError(f"unexpected url {url}")
+
+        with mock.patch.object(jc, "open_changelog", side_effect=open_):
+            prs, error = jc.read_pull_requests("HYPERFLEET-1669", "7126783", self.api)
+
+        # Half the list is better than none, as long as the signal says "partial".
+        self.assertEqual([pr["number"] for pr in prs], [416])
+        self.assertIn("URLError", error)
+
+    def test_a_panel_failure_still_returns_the_remote_link_pull_requests(self):
+        url = "https://github.com/openshift-hyperfleet/architecture/pull/255"
+        links = [{"object": {"url": url, "title": "HYPERFLEET-1669 - docs: contract"}}]
+
+        def open_(request):
+            full_url = request.full_url
+            if "remotelink" in full_url:
+                return self.Response(links)
+            raise jc.urllib.error.URLError("boom")
+
+        with mock.patch.object(jc, "open_changelog", side_effect=open_):
+            prs, error = jc.read_pull_requests("HYPERFLEET-1669", "7126783", self.api)
+
+        self.assertEqual([pr["number"] for pr in prs], [255])
+        self.assertIn("URLError", error)
+
     def test_a_merged_state_is_rendered_and_open_is_not(self):
         merged = {"number": 181, "url": "https://github.com/o/r/pull/181", "status": "MERGED"}
         opened = {"number": 177, "url": "https://github.com/o/r/pull/177", "status": "OPEN"}

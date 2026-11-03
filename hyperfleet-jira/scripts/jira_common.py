@@ -616,6 +616,10 @@ def read_pull_requests(
     link titled for another ticket contributes a state to that ticket, not a pull
     request to this one. The state is why the two are merged instead of one being
     dropped: it says whether the diff a reviewer opens is still open.
+
+    A failure in one source is returned with whatever the other source found. The
+    error means "partial", not "empty": dropping the panel's list because the
+    remote links failed - or the reverse - would hide pull requests Jira does report.
     """
     if not api:
         return [], "no JIRA_API_TOKEN or jira-cli login"
@@ -624,6 +628,7 @@ def read_pull_requests(
         f"{server}/rest/api/3/issue/{key}/remotelink",
         headers={"Authorization": f"Basic {auth}", "Accept": "application/json"},
     )
+    remote_error: str | None = None
     try:
         with open_changelog(request) as response:
             payload = json.load(response)
@@ -633,14 +638,21 @@ def read_pull_requests(
         OSError,
         ValueError,
     ) as exc:
-        return [], f"{key}: {type(exc).__name__}"
+        # Keep going: the panel may still answer, and half the list is better
+        # than none as long as the signal says the read was partial.
+        payload = []
+        remote_error = f"{key}: {type(exc).__name__}"
 
     owned = pull_requests_from(payload, key)
     states: dict[str, dict] = {}
+    panel_error: str | None = None
     if issue_id:
         panel, error = development_pull_requests(issue_id, api)
         if error:
-            return [], f"{key}: {error}"
+            # Same rule in the other direction: a panel failure must not drop the
+            # remote-link pull requests already read.
+            panel = []
+            panel_error = f"{key}: {error}"
         for pr in panel:
             if key_in_title(key, pr["title"]):
                 owned.append({"number": pr["number"], "url": pr["url"]})
@@ -663,7 +675,7 @@ def read_pull_requests(
         key=lambda pr: (pr.get("updated") or "", pr["number"]),
         reverse=True,
     )
-    return ordered, None
+    return ordered, remote_error or panel_error
 
 
 def apply_pull_requests(items: list[dict], jobs: int) -> dict:
