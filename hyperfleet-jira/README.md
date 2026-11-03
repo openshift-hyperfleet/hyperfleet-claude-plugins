@@ -131,7 +131,7 @@ Output includes:
 - Team workload distribution, including unassigned work
 - Carry-over totals (items, story points, and reasons) and a capacity projection from the previous sprint's pace
 - Every ticket key as a link, in every section, including the blocker keys inside a line
-- The pull requests of the items in `Review`, taken from the links the team attached in Jira
+- The pull requests of the items in `Review`, read from Jira's development panel: the GitHub app's `dev-status` record for every repository, plus any link attached by hand
 
 The numbers come from `scripts/sprint_status.py` (`--format json` or the rendered `--format markdown`), not from hand-written JQL: story points need `issue view --raw`, and `issue list` truncates at 100 issues without saying so.
 

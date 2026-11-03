@@ -56,7 +56,7 @@ Comprehensive sprint health report for team leads and scrum masters.
    - Order by what unblocks the most work: an unassigned item that blocks seven others outranks an unassigned item that blocks none.
    - When the `Blocked by open work` list is long, recommend clearing the blockers rather than chasing the blocked items. The blocked owners cannot move.
    - Never recommend "add more people" without naming the item and the person.
-   - For large work items (5 SP and above), point the lead to `/sprint-pulse-check` instead of expanding this report.
+   - For large work items (5 SP and above), point the lead to `/hyperfleet-jira:sprint-pulse-check` instead of expanding this report.
 
 6. **Keep the report in English.** The chat reply that accompanies it follows the user's language.
 
@@ -79,7 +79,7 @@ Match the syntax to the destination, because only one of the three renders all o
 
 Links are the default, not a decoration. When the destination cannot render them, say so in the reply and switch the whole report to `--link-style bare`; never strip the links from part of the report.
 
-An item in `Review` also carries its pull requests at the end of the line, as `- PR [#177](url)`. Jira's development panel is the source, so the link is whatever the team already attached to the ticket: a branch or a commit is not shown, because it is not what the reviewer opens.
+An item in `Review` also carries its pull requests at the end of the line, as `- PR [#177](url)`. Jira's development panel is the source: the GitHub app's `dev-status` record for every repository, plus any link attached by hand, merged and deduplicated. A branch or a commit is not shown, because it is not what the reviewer opens.
 
 The pull request's **title** decides ownership, not the link. Jira links a pull request to every ticket its title mentions, so `architecture#255`, titled `HYPERFLEET-1636`, is the pull request of `HYPERFLEET-1636` and never of `HYPERFLEET-1669`, even when the panel shows it on both. The line therefore carries only the pull requests whose title names the ticket: an item in `Review` with no such link shows no `PR` segment, and the segment never lists someone else's diff. A title that names no ticket at all is nobody's pull request and is not printed either.
 
