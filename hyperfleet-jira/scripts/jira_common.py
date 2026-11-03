@@ -685,12 +685,18 @@ def apply_pull_requests(items: list[dict], jobs: int) -> dict:
     list carries no pull request Jira knows about, which is not the same as no pull
     request: a repository without the GitHub app reports nothing here.
 
+    `pr_unknown` marks the second case: the lookup for that item did not answer, so
+    an empty `pr` says "unread", not "none". A partial read can do both - one source
+    answered and the item keeps what it found while the flag records the failure -
+    which is why the flag is per item and not only on the returned signal.
+
     The caller passes what it needs, not only the queue: a blocker in Review is
     someone else's pull request, and the ask that names its reviewers needs the
     same read. Extra descriptors are cheap - the lookup only touches Review items.
     """
     for item in items:
         item["pr"] = []
+        item["pr_unknown"] = False
 
     in_review = [item for item in items if item.get("status") == "Review"]
     if not in_review:
@@ -698,6 +704,8 @@ def apply_pull_requests(items: list[dict], jobs: int) -> dict:
 
     api = jira_api()
     if not api:
+        for item in in_review:
+            item["pr_unknown"] = True
         return {
             "available": False,
             "failed": 0,
@@ -718,6 +726,7 @@ def apply_pull_requests(items: list[dict], jobs: int) -> dict:
     for item, (prs, error) in zip(in_review, results):
         if error:
             failed += 1
+            item["pr_unknown"] = True
         if prs:
             found += 1
             item["pr"] = prs

@@ -463,6 +463,32 @@ class PullRequestTest(unittest.TestCase):
         self.assertFalse(signal["available"])
         self.assertEqual(items[1]["pr"], [])
 
+    def test_an_unread_item_is_marked_unknown_not_empty(self):
+        items = [{"key": "HYPERFLEET-1", "status": "Review"}]
+        with mock.patch.object(jc, "jira_api", return_value=None):
+            jc.apply_pull_requests(items, 2)
+        # The caller must not read `pr: []` as "this ticket has no pull request".
+        self.assertTrue(items[0]["pr_unknown"])
+
+    def test_a_failed_item_is_marked_unknown_while_a_read_item_is_not(self):
+        items = [
+            {"key": "HYPERFLEET-1", "status": "Review"},
+            {"key": "HYPERFLEET-2", "status": "Review"},
+        ]
+
+        def read(key, issue_id, api):
+            if key == "HYPERFLEET-1":
+                return [], "HYPERFLEET-1: URLError"
+            return [{"number": 7, "url": "https://github.com/o/r/pull/7"}], None
+
+        with mock.patch.object(jc, "jira_api", return_value=("https://example", "auth")), \
+             mock.patch.object(jc, "read_pull_requests", side_effect=read):
+            jc.apply_pull_requests(items, 1)
+
+        self.assertTrue(items[0]["pr_unknown"])
+        self.assertFalse(items[1]["pr_unknown"])
+        self.assertEqual(items[1]["pr"][0]["number"], 7)
+
 
 class DevelopmentPanelTest(unittest.TestCase):
     """The GitHub app reports through `dev-status`; remote links are the smaller half."""

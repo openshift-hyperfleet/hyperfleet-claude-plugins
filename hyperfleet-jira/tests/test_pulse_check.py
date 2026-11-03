@@ -549,7 +549,7 @@ class AskTest(unittest.TestCase):
         self.assertIn("a reviewer to approve or reject", ask.lower())
         self.assertNotIn("Martin", ask)
 
-    def test_a_skipped_lookup_does_not_name_the_blocker_owner(self):
+    def test_an_unread_blocker_does_not_name_the_blocker_owner(self):
         item = {
             "summary": "x",
             "status": "Backlog",
@@ -563,10 +563,11 @@ class AskTest(unittest.TestCase):
                     "days_in_status": 7,
                     "reviewers": [],
                     "has_live_pr": False,
+                    "pr_unknown": True,
                 }
             ],
         }
-        ask = pc.suggested_ask(item, pr_skipped=True)
+        ask = pc.suggested_ask(item)
         self.assertIn("a reviewer to approve or reject", ask.lower())
         self.assertNotIn("Martin", ask)
 
@@ -612,7 +613,7 @@ class AskTest(unittest.TestCase):
 class PullRequestAskTest(unittest.TestCase):
     """Jira links a pull request to every ticket its title names, and only the title decides."""
 
-    def item(self, pr=()):
+    def item(self, pr=(), pr_unknown=False):
         return {
             "summary": "Read tenant dimensions from wristband claims",
             "status": "Review",
@@ -621,6 +622,7 @@ class PullRequestAskTest(unittest.TestCase):
             "blocker_detail": [],
             "ask": "Ask a reviewer to approve or reject",
             "pr": list(pr),
+            "pr_unknown": pr_unknown,
         }
 
     def test_an_owned_pull_request_rides_in_the_ask(self):
@@ -635,9 +637,24 @@ class PullRequestAskTest(unittest.TestCase):
         self.assertNotIn("1636", ask)
         self.assertNotIn("approve or reject PR", ask)
 
-    def test_a_skipped_lookup_does_not_infer_a_missing_pull_request(self):
-        ask = pc.decorate_ask(self.item(), "markdown", pr_skipped=True)
+    def test_an_unread_lookup_does_not_infer_a_missing_pull_request(self):
+        ask = pc.decorate_ask(self.item(pr_unknown=True), "markdown")
         self.assertEqual(ask, "Ask a reviewer to approve or reject")
+
+    def test_a_partial_read_still_decorates_the_pull_request_it_found(self):
+        item = self.item(
+            pr=[
+                {
+                    "number": 416,
+                    "url": "https://github.com/o/r/pull/416",
+                    "status": "OPEN",
+                    "reviewers": ["Tirth Chetan Thakkar"],
+                }
+            ],
+            pr_unknown=True,
+        )
+        ask = pc.decorate_ask(item, "markdown")
+        self.assertIn("Tirth to approve or reject PR [#416]", ask)
 
     def test_a_review_item_with_no_pull_request_asks_for_the_missing_artifact(self):
         self.assertEqual(
@@ -805,6 +822,47 @@ class BuildWiringTest(unittest.TestCase):
             data = pc.build(self.args(no_prs=True))
 
         ask = next(i for i in data["queue"] if i["key"] == "HYPERFLEET-1534")["ask"]
+        self.assertIn("a reviewer to approve or reject", ask.lower())
+        self.assertNotIn("Attach", ask)
+        self.assertNotIn("Martin", ask)
+
+    def test_an_unavailable_lookup_does_not_invent_a_missing_pull_request(self):
+        docs = {
+            "HYPERFLEET-1534": doc(
+                "HYPERFLEET-1534",
+                owner="Phuongnhat Nguyen",
+                status="Backlog",
+                changed="2026-08-27",
+                links=[blocked_by_link("HYPERFLEET-1636")],
+            ),
+            "HYPERFLEET-1636": doc(
+                "HYPERFLEET-1636",
+                owner="Martin Liptak",
+                status="Review",
+                changed="2026-10-27",
+            ),
+        }
+
+        with mock.patch.object(pc, "active_sprint", return_value={"id": "1", "name": "Sprint 19"}), \
+             mock.patch.object(pc, "large_item_keys", return_value=["HYPERFLEET-1534"]), \
+             mock.patch.object(pc, "fetch_all", side_effect=lambda keys, *a: {k: docs[k] for k in keys}), \
+             mock.patch.object(
+                 pc,
+                 "apply_changelog_signals",
+                 side_effect=lambda items, today, jobs: {
+                     "available": True,
+                     "failed": 0,
+                     "checked": len(items),
+                     "status_dates": 0,
+                     "assignments": 0,
+                 },
+             ), \
+             mock.patch.object(jc, "jira_api", return_value=None), \
+             mock.patch.object(pc, "jira_base_url", return_value="https://example.atlassian.net/browse/"):
+            data = pc.build(self.args())
+
+        ask = next(i for i in data["queue"] if i["key"] == "HYPERFLEET-1534")["ask"]
+        self.assertFalse(data["pr_signal"]["available"])
         self.assertIn("a reviewer to approve or reject", ask.lower())
         self.assertNotIn("Attach", ask)
         self.assertNotIn("Martin", ask)

@@ -150,7 +150,7 @@ def given_names(reviewers: list[str]) -> str:
     return f"{', '.join(firsts[:-1])} and {firsts[-1]}"
 
 
-def suggested_ask(item: dict, ref=None, pr_skipped: bool = False) -> str:
+def suggested_ask(item: dict, ref=None) -> str:
     """One imperative per item: verb first, then who and what artifact.
 
     The verb comes from a fixed set - ask to approve/reject, assign, unblock,
@@ -167,8 +167,9 @@ def suggested_ask(item: dict, ref=None, pr_skipped: bool = False) -> str:
     link like every other key in the report. It defaults to the bare key, which
     keeps the ask readable in a test and in a log.
 
-    `pr_skipped` means `--no-prs`: the panel was never read, so the ask cannot
-    say who reviews the blocker, and naming its owner would name the author.
+    A blocker whose pull request read did not answer is `pr_unknown`: the ask
+    cannot say who reviews it, and naming its owner would name the author when the
+    diff exists but was not read.
     """
     ref = ref or (lambda key: key)
     if item["open_blockers"]:
@@ -187,9 +188,10 @@ def suggested_ask(item: dict, ref=None, pr_skipped: bool = False) -> str:
                 # them instead of picking one - the choice of who reviews stays
                 # with them.
                 names = given_names(d.get("reviewers") or [])
-                if pr_skipped:
-                    # The lookup was turned off: no reviewer list and no live
-                    # pull request are known, so name neither.
+                if d.get("pr_unknown"):
+                    # The lookup did not answer for this ticket: no reviewer list
+                    # and no live pull request are known, so name neither. That
+                    # covers `--no-prs`, a missing token and a failed read alike.
                     clauses.append(
                         f"ask a reviewer to approve or reject {ref(d['key'])} (Review{when})"
                     )
@@ -240,7 +242,7 @@ def suggested_ask(item: dict, ref=None, pr_skipped: bool = False) -> str:
     return "Confirm a start date on the ticket"
 
 
-def decorate_ask(item: dict, style: str, pr_skipped: bool = False) -> str:
+def decorate_ask(item: dict, style: str) -> str:
     """Fold the pull request a reviewer can act on into the ask.
 
     Ownership comes from the title, so a link Jira shows that is titled for another
@@ -261,12 +263,12 @@ def decorate_ask(item: dict, style: str, pr_skipped: bool = False) -> str:
     none": the panel is the only source this script reads, and the two moves an
     owner can make are the same either way - attach the pull request, or move the
     ticket back.
+
+    A read that did not answer is not "no pull request": `pr_unknown` keeps the
+    ask neutral instead of asking the owner to attach a diff that may already
+    exist.
     """
     ask = item["ask"]
-    if pr_skipped:
-        # `--no-prs` means "not looked up", not "none": telling the owner to
-        # attach a pull request would invent the absence of one.
-        return ask
     owned = list(item.get("pr") or [])
     live = live_pull_requests(item)
     if live:
@@ -282,6 +284,11 @@ def decorate_ask(item: dict, style: str, pr_skipped: bool = False) -> str:
         if ask.startswith("Ask a reviewer"):
             return f"{ask} {prs}"
         return f"{ask} - {prs}"
+    if item.get("pr_unknown"):
+        # A partial read still decorates what it found (the branch above); an
+        # empty one is unknown, not empty, so neither "attach" nor "move back"
+        # can be inferred.
+        return ask
     if owned:
         # Asking for review of a closed diff sends the reader to finished work.
         # What the ticket needs is a status, not a reviewer.
@@ -343,8 +350,15 @@ def build(args) -> dict:
         if by_key.get(key, {}).get("status") == "Review"
     }
     pr_targets = [by_key[key] for key in sorted(review_keys) if key in by_key]
-    pr_signal = no_prs_signal() if args.no_prs else apply_pull_requests(pr_targets, args.jobs)
-    pr_skipped = bool(pr_signal.get("skipped"))
+    if args.no_prs:
+        pr_signal = no_prs_signal()
+        for target in pr_targets:
+            # The lookup was turned off, which is one more way of not knowing:
+            # the ask must not read the empty list as "no pull request".
+            target["pr"] = []
+            target["pr_unknown"] = True
+    else:
+        pr_signal = apply_pull_requests(pr_targets, args.jobs)
 
     for item in items:
         item["blocker_detail"] = [
@@ -355,11 +369,12 @@ def build(args) -> dict:
                 "days_in_status": by_key[k]["days_in_status"] if k in by_key else None,
                 "reviewers": reviewers_of(by_key[k]) if k in by_key else [],
                 "has_live_pr": bool(live_pull_requests(by_key[k])) if k in by_key else False,
+                "pr_unknown": bool(by_key[k].get("pr_unknown")) if k in by_key else True,
             }
             for k in item["open_blockers"]
         ]
-        item["ask"] = suggested_ask(item, ref, pr_skipped)
-        item["ask"] = decorate_ask(item, args.link_style, pr_skipped)
+        item["ask"] = suggested_ask(item, ref)
+        item["ask"] = decorate_ask(item, args.link_style)
 
     owned = [i for i in items if i["owner"]]
     unowned = [i for i in items if not i["owner"]]
