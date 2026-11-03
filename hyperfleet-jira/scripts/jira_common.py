@@ -484,24 +484,34 @@ def read_changelog(
 PR_URL = re.compile(r"/pull/(\d+)")
 
 
-def pull_requests_from(payload: list) -> list[dict]:
-    """[(number, url)] of the pull requests in a remote-link payload.
+def pull_requests_from(payload: list, key: str) -> list[dict]:
+    """[(number, url)] of the pull requests that belong to `key`.
 
-    Jira's development panel stores a branch and a commit as remote links too,
-    with the same shape as a pull request, so the URL decides: only `/pull/<n>`
-    counts. Duplicates are common (a PR appears once per branch event), so the
-    number dedupes them.
+    Two filters, because the panel is generous:
 
-    Order is newest first, by number: within one repository the number grows, so
-    the highest one is the latest attempt at the ticket.
+    - The URL must be a pull request. Jira stores a branch and a commit as remote
+      links too, in the same shape, so only `/pull/<n>` counts.
+    - The title must name `key`. Jira links a pull request to every ticket its
+      title mentions, so a link on HYPERFLEET-1669 can be the pull request of
+      HYPERFLEET-1636; reporting that as 1669's pull request sends the reviewer to
+      the wrong diff. A title with no key at all is dropped as well: an
+      unverified link reads as ownership.
+
+    Duplicates are common (a PR appears once per branch event), so the number
+    dedupes them. Order is newest first: within one repository the number grows,
+    so the highest one is the latest attempt at the ticket.
     """
+    wanted = re.compile(rf"{re.escape(key)}(?!\d)", re.IGNORECASE)
     found: dict[int, str] = {}
     for link in payload or []:
         if not isinstance(link, dict):
             continue
-        url = ((link.get("object") or {}).get("url") or "").strip()
+        obj = link.get("object") or {}
+        url = (obj.get("url") or "").strip()
         match = PR_URL.search(url)
         if not match or not url.startswith("https://"):
+            continue
+        if not wanted.search(obj.get("title") or ""):
             continue
         found.setdefault(int(match.group(1)), url)
     return [{"number": number, "url": found[number]} for number in sorted(found, reverse=True)]
@@ -514,7 +524,8 @@ def read_pull_requests(
 
     The panel shows the link, not the state: an open and a merged pull request
     look the same here, so this says "there is something to review", never "it is
-    still under review".
+    still under review". Ownership comes from the title - see
+    `pull_requests_from`.
     """
     if not api:
         return [], "no JIRA_API_TOKEN or jira-cli login"
@@ -533,7 +544,7 @@ def read_pull_requests(
         ValueError,
     ) as exc:
         return [], f"{key}: {type(exc).__name__}"
-    return pull_requests_from(payload), None
+    return pull_requests_from(payload, key), None
 
 
 def apply_pull_requests(items: list[dict], jobs: int) -> dict:

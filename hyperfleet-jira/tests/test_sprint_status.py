@@ -345,31 +345,79 @@ class TicketRefTest(unittest.TestCase):
 
 
 class PullRequestTest(unittest.TestCase):
-    """The development panel lists branches and commits beside pull requests."""
+    """The development panel lists branches, commits and other tickets' pull requests."""
 
     pr = {"number": 104, "url": "https://github.com/o/r/pull/104"}
 
-    def payload(self):
+    def payload(self, key="HYPERFLEET-104"):
         return [
-            {"object": {"url": "https://github.com/o/r/pull/104"}},
-            {"object": {"url": "https://github.com/o/r/pull/104"}},
-            {"object": {"url": "https://github.com/o/r/tree/pr-links"}},
-            {"object": {"url": "https://github.com/o/r/commit/abc123"}},
-            {"object": {"url": "https://github.com/o/r/pull/99"}},
-            {"object": {"url": "http://github.com/o/r/pull/7"}},
+            {"object": {"url": "https://github.com/o/r/pull/104",
+                        "title": f"{key} - fix: a thing"}},
+            {"object": {"url": "https://github.com/o/r/pull/104",
+                        "title": f"{key} - fix: a thing"}},
+            {"object": {"url": "https://github.com/o/r/tree/pr-links", "title": key}},
+            {"object": {"url": "https://github.com/o/r/commit/abc123", "title": key}},
+            {"object": {"url": "https://github.com/o/r/pull/99", "title": f"{key} - fix: older"}},
+            {"object": {"url": "http://github.com/o/r/pull/7", "title": f"{key} - fix: cleartext"}},
         ]
 
     def test_only_pull_request_urls_count_and_a_duplicate_is_listed_once(self):
-        prs = jc.pull_requests_from(self.payload())
+        prs = jc.pull_requests_from(self.payload(), "HYPERFLEET-104")
         self.assertEqual([pr["number"] for pr in prs], [104, 99])
+
+    def test_a_pull_request_titled_for_another_ticket_is_not_this_tickets(self):
+        payload = [
+            {
+                "object": {
+                    "url": "https://github.com/o/r/pull/255",
+                    "title": "HYPERFLEET-1636 - docs: sync the wristband contract",
+                }
+            }
+        ]
+        self.assertEqual(jc.pull_requests_from(payload, "HYPERFLEET-1669"), [])
+
+    def test_a_pull_request_that_names_both_tickets_belongs_to_both(self):
+        payload = [
+            {
+                "object": {
+                    "url": "https://github.com/o/r/pull/255",
+                    "title": "HYPERFLEET-1636 + HYPERFLEET-1669 - docs: the contract",
+                }
+            }
+        ]
+        self.assertEqual(
+            [pr["number"] for pr in jc.pull_requests_from(payload, "HYPERFLEET-1669")],
+            [255],
+        )
+
+    def test_a_title_without_any_ticket_key_is_not_evidence(self):
+        payload = [
+            {"object": {"url": "https://github.com/o/r/pull/5", "title": "fix: a thing"}}
+        ]
+        self.assertEqual(jc.pull_requests_from(payload, "HYPERFLEET-104"), [])
+
+    def test_a_longer_key_does_not_match_the_shorter_one(self):
+        payload = [
+            {
+                "object": {
+                    "url": "https://github.com/o/r/pull/6",
+                    "title": "HYPERFLEET-16360 - fix: a thing",
+                }
+            }
+        ]
+        self.assertEqual(jc.pull_requests_from(payload, "HYPERFLEET-1636"), [])
 
     def test_the_newest_pull_request_comes_first(self):
         prs = jc.pull_requests_from(
             [
-                {"object": {"url": "https://github.com/o/r/pull/9"}},
-                {"object": {"url": "https://github.com/o/r/pull/120"}},
-                {"object": {"url": "https://github.com/o/r/pull/11"}},
-            ]
+                {"object": {"url": "https://github.com/o/r/pull/9",
+                            "title": "HYPERFLEET-104 - a"}},
+                {"object": {"url": "https://github.com/o/r/pull/120",
+                            "title": "HYPERFLEET-104 - b"}},
+                {"object": {"url": "https://github.com/o/r/pull/11",
+                            "title": "HYPERFLEET-104 - c"}},
+            ],
+            "HYPERFLEET-104",
         )
         self.assertEqual([pr["number"] for pr in prs], [120, 11, 9])
 

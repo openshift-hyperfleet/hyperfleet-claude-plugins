@@ -46,7 +46,7 @@ Comprehensive sprint health report for team leads and scrum masters.
    - **Progress** is shown twice, by story points and by item count. The bar and the headline percentage use story points. Say which one you are quoting.
    - **Movement** is the most recent of the exact last status change, the last human comment and the assignment to the current owner. The status and assignment parts need `JIRA_API_TOKEN`; without it the report falls back to `statusCategoryChangedDate` and comments only, so an item can look older than it is. A failed or unavailable changelog read adds a `signal: partial` line to the Method section; keep that line in the report.
    - **Capacity** is a projection from the previous sprint's pace, not a commitment. At the start of a sprint it is mostly noise; from mid-sprint on it is the number to argue with.
-   - **Pull requests** appear only on items in `Review`, read from the links the team attached in Jira. A failed read adds its own `signal: partial` line; keep it. A listed pull request may already be merged - the link says "there is something to review", not "it is still pending".
+   - **Pull requests** appear only on items in `Review`, read from the links the team attached in Jira. Only a pull request whose title names the ticket counts: Jira links the same pull request to every ticket it mentions, so the link alone is not ownership, and a "stale in review" item can point at someone else's diff. A failed read adds its own `signal: partial` line; keep it. A listed pull request may already be merged - the link says "there is something to review", not "it is still pending".
 
 5. **Add Recommendations.** The script cannot write these: they need a decision.
    - Each recommendation names who decides and a due date. A follow-up with no name and no date is not a follow-up.
@@ -77,7 +77,11 @@ Match the syntax to the destination, because only one of the three renders all o
 
 Links are the default, not a decoration. When the destination cannot render them, say so in the reply and switch the whole report to `--link-style bare`; never strip the links from part of the report.
 
-An item in `Review` also carries its pull requests at the end of the line, as `- PR [#177](url)`. Jira's development panel is the source, so the link is whatever the team already attached to the ticket: a branch or a commit is not shown, because it is not what the reviewer opens. The panel carries the link and not the state, so a pull request listed here may already be merged - the link says "there is something to review", never "it is still pending". When the lookup fails, the Method section says so in its own `signal: partial` line instead of silently dropping the link.
+An item in `Review` also carries its pull requests at the end of the line, as `- PR [#177](url)`. Jira's development panel is the source, so the link is whatever the team already attached to the ticket: a branch or a commit is not shown, because it is not what the reviewer opens.
+
+The pull request's **title** decides ownership, not the link. Jira links a pull request to every ticket its title mentions, so a link whose title names another ticket is a cross-reference: reporting it as this ticket's pull request sends the reviewer to the wrong diff, and it makes two stalls look like one shared blocker. A title with no ticket key at all is dropped for the same reason - an unverified link reads as ownership.
+
+The panel carries the link and not the state, so a pull request listed here may already be merged - the link says "there is something to review", never "it is still pending". When the lookup fails, the Method section says so in its own `signal: partial` line instead of silently dropping the link.
 
 ## Output Format
 
