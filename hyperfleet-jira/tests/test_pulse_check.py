@@ -12,6 +12,7 @@ and the human-comment rule (an app comment is not movement).
 import io
 import json
 import sys
+import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
@@ -164,7 +165,14 @@ class ChangelogSignalTest(unittest.TestCase):
         self.assertEqual(item["days_without_movement"], 4)
         self.assertEqual(item["status_entered"], "2026-10-30")
         self.assertEqual(
-            report, {"available": True, "checked": 1, "status_dates": 1, "assignments": 0}
+            report,
+            {
+                "available": True,
+                "failed": 0,
+                "checked": 1,
+                "status_dates": 1,
+                "assignments": 0,
+            },
         )
 
     def test_assignment_resets_the_clock(self):
@@ -266,6 +274,104 @@ class ChangelogSignalTest(unittest.TestCase):
         self.assertFalse(
             pc.assignment_is_binding({"days_since_assignment": None, "days_in_status": 47})
         )
+
+
+class ChangelogFailureTest(unittest.TestCase):
+    api = ("https://example.atlassian.net", "auth")
+
+    def item(self):
+        return {
+            "key": "HYPERFLEET-1671",
+            "owner": "Phuongnhat Nguyen",
+            "assignee_id": "acc-1",
+            "days_in_status": 47,
+            "days_since_comment": 13,
+            "days_without_movement": 13,
+        }
+
+    def test_a_failed_read_is_counted_not_hidden(self):
+        with mock.patch.object(pc, "jira_api", return_value=self.api), \
+             mock.patch.object(
+                 pc, "changelog_dates",
+                 side_effect=pc.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
+             ):
+            report = pc.apply_changelog_signals([self.item()], TODAY, 1)
+        self.assertFalse(report["available"])
+        self.assertEqual(report["failed"], 1)
+        self.assertEqual(report["checked"], 1)
+
+    def test_a_failed_read_leaves_the_clock_alone(self):
+        item = self.item()
+        with mock.patch.object(pc, "jira_api", return_value=self.api), \
+             mock.patch.object(
+                 pc, "changelog_dates", side_effect=pc.ChangelogUnavailable("boom")
+             ):
+            pc.apply_changelog_signals([item], TODAY, 1)
+        self.assertEqual(item["days_without_movement"], 13)
+        self.assertIsNone(item["status_entered"])
+
+    def test_an_http_error_raises_instead_of_looking_empty(self):
+        with mock.patch.object(
+            pc.urllib.request,
+            "urlopen",
+            side_effect=pc.urllib.error.URLError("401 Unauthorized"),
+        ):
+            with self.assertRaises(pc.ChangelogUnavailable):
+                pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
+
+
+class RunJiraTest(unittest.TestCase):
+    def test_a_timeout_is_a_pulse_error(self):
+        with mock.patch.object(
+            pc.subprocess,
+            "run",
+            side_effect=pc.subprocess.TimeoutExpired("jira", 120),
+        ):
+            with self.assertRaises(pc.PulseError):
+                pc.run_jira(["issue", "list"], "jira")
+
+    def test_a_missing_binary_is_a_pulse_error(self):
+        with mock.patch.object(
+            pc.subprocess, "run", side_effect=FileNotFoundError("jira")
+        ):
+            with self.assertRaises(pc.PulseError):
+                pc.run_jira(["issue", "list"], "jira")
+
+
+class JiraApiTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        (Path(self.tmp.name) / ".config" / ".jira").mkdir(parents=True)
+        self.config = Path(self.tmp.name) / ".config" / ".jira" / ".config.yml"
+
+    def api(self, server):
+        self.config.write_text(f"server: {server}\nlogin: someone@example.com\n")
+        with mock.patch.object(pc.Path, "home", return_value=Path(self.tmp.name)), \
+             mock.patch.dict(pc.os.environ, {"JIRA_API_TOKEN": "token"}):
+            return pc.jira_api()
+
+    def test_https_is_kept(self):
+        self.assertEqual(
+            self.api("https://x.atlassian.net")[0], "https://x.atlassian.net"
+        )
+
+    def test_a_bare_host_gets_https(self):
+        self.assertEqual(
+            self.api("x.atlassian.net")[0], "https://x.atlassian.net"
+        )
+
+    def test_cleartext_http_is_refused_so_the_token_never_leaves(self):
+        self.assertIsNone(self.api("http://x.atlassian.net"))
+
+
+class ProjectArgumentTest(unittest.TestCase):
+    def test_a_project_key_is_accepted(self):
+        self.assertEqual(pc.project_key("HYPERFLEET"), "HYPERFLEET")
+
+    def test_jql_is_not_a_project_key(self):
+        with self.assertRaises(pc.argparse.ArgumentTypeError):
+            pc.project_key("HF OR project = SECRET")
 
 
 class AskTest(unittest.TestCase):
@@ -419,6 +525,37 @@ class RenderTest(unittest.TestCase):
         data["queue"][0]["summary"] = "Add | remove on the remote transport"
         row = [line for line in pc.render_text(data).splitlines() if "HYPERFLEET-1)" in line][0]
         self.assertEqual(row.count("|") - row.count("\\|"), 7)
+
+    def test_a_failed_changelog_read_is_named_in_the_report(self):
+        data = self.data()
+        data["changelog_signal"] = {
+            "available": False,
+            "failed": 2,
+            "checked": 7,
+            "status_dates": 5,
+            "assignments": 3,
+        }
+        self.assertIn(
+            "Signal: partial - 2 of 7 changelog reads failed", pc.render_text(data)
+        )
+
+    def test_a_missing_token_is_named_in_the_report(self):
+        data = self.data()
+        data["changelog_signal"] = {"available": False, "failed": 0, "checked": 7}
+        self.assertIn(
+            "Signal: partial - no JIRA_API_TOKEN", pc.render_text(data)
+        )
+
+    def test_a_complete_signal_prints_no_partial_line(self):
+        data = self.data()
+        data["changelog_signal"] = {
+            "available": True,
+            "failed": 0,
+            "checked": 7,
+            "status_dates": 5,
+            "assignments": 3,
+        }
+        self.assertNotIn("Signal: partial", pc.render_text(data))
 
 
 class TicketRefTest(unittest.TestCase):

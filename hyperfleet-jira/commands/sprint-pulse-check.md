@@ -29,9 +29,10 @@ This command produces a short nudge queue. It is not a sprint status report: it 
    ```
    If `$PULSE` is empty, stop and say so. The script is the command: do not reimplement the calculation inline.
 
-2. **Run it:**
+2. **Run it.** Set `PROJECT` to `$1` when the user gave a project key, and leave it unset otherwise; the script rejects anything that is not a Jira project key.
    ```bash
-   python3 "$PULSE" --project HYPERFLEET --format json
+   PROJECT="$1"
+   python3 "$PULSE" --project "${PROJECT:-HYPERFLEET}" --format json
    ```
    Options: `--today YYYY-MM-DD` for a reproducible run, `--format text` for a ready-to-paste block, `--min-sp` and `--max-rows` to move the thresholds, `--link-style markdown|slack|bare` to match the destination, `--next-pulse YYYY-MM-DD` to print the next scheduled pulse (omit it when the lead has not scheduled one, and the output says "to be scheduled").
 
@@ -80,19 +81,18 @@ Nudge queue (5 of 7 owned large items need action):
 
 | Ticket | Title | Owner | SP | Status · age | Ask |
 |--------|-------|-------|----|--------------|-----|
-| [HYPERFLEET-1413](https://<server>/browse/HYPERFLEET-1413) | Verify N-1 to N operator upgrades converge the API operand | Tirth | 5 | In Progress · 20d | 20+ days in progress: dated plan on the ticket, or re-scope |
-| [HYPERFLEET-1616](https://<server>/browse/HYPERFLEET-1616) | SPIKE: Extend Prow testing to support OLM installs classic and v1 | Mallory | 5 | Backlog · 60d (since 09-04) | No start after 60d: set a start date this week or drop from Sprint 19 |
+| [HYPERFLEET-1413](https://<server>/browse/HYPERFLEET-1413) | Verify N-1 to N operator upgrades converge the API operand | Tirth | 5 | In Progress · 20d | Propose a split with dates, or re-scope |
+| [HYPERFLEET-1616](https://<server>/browse/HYPERFLEET-1616) | SPIKE: Extend Prow testing to support OLM installs classic and v1 | Mallory | 5 | Backlog · 60d (since 09-04) | Post the decision note this week or drop from the sprint |
 
-No action: HYPERFLEET-1671 (4d, assigned 10-30), HYPERFLEET-1751 (commented yesterday)
+No action: HYPERFLEET-1671 (4d, assigned 10-30), HYPERFLEET-1751 (1d)
 
 Assignment gap: 17 items / 85 SP have no owner
-- largest: HYPERFLEET-XXXX (8 SP), HYPERFLEET-XXXX (5 SP)
-- 5 SP: N items
+- sizes present: 5 SP
+- assign these first: HYPERFLEET-XXXX (blocks 7), HYPERFLEET-XXXX (blocks 4)
 
 Concentration: Phuongnhat holds 3 of 7 owned items (21 of 41 SP)
 
-Movement = the most recent of the exact last status change, the last human comment and the assignment to the current owner; a New-to-Backlog reclassification is not movement.
-`updated` is not used: bulk edits make untouched tickets look active.
+Movement = the most recent of the exact last status change, the last human comment and the assignment to the current owner; a New to Backlog reclassification is not movement, and the `updated` field is ignored because bulk edits inflate it
 Next pulse: 2026-11-05
 ```
 

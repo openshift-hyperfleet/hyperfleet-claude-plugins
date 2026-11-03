@@ -45,6 +45,10 @@ class PulseError(Exception):
     pass
 
 
+class ChangelogUnavailable(Exception):
+    """A changelog read failed; it must not be read as "no entry"."""
+
+
 # A move between these statuses is classification, not work. HYPERFLEET creates
 # issues in `New`; a bulk New -> Backlog sweep must not reset the movement clock.
 TRIVIAL_STATUSES = {"New", "Backlog"}
@@ -58,7 +62,12 @@ def status_change_counts(change: dict) -> bool:
 
 
 def run_jira(args: list[str], binary: str) -> str:
-    proc = subprocess.run([binary, *args], capture_output=True, text=True)
+    try:
+        proc = subprocess.run(
+            [binary, *args], capture_output=True, text=True, timeout=120
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        raise PulseError(f"jira {' '.join(args[:2])} could not run: {exc}") from exc
     if proc.returncode != 0:
         raise PulseError(
             f"jira {' '.join(args)} failed ({proc.returncode}): "
@@ -86,8 +95,10 @@ def jira_base_url() -> str | None:
     if not match:
         return None
     server = match.group(1).rstrip("/")
-    if not server.startswith("http"):
+    if "://" not in server:
         server = f"https://{server}"
+    if not server.startswith("https://"):
+        return None
     return f"{server}/browse/"
 
 
@@ -136,8 +147,11 @@ def jira_api() -> tuple[str, str] | None:
     if not server or not login:
         return None
     base = server.group(1).rstrip("/")
-    if not base.startswith("http"):
+    if "://" not in base:
         base = f"https://{base}"
+    if not base.startswith("https://"):
+        # The Basic auth header carries the API token; never send it in cleartext.
+        return None
     auth = base64.b64encode(f"{login.group(1)}:{token}".encode()).decode()
     return base, auth
 
@@ -152,8 +166,10 @@ def changelog_dates(
     moves inside a category, such as In Progress -> Review.
 
     Either value is None when the changelog has no such entry (the issue was
-    created in its current status or already assigned) or the API is unreachable.
-    None means "unknown", not "today".
+    created in its current status or already assigned). A failed request raises
+    `ChangelogUnavailable` instead: "the API said no" and "the API did not
+    answer" must not collapse into the same value, because the caller falls back
+    to a different clock for the second one.
     """
     if not api:
         return None, None
@@ -165,8 +181,8 @@ def changelog_dates(
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             payload = json.load(response)
-    except (urllib.error.URLError, OSError, json.JSONDecodeError):
-        return None, None
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+        raise ChangelogUnavailable(f"{key}: {type(exc).__name__}") from exc
 
     status_dates: list[date] = []
     assignment_dates: list[date] = []
@@ -192,6 +208,21 @@ def changelog_dates(
     return status_entered, assigned
 
 
+def read_changelog(
+    key: str, account_id: str | None, api: tuple[str, str] | None
+) -> tuple[tuple[date | None, date | None], str | None]:
+    """(dates, error). A failed read is counted, not read as "no entry".
+
+    Collapsing both into (None, None) lets an expired token walk every item back
+    to the status category clock while the report still calls it the exact
+    signal, and the 20-day rung then fires on items that moved last week.
+    """
+    try:
+        return changelog_dates(key, account_id, api), None
+    except ChangelogUnavailable as exc:
+        return (None, None), str(exc)
+
+
 def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
     """Reset the movement clock on an exact status change or a new owner.
 
@@ -210,20 +241,33 @@ def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
 
     api = jira_api()
     if not api:
-        return {"available": False, "reason": "JIRA_API_TOKEN or jira-cli login not configured"}
+        return {
+            "available": False,
+            "failed": 0,
+            "checked": len(items),
+            "reason": "JIRA_API_TOKEN or jira-cli login not configured",
+        }
     if not items:
-        return {"available": True, "checked": 0, "status_dates": 0, "assignments": 0}
+        return {
+            "available": True,
+            "failed": 0,
+            "checked": 0,
+            "status_dates": 0,
+            "assignments": 0,
+        }
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        dates = list(
+        results = list(
             pool.map(
-                lambda item: changelog_dates(item["key"], item.get("assignee_id"), api),
+                lambda item: read_changelog(item["key"], item.get("assignee_id"), api),
                 items,
             )
         )
 
-    status_found = assignment_found = 0
-    for item, (status_entered, assigned) in zip(items, dates):
+    status_found = assignment_found = failed = 0
+    for item, ((status_entered, assigned), error) in zip(items, results):
+        if error:
+            failed += 1
         if status_entered:
             status_found += 1
             item["status_entered"] = status_entered.isoformat()
@@ -243,7 +287,8 @@ def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
         item["days_without_movement"] = min(signals)
 
     return {
-        "available": True,
+        "available": failed == 0,
+        "failed": failed,
         "checked": len(items),
         "status_dates": status_found,
         "assignments": assignment_found,
@@ -449,6 +494,12 @@ def build(args) -> dict:
     # Exact status transitions and owner changes reset the movement clock. Must run
     # before the asks are derived.
     signals = apply_changelog_signals(items + target_items, today, args.jobs)
+    if signals.get("failed"):
+        print(
+            f"warning: {signals['failed']} of {signals['checked']} changelog reads "
+            "failed; those items fall back to the status category date",
+            file=sys.stderr,
+        )
 
     for item in items:
         item["open_blockers"] = [k for k in item["blocked_by"] if status_of.get(k) != "Closed"]
@@ -609,20 +660,48 @@ def render_text(data: dict) -> str:
             )
 
     lines.append("")
+    signal = data.get("changelog_signal") or {}
+    if signal.get("failed"):
+        lines.append(
+            f"Signal: partial - {signal['failed']} of {signal['checked']} changelog "
+            "reads failed, so those items use the status category date"
+        )
+    elif signal.get("available") is False:
+        lines.append(
+            "Signal: partial - no JIRA_API_TOKEN, so movement ignores exact status "
+            "changes and assignments"
+        )
     lines.append(data["definition"])
     lines.append(f"Next pulse: {data['next_pulse'] or 'to be scheduled'}")
     return "\n".join(lines)
 
 
+PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
+
+
+def project_key(value: str) -> str:
+    """A project key lands in JQL unquoted, so reject anything that is not one."""
+    if not PROJECT_KEY.match(value):
+        raise argparse.ArgumentTypeError(f"not a Jira project key: {value!r}")
+    return value
+
+
+def field_name(value: str) -> str:
+    """A field name sits inside quotes in JQL; keep quotes and escapes out."""
+    if '"' in value or "\\" in value:
+        raise argparse.ArgumentTypeError(f"not a Jira field name: {value!r}")
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect the sprint pulse check data.")
-    parser.add_argument("--project", default="HYPERFLEET")
+    parser.add_argument("--project", default="HYPERFLEET", type=project_key)
     parser.add_argument("--jira", default="jira", help="jira-cli binary")
     parser.add_argument("--min-sp", type=int, default=5)
     parser.add_argument("--max-rows", type=int, default=7)
     parser.add_argument("--action-after", type=int, default=5, help="days without movement that trigger an ask")
     parser.add_argument("--sp-field", default="customfield_10028", help="custom field id holding story points")
-    parser.add_argument("--sp-field-name", default="Story Points", help="JQL name of the story points field")
+    parser.add_argument("--sp-field-name", default="Story Points", type=field_name, help="JQL name of the story points field")
     parser.add_argument("--today", help="YYYY-MM-DD, for reproducible runs")
     parser.add_argument("--next-pulse", help="YYYY-MM-DD printed in the text output")
     parser.add_argument(

@@ -337,5 +337,138 @@ class TicketRefTest(unittest.TestCase):
         self.assertEqual(ss.ticket_ref("HYPERFLEET-1", None, "markdown"), "HYPERFLEET-1")
 
 
+class PreviousSprintTest(unittest.TestCase):
+    rows = [
+        {"id": "1", "name": "Sprint 17", "start": "2026-09-01", "end": "2026-09-21", "state": "closed"},
+        {"id": "2", "name": "Sprint 18", "start": "2026-09-22", "end": "2026-10-12", "state": "closed"},
+        {"id": "3", "name": "Sprint 19", "start": "2026-11-02", "end": "2026-11-22", "state": "closed"},
+    ]
+
+    def find(self, before=None):
+        with mock.patch.object(ss, "sprint_rows", return_value=self.rows):
+            return ss.previous_sprint("HYPERFLEET", "jira", before)
+
+    def test_without_a_target_the_latest_closed_sprint_wins(self):
+        self.assertEqual(self.find()["id"], "3")
+
+    def test_a_later_closed_sprint_is_not_a_baseline(self):
+        found = self.find(before="2026-11-02")
+        self.assertEqual(found["id"], "2")
+
+    def test_no_earlier_sprint_returns_none(self):
+        self.assertIsNone(self.find(before="2026-09-01"))
+
+    def test_a_row_with_no_end_date_is_not_a_baseline(self):
+        rows = [{"id": "9", "name": "Broken", "start": "", "end": "", "state": "closed"}]
+        with mock.patch.object(ss, "sprint_rows", return_value=rows):
+            self.assertIsNone(ss.previous_sprint("HYPERFLEET", "jira", "2026-11-02"))
+
+
+class RenderSignalTest(unittest.TestCase):
+    def data(self):
+        return {
+            "sprint": {"name": "Sprint 19", "start": "2026-11-02", "end": "2026-11-22"},
+            "totals": {
+                "by_status": [{"status": "Backlog", "category": "To Do", "items": 1, "sp": 5}],
+                "items": 1,
+                "sp": 5,
+                "percent_by_sp": 0,
+                "percent_by_items": 0,
+                "done": {"items": 0, "sp": 0},
+            },
+            "blockers": {
+                "blocked": [],
+                "blocked_items": 0,
+                "blocked_sp": 0,
+                "high_priority": [],
+                "priority_checked": "Major",
+                "priorities_seen": ["Normal"],
+            },
+            "at_risk": {
+                "stale": [],
+                "stale_items": 0,
+                "stale_days": 5,
+                "missing_sp_items": 0,
+                "unassigned_items": 0,
+                "unassigned_sp": 0,
+            },
+            "carry_over": {
+                "items": 0,
+                "sp": 0,
+                "by_reason": {"unassigned": 0, "stale": 0, "unestimated": 0},
+            },
+            "capacity": {"available": False, "reason": "no baseline"},
+            "workload": [],
+            "workload_statuses": [],
+            "notes": {
+                "movement_basis": "movement basis",
+                "progress_basis": "progress basis",
+                "baseline_basis": "baseline basis",
+            },
+            "changelog_signal": {"available": True, "failed": 0, "checked": 1},
+        }
+
+    def test_method_names_all_three_bases(self):
+        text = ss.render_text(self.data())
+        for basis in ("movement basis", "progress basis", "baseline basis"):
+            self.assertIn(basis, text)
+
+    def test_a_failed_changelog_read_is_named_in_the_report(self):
+        data = self.data()
+        data["changelog_signal"] = {"available": False, "failed": 2, "checked": 7}
+        self.assertIn("signal: partial - 2 of 7 changelog reads failed", ss.render_text(data))
+
+    def test_a_missing_token_is_named_in_the_report(self):
+        data = self.data()
+        data["changelog_signal"] = {"available": False, "failed": 0, "checked": 7}
+        self.assertIn("signal: partial - no JIRA_API_TOKEN", ss.render_text(data))
+
+    def test_a_complete_signal_prints_no_partial_line(self):
+        self.assertNotIn("signal: partial", ss.render_text(self.data()))
+
+
+class ChangelogFailureTest(unittest.TestCase):
+    api = ("https://example.atlassian.net", "auth")
+
+    def item(self):
+        return {
+            "key": "HYPERFLEET-1671",
+            "owner": "Phuongnhat Nguyen",
+            "assignee_id": "acc-1",
+            "days_in_status": 47,
+            "days_since_comment": 13,
+            "days_without_movement": 13,
+        }
+
+    def test_a_failed_read_is_counted_not_hidden(self):
+        with mock.patch.object(ss, "jira_api", return_value=self.api), \
+             mock.patch.object(
+                 ss, "changelog_dates",
+                 side_effect=ss.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
+             ):
+            report = ss.apply_changelog_signals([self.item()], TODAY, 1)
+        self.assertFalse(report["available"])
+        self.assertEqual(report["failed"], 1)
+
+    def test_a_failed_read_leaves_the_clock_alone(self):
+        subject = self.item()
+        with mock.patch.object(ss, "jira_api", return_value=self.api), \
+             mock.patch.object(
+                 ss, "changelog_dates", side_effect=ss.ChangelogUnavailable("boom")
+             ):
+            ss.apply_changelog_signals([subject], TODAY, 1)
+        self.assertEqual(subject["days_without_movement"], 13)
+        self.assertIsNone(subject["status_entered"])
+
+
+class ProjectArgumentTest(unittest.TestCase):
+    def test_a_project_key_is_accepted(self):
+        self.assertEqual(ss.project_key("HYPERFLEET"), "HYPERFLEET")
+
+    def test_jql_is_not_a_project_key(self):
+        with self.assertRaises(ss.argparse.ArgumentTypeError):
+            ss.project_key("HF OR project = SECRET")
+
+
 if __name__ == "__main__":
     unittest.main()

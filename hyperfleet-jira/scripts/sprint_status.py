@@ -51,6 +51,10 @@ class SprintError(Exception):
     pass
 
 
+class ChangelogUnavailable(Exception):
+    """A changelog read failed; it must not be read as "no entry"."""
+
+
 CATEGORY_ORDER = {"To Do": 0, "In Progress": 1, "Done": 2}
 
 # A move between these statuses is classification, not work. HYPERFLEET creates
@@ -71,7 +75,12 @@ def status_change_counts(change: dict) -> bool:
 
 
 def run_jira(args: list[str], binary: str) -> str:
-    proc = subprocess.run([binary, *args], capture_output=True, text=True)
+    try:
+        proc = subprocess.run(
+            [binary, *args], capture_output=True, text=True, timeout=120
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        raise SprintError(f"jira {' '.join(args[:2])} could not run: {exc}") from exc
     if proc.returncode != 0:
         raise SprintError(
             f"jira {' '.join(args)} failed ({proc.returncode}): "
@@ -167,8 +176,18 @@ def active_sprint(project: str, binary: str) -> dict:
     return rows[0]
 
 
-def previous_sprint(project: str, binary: str) -> dict | None:
+def previous_sprint(
+    project: str, binary: str, before: str | None = None
+) -> dict | None:
+    """The sprint the target sprint is compared against.
+
+    `--sprint` can name a closed sprint, and then the latest closed sprint may be
+    the target itself or a later one; only sprints that ended before the target
+    started are baselines.
+    """
     rows = sprint_rows(project, "closed", binary)
+    if before:
+        rows = [row for row in rows if row["end"] and row["end"] < before]
     if not rows:
         return None
     return max(rows, key=lambda row: row["end"])
@@ -536,8 +555,10 @@ def jira_base_url() -> str | None:
     if not match:
         return None
     server = match.group(1).rstrip("/")
-    if not server.startswith("http"):
+    if "://" not in server:
         server = f"https://{server}"
+    if not server.startswith("https://"):
+        return None
     return f"{server}/browse/"
 
 
@@ -577,8 +598,11 @@ def jira_api() -> tuple[str, str] | None:
     if not server or not login:
         return None
     base = server.group(1).rstrip("/")
-    if not base.startswith("http"):
+    if "://" not in base:
         base = f"https://{base}"
+    if not base.startswith("https://"):
+        # The Basic auth header carries the API token; never send it in cleartext.
+        return None
     auth = base64.b64encode(f"{login.group(1)}:{token}".encode()).decode()
     return base, auth
 
@@ -593,8 +617,10 @@ def changelog_dates(
     moves inside a category, such as In Progress -> Review.
 
     Either value is None when the changelog has no such entry (the issue was
-    created in its current status or already assigned) or the API is unreachable.
-    None means "unknown", not "today".
+    created in its current status or already assigned). A failed request raises
+    `ChangelogUnavailable` instead: "the API said no" and "the API did not
+    answer" must not collapse into the same value, because the caller falls back
+    to a different clock for the second one.
     """
     if not api:
         return None, None
@@ -606,8 +632,8 @@ def changelog_dates(
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             payload = json.load(response)
-    except (urllib.error.URLError, OSError, json.JSONDecodeError):
-        return None, None
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+        raise ChangelogUnavailable(f"{key}: {type(exc).__name__}") from exc
 
     status_dates: list[date] = []
     assignment_dates: list[date] = []
@@ -633,6 +659,21 @@ def changelog_dates(
     return status_entered, assigned
 
 
+def read_changelog(
+    key: str, account_id: str | None, api: tuple[str, str] | None
+) -> tuple[tuple[date | None, date | None], str | None]:
+    """(dates, error). A failed read is counted, not read as "no entry".
+
+    Collapsing both into (None, None) lets an expired token walk every item back
+    to the status category clock while the report still calls it the exact
+    signal, inflating the stale list and the "needs a decision" count.
+    """
+    try:
+        return changelog_dates(key, account_id, api), None
+    except ChangelogUnavailable as exc:
+        return (None, None), str(exc)
+
+
 def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
     """Reset the movement clock on an exact status change or a new owner.
 
@@ -651,20 +692,33 @@ def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
 
     api = jira_api()
     if not api:
-        return {"available": False, "reason": "JIRA_API_TOKEN or jira-cli login not configured"}
+        return {
+            "available": False,
+            "failed": 0,
+            "checked": len(items),
+            "reason": "JIRA_API_TOKEN or jira-cli login not configured",
+        }
     if not items:
-        return {"available": True, "checked": 0, "status_dates": 0, "assignments": 0}
+        return {
+            "available": True,
+            "failed": 0,
+            "checked": 0,
+            "status_dates": 0,
+            "assignments": 0,
+        }
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        dates = list(
+        results = list(
             pool.map(
-                lambda item: changelog_dates(item["key"], item.get("assignee_id"), api),
+                lambda item: read_changelog(item["key"], item.get("assignee_id"), api),
                 items,
             )
         )
 
-    status_found = assignment_found = 0
-    for item, (status_entered, assigned) in zip(items, dates):
+    status_found = assignment_found = failed = 0
+    for item, ((status_entered, assigned), error) in zip(items, results):
+        if error:
+            failed += 1
         if status_entered:
             status_found += 1
             item["status_entered"] = status_entered.isoformat()
@@ -684,7 +738,8 @@ def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
         item["days_without_movement"] = min(signals)
 
     return {
-        "available": True,
+        "available": failed == 0,
+        "failed": failed,
         "checked": len(items),
         "status_dates": status_found,
         "assignments": assignment_found,
@@ -725,6 +780,12 @@ def build(args) -> dict:
     signals = apply_changelog_signals(
         [item for item in items if not item["is_done"]], today, args.jobs
     )
+    if signals.get("failed"):
+        print(
+            f"warning: {signals['failed']} of {signals['checked']} changelog reads "
+            "failed; those items fall back to the status category date",
+            file=sys.stderr,
+        )
 
     totals = summarise(items)
     open_items = [item for item in items if not item["is_done"]]
@@ -755,7 +816,9 @@ def build(args) -> dict:
     unassigned = [item for item in open_items if not item["owner"]]
 
     baseline = baseline_for(
-        previous_sprint(args.project, args.jira) if not args.no_baseline else None,
+        previous_sprint(args.project, args.jira, sprint.get("start") or None)
+        if not args.no_baseline
+        else None,
         args.project,
         args.sp_field,
         args.jira,
@@ -1003,12 +1066,33 @@ def render_text(data: dict) -> str:
     lines.append(f"- {data['notes']['movement_basis']}")
     lines.append(f"- {data['notes']['progress_basis']}")
     lines.append(f"- {data['notes']['baseline_basis']}")
+    signal = data.get("changelog_signal") or {}
+    if signal.get("failed"):
+        lines.append(
+            f"- signal: partial - {signal['failed']} of {signal['checked']} changelog "
+            "reads failed, so those items use the status category date"
+        )
+    elif signal.get("available") is False:
+        lines.append(
+            "- signal: partial - no JIRA_API_TOKEN, so movement ignores exact status "
+            "changes and assignments"
+        )
     return "\n".join(lines)
+
+
+PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
+
+
+def project_key(value: str) -> str:
+    """A project key lands in JQL unquoted, so reject anything that is not one."""
+    if not PROJECT_KEY.match(value):
+        raise argparse.ArgumentTypeError(f"not a Jira project key: {value!r}")
+    return value
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect the sprint status data.")
-    parser.add_argument("--project", default="HYPERFLEET")
+    parser.add_argument("--project", default="HYPERFLEET", type=project_key)
     parser.add_argument("--jira", default="jira", help="jira-cli binary")
     parser.add_argument("--sprint", help="sprint id; defaults to the active sprint")
     parser.add_argument("--sp-field", default="customfield_10028", help="custom field id holding story points")

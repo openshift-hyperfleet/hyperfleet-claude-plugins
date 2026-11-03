@@ -27,9 +27,10 @@ Comprehensive sprint health report for team leads and scrum masters.
    ```
    If `$SPRINT` is empty, stop and say so. The script is the command: do not fall back to hand-written JQL.
 
-2. **Run it:**
+2. **Run it.** Set `PROJECT` to `$1` when the user gave a project key, and leave it unset otherwise; the script rejects anything that is not a Jira project key.
    ```bash
-   python3 "$SPRINT" --project HYPERFLEET --format markdown
+   PROJECT="$1"
+   python3 "$SPRINT" --project "${PROJECT:-HYPERFLEET}" --format markdown
    ```
    Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` to report on a sprint other than the active one, `--stale-days` to move the staleness threshold, `--blocker-priority` to change which priority counts as top, `--link-style markdown|slack|bare` to match the destination, `--no-baseline` to skip the previous sprint lookup.
 
