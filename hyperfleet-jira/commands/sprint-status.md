@@ -32,7 +32,7 @@ Comprehensive sprint health report for team leads and scrum masters.
    ```
    Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` to report on a sprint other than the active one, `--stale-days` to move the staleness threshold, `--blocker-priority` to change which priority counts as top, `--link-style markdown|slack|bare` to match the destination, `--no-baseline` to skip the previous sprint lookup.
 
-   The script reads the sprint metadata and goal, every issue in the sprint, the story points, the movement signals, the open blockers, the previous sprint's baseline, and a capacity projection. It returns the report in one document.
+   The script reads the sprint metadata and goal, every issue in the sprint, the story points, the movement signals, the open blockers, the previous sprint's baseline, and a capacity projection. The baseline's delivered points are measured at the previous sprint's end date, so work closed later is not credited to it. It returns the report in one document.
 
 3. **Do not recompute by hand, and do not re-query Jira.** These four queries look right and return wrong answers:
    - `status = Done`, `status = 'To Do'`, `priority = Highest`, `priority = High` match nothing in HYPERFLEET, which uses `Backlog` / `In Progress` / `Review` / `Closed` and `Major` / `Normal`. Use status categories, which the script does.
@@ -88,7 +88,7 @@ Sprint: [Sprint Name]
 Goal: [Sprint Goal]
 Duration: [Start Date] - [End Date] (N days)
 Days Remaining: X days
-Previous sprint baseline: X SP committed / X SP delivered (X%) across N items
+Previous sprint baseline: X SP committed / X SP delivered by [End Date] (X%) across N items
 Scope: X SP committed vs X SP delivered in the previous sprint (+/-X%)
 Jira: https://<server>/browse/
 ```

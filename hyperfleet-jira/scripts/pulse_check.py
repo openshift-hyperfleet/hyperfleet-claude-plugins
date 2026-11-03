@@ -28,94 +28,33 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import base64
-import http.client
 import json
-import os
-import re
-import subprocess
 import sys
-import urllib.error
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 
+# The Jira layer is shared with sprint_status.py: one definition of "work is Done
+# by category", one pager, one changelog reader. See jira_common.py.
+from jira_common import (
+    OPEN_STATUS_JQL,
+    ChangelogUnavailable,
+    JiraError,
+    active_sprint,
+    apply_changelog_signals,
+    describe,
+    fetch_all,
+    jira_base_url,
+    open_links,
+    parse_date,
+    project_key,
+    run_jira,
+    status_category,
+    status_name,
+    ticket_ref,
+)
 
-class PulseError(Exception):
-    pass
-
-
-class ChangelogUnavailable(Exception):
-    """A changelog read failed; it must not be read as "no entry"."""
-
-
-# A move between these statuses is classification, not work. HYPERFLEET creates
-# issues in `New`; a bulk New -> Backlog sweep must not reset the movement clock.
-TRIVIAL_STATUSES = {"New", "Backlog"}
-
-
-def status_change_counts(change: dict) -> bool:
-    """True when a status transition is workflow movement, not classification."""
-    from_status = (change.get("fromString") or "").strip()
-    to_status = (change.get("toString") or "").strip()
-    return not (from_status in TRIVIAL_STATUSES and to_status in TRIVIAL_STATUSES)
-
-
-def run_jira(args: list[str], binary: str) -> str:
-    try:
-        proc = subprocess.run(
-            [binary, *args], capture_output=True, text=True, timeout=120
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        raise PulseError(f"jira {' '.join(args[:2])} could not run: {exc}") from exc
-    if proc.returncode != 0:
-        raise PulseError(
-            f"jira {' '.join(args)} failed ({proc.returncode}): "
-            f"{(proc.stderr or proc.stdout).strip()[:300]}"
-        )
-    return proc.stdout
-
-
-def parse_date(value: str) -> date:
-    return datetime.strptime(value[:10], "%Y-%m-%d").date()
-
-
-def jira_base_url() -> str | None:
-    """Read the server from the jira-cli config, so the report never hardcodes it.
-
-    Bare keys are only resolvable if the reader knows the server; one line here
-    saves every table from carrying a link per row.
-    """
-    config = Path.home() / ".config" / ".jira" / ".config.yml"
-    try:
-        text = config.read_text()
-    except OSError:
-        return None
-    match = re.search(r"^server:\s*(\S+)", text, re.MULTILINE)
-    if not match:
-        return None
-    server = match.group(1).rstrip("/")
-    if "://" not in server:
-        server = f"https://{server}"
-    if not server.startswith("https://"):
-        return None
-    return f"{server}/browse/"
-
-
-def ticket_ref(key: str, base_url: str | None, style: str) -> str:
-    """Render a ticket key for the destination.
-
-    The same report is pasted into the TUI, Slack and log files, and only one of
-    the three understands `[text](url)`. Keep the syntax switchable instead of
-    guessing at render time.
-    """
-    if not base_url or style == "bare":
-        return key
-    url = f"{base_url}{key}"
-    if style == "slack":
-        return f"<{url}|{key}>"
-    return f"[{key}]({url})"
+# One error type, two names: the caller sees the script it invoked, not the module
+# that raised. The alias also keeps existing tests reading naturally.
+PulseError = JiraError
 
 
 def prose(text: str) -> str:
@@ -127,309 +66,16 @@ def cell(text: str) -> str:
     return prose(text).replace("|", "\\|")
 
 
-def jira_api() -> tuple[str, str] | None:
-    """(server, basic-auth header) for Jira's REST API, or None.
-
-    The changelog is the only place Jira records the exact status transition and
-    the owner change, and jira-cli exposes neither. The token is the same
-    `JIRA_API_TOKEN` the CLI uses; without it both signals are unavailable and the
-    scripts fall back to `statusCategoryChangedDate`.
-    """
-    token = os.environ.get("JIRA_API_TOKEN")
-    if not token:
-        return None
-    config = Path.home() / ".config" / ".jira" / ".config.yml"
-    try:
-        text = config.read_text()
-    except OSError:
-        return None
-    server = re.search(r"^server:\s*(\S+)", text, re.MULTILINE)
-    login = re.search(r"^login:\s*(\S+)", text, re.MULTILINE)
-    if not server or not login:
-        return None
-    base = server.group(1).rstrip("/")
-    if "://" not in base:
-        base = f"https://{base}"
-    if not base.startswith("https://"):
-        # The Basic auth header carries the API token; never send it in cleartext.
-        return None
-    auth = base64.b64encode(f"{login.group(1)}:{token}".encode()).decode()
-    return base, auth
-
-
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Refuse redirects: urllib copies the Authorization header to the target."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
-
-
-def open_changelog(request: urllib.request.Request):
-    """GET that never follows a redirect, so the token stays on the Jira host."""
-    return urllib.request.build_opener(NoRedirect).open(request, timeout=15)
-
-
-def changelog_dates(
-    key: str, account_id: str | None, api: tuple[str, str] | None
-) -> tuple[date | None, date | None]:
-    """(last status change, date the current assignee took the issue).
-
-    Both come from the same changelog payload, so the report pays one request per
-    issue. `statusCategoryChangedDate` is a fallback, not the truth: it ignores
-    moves inside a category, such as In Progress -> Review.
-
-    Either value is None when the changelog has no such entry (the issue was
-    created in its current status or already assigned). A failed request raises
-    `ChangelogUnavailable` instead: "the API said no" and "the API did not
-    answer" must not collapse into the same value, because the caller falls back
-    to a different clock for the second one.
-    """
-    if not api:
-        return None, None
-    server, auth = api
-    url = f"{server}/rest/api/3/issue/{key}?expand=changelog&fields=status,assignee"
-    request = urllib.request.Request(
-        url, headers={"Authorization": f"Basic {auth}", "Accept": "application/json"}
-    )
-    try:
-        with open_changelog(request) as response:
-            payload = json.load(response)
-    except (
-        urllib.error.URLError,
-        http.client.HTTPException,
-        OSError,
-        ValueError,
-    ) as exc:
-        # HTTPError is a URLError and JSONDecodeError/UnicodeDecodeError are
-        # ValueErrors: every transport or decode failure is one counted failure.
-        raise ChangelogUnavailable(f"{key}: {type(exc).__name__}") from exc
-
-    changelog = payload.get("changelog") or {}
-    histories = changelog.get("histories") or []
-    try:
-        total = int(changelog.get("total") or 0)
-    except (TypeError, ValueError):
-        total = 0
-    if total > len(histories):
-        # The inline changelog is capped; a truncated read can miss the exact
-        # transition, so it must be counted instead of looking like "no entry".
-        raise ChangelogUnavailable(
-            f"{key}: changelog truncated ({len(histories)} of {total} entries)"
-        )
-
-    status_dates: list[date] = []
-    assignment_dates: list[date] = []
-    for entry in histories:
-        changed_status = changed_assignee = False
-        for change in entry.get("items") or []:
-            if change.get("field") == "status":
-                if status_change_counts(change):
-                    changed_status = True
-            elif (
-                account_id
-                and change.get("field") == "assignee"
-                and change.get("to") == account_id
-            ):
-                changed_assignee = True
-        if changed_status:
-            status_dates.append(parse_date(entry["created"]))
-        if changed_assignee:
-            assignment_dates.append(parse_date(entry["created"]))
-
-    status_entered = max(status_dates) if status_dates else None
-    assigned = max(assignment_dates) if assignment_dates else None
-    return status_entered, assigned
-
-
-def read_changelog(
-    key: str, account_id: str | None, api: tuple[str, str] | None
-) -> tuple[tuple[date | None, date | None], str | None]:
-    """(dates, error). A failed read is counted, not read as "no entry".
-
-    Collapsing both into (None, None) lets an expired token walk every item back
-    to the status category clock while the report still calls it the exact
-    signal, and the 20-day rung then fires on items that moved last week.
-    """
-    try:
-        return changelog_dates(key, account_id, api), None
-    except ChangelogUnavailable as exc:
-        return (None, None), str(exc)
-
-
-def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
-    """Reset the movement clock on an exact status change or a new owner.
-
-    `statusCategoryChangedDate` only moves between To Do / In Progress / Done, so
-    an item that entered Review yesterday can still look stale by the category
-    date. The changelog has the exact transition.
-
-    Assignment matters for the same reason blocked time does: time before the
-    current owner had the ticket is not the current owner's time. Both signals can
-    only lower the clock; neither can raise it.
-    """
-    for item in items:
-        item["status_entered"] = None
-        item["assigned"] = None
-        item["days_since_assignment"] = None
-
-    api = jira_api()
-    if not api:
-        return {
-            "available": False,
-            "failed": 0,
-            "checked": len(items),
-            "reason": "JIRA_API_TOKEN or jira-cli login not configured",
-        }
-    if not items:
-        return {
-            "available": True,
-            "failed": 0,
-            "checked": 0,
-            "status_dates": 0,
-            "assignments": 0,
-        }
-
-    with ThreadPoolExecutor(max_workers=jobs) as pool:
-        results = list(
-            pool.map(
-                lambda item: read_changelog(item["key"], item.get("assignee_id"), api),
-                items,
-            )
-        )
-
-    status_found = assignment_found = failed = 0
-    for item, ((status_entered, assigned), error) in zip(items, results):
-        if error:
-            failed += 1
-        if status_entered:
-            status_found += 1
-            item["status_entered"] = status_entered.isoformat()
-            item["days_in_status"] = min(
-                item["days_in_status"], (today - status_entered).days
-            )
-        if assigned:
-            assignment_found += 1
-            item["assigned"] = assigned.isoformat()
-            item["days_since_assignment"] = (today - assigned).days
-
-        signals = [item["days_in_status"]]
-        if item["days_since_comment"] is not None:
-            signals.append(item["days_since_comment"])
-        if item["days_since_assignment"] is not None:
-            signals.append(item["days_since_assignment"])
-        item["days_without_movement"] = min(signals)
-
-    return {
-        "available": failed == 0,
-        "failed": failed,
-        "checked": len(items),
-        "status_dates": status_found,
-        "assignments": assignment_found,
-    }
-
-
-def active_sprint(project: str, binary: str) -> dict:
-    out = run_jira(
-        [
-            "sprint", "list", "-p", project, "--state", "active",
-            "--plain", "--no-truncate",
-            "--columns", "ID,NAME,START,END,STATE",
-        ],
-        binary,
-    )
-    rows = [line.split("\t") for line in out.strip().splitlines()]
-    if len(rows) < 2:
-        raise PulseError(f"no active sprint found for project {project}")
-    if len(rows) > 2:
-        print(f"warning: {len(rows) - 1} active sprints; using {rows[1][1]}", file=sys.stderr)
-    sid, name, start, end, state = (rows[1] + [""] * 5)[:5]
-    return {"id": sid, "name": name, "start": start[:10], "end": end[:10], "state": state}
-
-
 def large_item_keys(project: str, min_sp: int, sp_field_name: str, binary: str) -> list[str]:
     jql = (
         f'project = {project} AND sprint in openSprints() '
-        f'AND "{sp_field_name}" >= {min_sp} AND status != Closed'
+        f'AND "{sp_field_name}" >= {min_sp} AND {OPEN_STATUS_JQL}'
     )
     out = run_jira(
         ["issue", "list", "-q", jql, "-p", project, "--plain", "--no-headers", "--columns", "KEY"],
         binary,
     )
     return [line.strip() for line in out.splitlines() if line.strip()]
-
-
-def fetch_issue(key: str, project: str, binary: str) -> dict:
-    try:
-        return json.loads(run_jira(["issue", "view", key, "-p", project, "--raw"], binary))
-    except (PulseError, json.JSONDecodeError) as exc:
-        raise PulseError(f"could not read {key}: {exc}") from exc
-
-
-def fetch_all(keys: list[str], project: str, binary: str, jobs: int) -> dict[str, dict]:
-    unique = sorted(set(keys))
-    with ThreadPoolExecutor(max_workers=jobs) as pool:
-        docs = list(pool.map(lambda k: fetch_issue(k, project, binary), unique))
-    return {doc["key"]: doc for doc in docs}
-
-
-def link_targets(doc: dict) -> tuple[list[str], list[str]]:
-    """Return (blocked_by, blocks) keys from the issue links.
-
-    Orientation matters: Jira labels every Blocks link with inward="is blocked by"
-    and outward="blocks", so the type label alone cannot tell you the direction.
-    What decides is which side of the link carries the other issue.
-    """
-    blocked_by, blocks = [], []
-    for link in doc["fields"].get("issuelinks") or []:
-        kind = link.get("type") or {}
-        inward, outward = link.get("inwardIssue"), link.get("outwardIssue")
-        if inward and inward.get("key") and (kind.get("inward") or "").strip().lower() == "is blocked by":
-            blocked_by.append(inward["key"])
-        elif outward and outward.get("key") and (kind.get("outward") or "").strip().lower() == "blocks":
-            blocks.append(outward["key"])
-    return blocked_by, blocks
-
-
-def human_comment_dates(doc: dict) -> list[date]:
-    dates = []
-    for comment in (doc["fields"].get("comment") or {}).get("comments") or []:
-        author = comment.get("author") or {}
-        if author.get("accountType") == "app":
-            continue
-        created = comment.get("created")
-        if created:
-            dates.append(parse_date(created))
-    return dates
-
-
-def describe(key: str, doc: dict, sp_field: str, today: date) -> dict:
-    fields = doc["fields"]
-    status_changed = parse_date(fields["statuscategorychangedate"])
-    comments = human_comment_dates(doc)
-    last_comment = max(comments) if comments else None
-    days_in_status = (today - status_changed).days
-    days_since_comment = (today - last_comment).days if last_comment else None
-    signals = [days_in_status] + ([days_since_comment] if days_since_comment is not None else [])
-    blocked_by, blocks = link_targets(doc)
-    return {
-        "key": key,
-        "summary": fields.get("summary", ""),
-        "type": (fields.get("issuetype") or {}).get("name", ""),
-        "sp": fields.get(sp_field) or 0,
-        "owner": ((fields.get("assignee") or {}).get("displayName") or "").strip(),
-        "assignee_id": (fields.get("assignee") or {}).get("accountId") or None,
-        "status": (fields.get("status") or {}).get("name", ""),
-        "priority": (fields.get("priority") or {}).get("name", ""),
-        "epic": (fields.get("parent") or {}).get("key"),
-        "labels": fields.get("labels") or [],
-        "created": (fields.get("created") or "")[:10],
-        "days_without_movement": min(signals),
-        "days_in_status": days_in_status,
-        "days_since_comment": days_since_comment,
-        "last_comment": last_comment.isoformat() if last_comment else None,
-        "blocked_by": blocked_by,
-        "blocks": blocks,
-    }
 
 
 def assignment_is_binding(item: dict) -> bool:
@@ -508,13 +154,19 @@ def build(args) -> dict:
     keys = large_item_keys(args.project, args.min_sp, args.sp_field_name, args.jira)
     docs = fetch_all(keys, args.project, args.jira, args.jobs)
 
-    items = [describe(k, d, args.sp_field, today) for k, d in docs.items()]
+    items = []
+    for key, doc in docs.items():
+        item = describe(key, doc, args.sp_field, today)
+        # The report sums points, so "no estimate" is zero here; describe keeps
+        # None so the sprint report can tell the two apart.
+        item["sp"] = item["sp"] or 0
+        items.append(item)
 
     # Resolve the status of every link target so "blocked" and "blocks" mean open work only.
     targets = {k for item in items for k in item["blocked_by"] + item["blocks"]} - set(docs)
     extra = fetch_all(sorted(targets), args.project, args.jira, args.jobs) if targets else {}
-    status_of = {k: (d["fields"].get("status") or {}).get("name", "") for k, d in docs.items()}
-    status_of.update({k: (d["fields"].get("status") or {}).get("name", "") for k, d in extra.items()})
+    status_of = {k: status_name(d) for k, d in {**docs, **extra}.items()}
+    category_of = {k: status_category(d) for k, d in {**docs, **extra}.items()}
     owner_of = {
         k: (((d["fields"].get("assignee") or {}).get("displayName")) or "").strip()
         for k, d in {**docs, **extra}.items()
@@ -535,7 +187,7 @@ def build(args) -> dict:
         )
 
     for item in items:
-        item["open_blockers"] = [k for k in item["blocked_by"] if status_of.get(k) != "Closed"]
+        item["open_blockers"] = open_links(item["blocked_by"], category_of)
         item["blocked"] = bool(item["open_blockers"])
         item["blocker_detail"] = [
             {
@@ -546,7 +198,7 @@ def build(args) -> dict:
             }
             for k in item["open_blockers"]
         ]
-        item["blocks_open"] = [k for k in item["blocks"] if status_of.get(k) != "Closed"]
+        item["blocks_open"] = open_links(item["blocks"], category_of)
         item["ask"] = suggested_ask(item)
 
     owned = [i for i in items if i["owner"]]
@@ -707,16 +359,6 @@ def render_text(data: dict) -> str:
     lines.append(data["definition"])
     lines.append(f"Next pulse: {data['next_pulse'] or 'to be scheduled'}")
     return "\n".join(lines)
-
-
-PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
-
-
-def project_key(value: str) -> str:
-    """A project key lands in JQL unquoted, so reject anything that is not one."""
-    if not PROJECT_KEY.match(value):
-        raise argparse.ArgumentTypeError(f"not a Jira project key: {value!r}")
-    return value
 
 
 def field_name(value: str) -> str:

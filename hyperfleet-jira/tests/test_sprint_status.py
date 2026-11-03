@@ -22,6 +22,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+import jira_common as jc  # noqa: E402
 import sprint_status as ss  # noqa: E402
 
 TODAY = date(2026, 11, 3)
@@ -91,7 +92,7 @@ class PaginationTest(unittest.TestCase):
                 return "\n".join(f"HYPERFLEET-{n}" for n in range(100, 97, -1)) + "\n"
             return "\n".join(f"HYPERFLEET-{n}" for n in range(200, 100, -1)) + "\n"
 
-        with mock.patch.object(ss, "run_jira", side_effect=fake_run_jira):
+        with mock.patch.object(jc, "run_jira", side_effect=fake_run_jira):
             keys = ss.search_keys("project = HYPERFLEET", "HYPERFLEET", "jira")
 
         self.assertEqual(len(keys), 103)
@@ -102,7 +103,7 @@ class PaginationTest(unittest.TestCase):
 
     def test_stops_when_a_batch_is_short(self):
         with mock.patch.object(
-            ss, "run_jira", return_value="HYPERFLEET-3\nHYPERFLEET-2\n"
+            jc, "run_jira", return_value="HYPERFLEET-3\nHYPERFLEET-2\n"
         ) as fake:
             keys = ss.search_keys("project = HYPERFLEET", "HYPERFLEET", "jira")
         self.assertEqual(keys, ["HYPERFLEET-3", "HYPERFLEET-2"])
@@ -111,16 +112,17 @@ class PaginationTest(unittest.TestCase):
 
 class DescribeTest(unittest.TestCase):
     def test_status_category_is_read_not_status_name(self):
-        described = ss.describe(doc(status="Closed", category="Done"), "customfield_10028", TODAY)
+        described = ss.describe("HYPERFLEET-100", doc(status="Closed", category="Done"), "customfield_10028", TODAY)
         self.assertTrue(described["is_done"])
         self.assertEqual(described["category"], "Done")
 
     def test_missing_story_points_are_none_not_zero(self):
-        described = ss.describe(doc(sp=None), "customfield_10028", TODAY)
+        described = ss.describe("HYPERFLEET-100", doc(sp=None), "customfield_10028", TODAY)
         self.assertIsNone(described["sp"])
 
     def test_automation_comments_are_not_movement(self):
         described = ss.describe(
+            "HYPERFLEET-100",
             doc(changed="2026-10-04", comments=[comment("2026-11-02", "Automation", "app")]),
             "customfield_10028",
             TODAY,
@@ -130,6 +132,7 @@ class DescribeTest(unittest.TestCase):
 
     def test_human_comment_resets_the_clock(self):
         described = ss.describe(
+            "HYPERFLEET-100",
             doc(changed="2026-10-04", comments=[comment("2026-11-01")]),
             "customfield_10028",
             TODAY,
@@ -141,7 +144,7 @@ class DescribeTest(unittest.TestCase):
             "type": {"inward": "is blocked by", "outward": "blocks"},
             "outwardIssue": {"key": "HYPERFLEET-200"},
         }
-        blocked_by, blocks = ss.link_targets(doc(links=[link]))
+        blocked_by, blocks = jc.link_targets(doc(links=[link]))
         self.assertEqual(blocked_by, [])
         self.assertEqual(blocks, ["HYPERFLEET-200"])
 
@@ -161,9 +164,9 @@ class ChangelogSignalTest(unittest.TestCase):
 
     def test_status_change_inside_a_category_resets_the_clock(self):
         subject = self.item(days_in_status=15, days_without_movement=15)
-        with mock.patch.object(ss, "jira_api", return_value=("https://x", "auth")), \
+        with mock.patch.object(jc, "jira_api", return_value=("https://x", "auth")), \
              mock.patch.object(
-                 ss, "changelog_dates", return_value=(date(2026, 10, 30), None)
+                 jc, "changelog_dates", return_value=(date(2026, 10, 30), None)
              ):
             ss.apply_changelog_signals([subject], TODAY, 1)
         self.assertEqual(subject["days_in_status"], 4)
@@ -172,27 +175,27 @@ class ChangelogSignalTest(unittest.TestCase):
 
     def test_assignment_resets_the_clock(self):
         subject = self.item()
-        with mock.patch.object(ss, "jira_api", return_value=("https://x", "auth")), \
+        with mock.patch.object(jc, "jira_api", return_value=("https://x", "auth")), \
              mock.patch.object(
-                 ss, "changelog_dates", return_value=(None, date(2026, 10, 30))
+                 jc, "changelog_dates", return_value=(None, date(2026, 10, 30))
              ):
             ss.apply_changelog_signals([subject], TODAY, 1)
         self.assertEqual(subject["days_without_movement"], 4)
 
     def test_new_to_backlog_is_not_movement(self):
         self.assertFalse(
-            ss.status_change_counts({"fromString": "New", "toString": "Backlog"})
+            jc.status_change_counts({"fromString": "New", "toString": "Backlog"})
         )
         self.assertTrue(
-            ss.status_change_counts({"fromString": "Backlog", "toString": "In Progress"})
+            jc.status_change_counts({"fromString": "Backlog", "toString": "In Progress"})
         )
         self.assertTrue(
-            ss.status_change_counts({"fromString": "In Progress", "toString": "Review"})
+            jc.status_change_counts({"fromString": "In Progress", "toString": "Review"})
         )
 
     def test_missing_token_keeps_the_old_clock(self):
         subject = self.item()
-        with mock.patch.object(ss, "jira_api", return_value=None):
+        with mock.patch.object(jc, "jira_api", return_value=None):
             report = ss.apply_changelog_signals([subject], TODAY, 1)
         self.assertFalse(report["available"])
         self.assertEqual(subject["days_without_movement"], 13)
@@ -445,9 +448,9 @@ class ChangelogFailureTest(unittest.TestCase):
         }
 
     def test_a_failed_read_is_counted_not_hidden(self):
-        with mock.patch.object(ss, "jira_api", return_value=self.api), \
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 ss, "changelog_dates",
+                 jc, "changelog_dates",
                  side_effect=ss.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
              ):
             report = ss.apply_changelog_signals([self.item()], TODAY, 1)
@@ -456,9 +459,9 @@ class ChangelogFailureTest(unittest.TestCase):
 
     def test_a_failed_read_leaves_the_clock_alone(self):
         subject = self.item()
-        with mock.patch.object(ss, "jira_api", return_value=self.api), \
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 ss, "changelog_dates", side_effect=ss.ChangelogUnavailable("boom")
+                 jc, "changelog_dates", side_effect=ss.ChangelogUnavailable("boom")
              ):
             ss.apply_changelog_signals([subject], TODAY, 1)
         self.assertEqual(subject["days_without_movement"], 13)
@@ -474,9 +477,9 @@ class JiraApiGuardTest(unittest.TestCase):
 
     def api(self, server):
         self.config.write_text(f"server: {server}\nlogin: someone@example.com\n")
-        with mock.patch.object(ss.Path, "home", return_value=Path(self.tmp.name)), \
+        with mock.patch.object(jc.Path, "home", return_value=Path(self.tmp.name)), \
              mock.patch.dict(os.environ, {"JIRA_API_TOKEN": "token"}):
-            return ss.jira_api()
+            return jc.jira_api()
 
     def test_https_is_kept(self):
         self.assertEqual(
@@ -505,21 +508,21 @@ class ChangelogTransportTest(unittest.TestCase):
 
     def call(self, payload=None, error=None):
         if error is not None:
-            patcher = mock.patch.object(ss, "open_changelog", side_effect=error)
+            patcher = mock.patch.object(jc, "open_changelog", side_effect=error)
         else:
             patcher = mock.patch.object(
-                ss, "open_changelog", return_value=self.Response(payload)
+                jc, "open_changelog", return_value=self.Response(payload)
             )
         with patcher:
-            return ss.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
+            return jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
 
     def test_a_network_error_is_counted(self):
         with self.assertRaises(ss.ChangelogUnavailable):
-            self.call(error=ss.urllib.error.URLError("401 Unauthorized"))
+            self.call(error=jc.urllib.error.URLError("401 Unauthorized"))
 
     def test_a_truncated_response_is_counted(self):
         with self.assertRaises(ss.ChangelogUnavailable):
-            self.call(error=ss.http.client.IncompleteRead(b""))
+            self.call(error=jc.http.client.IncompleteRead(b""))
 
     def test_a_non_utf8_body_is_counted(self):
         error = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
@@ -551,10 +554,10 @@ class ChangelogTransportTest(unittest.TestCase):
         self.assertEqual(self.call(payload=payload)[0], date(2026, 10, 30))
 
     def test_a_redirect_is_refused(self):
-        handler = ss.NoRedirect()
-        with self.assertRaises(ss.urllib.error.HTTPError) as caught:
+        handler = jc.NoRedirect()
+        with self.assertRaises(jc.urllib.error.HTTPError) as caught:
             handler.redirect_request(
-                ss.urllib.request.Request("https://a.example"),
+                jc.urllib.request.Request("https://a.example"),
                 None,
                 302,
                 "Found",
@@ -569,8 +572,57 @@ class ProjectArgumentTest(unittest.TestCase):
         self.assertEqual(ss.project_key("HYPERFLEET"), "HYPERFLEET")
 
     def test_jql_is_not_a_project_key(self):
-        with self.assertRaises(ss.argparse.ArgumentTypeError):
+        with self.assertRaises(jc.argparse.ArgumentTypeError):
             ss.project_key("HF OR project = SECRET")
+
+
+class BaselineTest(unittest.TestCase):
+    """The baseline measures the previous sprint at its own end date."""
+
+    sprint = {
+        "id": "66536",
+        "name": "Hyperfleet Sprint 18",
+        "start": "2026-10-12",
+        "end": "2026-10-25",
+    }
+
+    def run_baseline(self, docs):
+        with mock.patch.object(ss, "search_keys", return_value=[d["key"] for d in docs]), \
+             mock.patch.object(ss, "fetch_all", return_value={d["key"]: d for d in docs}):
+            return ss.baseline_for(
+                self.sprint,
+                "HYPERFLEET",
+                "customfield_10028",
+                "jira",
+                1,
+                TODAY,
+            )
+
+    def test_counts_only_work_closed_by_the_sprint_end(self):
+        baseline = self.run_baseline(
+            [
+                doc("HYPERFLEET-1", sp=3, status="Done", category="Done", changed="2026-10-20"),
+                doc("HYPERFLEET-2", sp=5, status="Closed", category="Done", changed="2026-11-02"),
+                doc("HYPERFLEET-3", sp=2, status="In Progress", category="In Progress", changed="2026-10-20"),
+            ]
+        )
+        self.assertEqual(baseline["committed_sp"], 10)
+        self.assertEqual(baseline["delivered_sp"], 3)
+        self.assertEqual(baseline["percent"], 30.0)
+        self.assertEqual(baseline["end"], "2026-10-25")
+
+    def test_work_closed_on_the_last_day_still_counts(self):
+        baseline = self.run_baseline(
+            [doc("HYPERFLEET-1", sp=5, status="Closed", category="Done", changed="2026-10-25")]
+        )
+        self.assertEqual(baseline["delivered_sp"], 5)
+
+    def test_an_open_item_is_never_delivered(self):
+        baseline = self.run_baseline(
+            [doc("HYPERFLEET-1", sp=5, status="In Progress", category="In Progress", changed="2026-10-20")]
+        )
+        self.assertEqual(baseline["delivered_sp"], 0)
+        self.assertEqual(baseline["percent"], 0.0)
 
 
 if __name__ == "__main__":

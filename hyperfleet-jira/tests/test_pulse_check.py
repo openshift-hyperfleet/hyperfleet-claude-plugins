@@ -20,6 +20,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+import jira_common as jc  # noqa: E402
 import pulse_check as pc  # noqa: E402
 
 TODAY = date(2026, 11, 3)
@@ -75,17 +76,17 @@ def blocked_by_link(target):
 
 class LinkOrientationTest(unittest.TestCase):
     def test_outward_link_is_not_a_blocker(self):
-        blocked_by, blocks = pc.link_targets(doc(links=[blocks_link("HYPERFLEET-200")]))
+        blocked_by, blocks = jc.link_targets(doc(links=[blocks_link("HYPERFLEET-200")]))
         self.assertEqual(blocked_by, [])
         self.assertEqual(blocks, ["HYPERFLEET-200"])
 
     def test_inward_link_is_a_blocker(self):
-        blocked_by, blocks = pc.link_targets(doc(links=[blocked_by_link("HYPERFLEET-200")]))
+        blocked_by, blocks = jc.link_targets(doc(links=[blocked_by_link("HYPERFLEET-200")]))
         self.assertEqual(blocked_by, ["HYPERFLEET-200"])
         self.assertEqual(blocks, [])
 
     def test_both_directions_in_one_issue(self):
-        blocked_by, blocks = pc.link_targets(
+        blocked_by, blocks = jc.link_targets(
             doc(links=[blocked_by_link("HYPERFLEET-200"), blocks_link("HYPERFLEET-201")])
         )
         self.assertEqual(blocked_by, ["HYPERFLEET-200"])
@@ -94,13 +95,13 @@ class LinkOrientationTest(unittest.TestCase):
 
 class MovementTest(unittest.TestCase):
     def test_app_comments_are_not_movement(self):
-        dates = pc.human_comment_dates(
+        dates = jc.human_comment_dates(
             doc(comments=[comment("2026-11-02", "Automation for Jira", "app")])
         )
         self.assertEqual(dates, [])
 
     def test_human_comment_is_movement(self):
-        dates = pc.human_comment_dates(doc(comments=[comment("2026-11-02")]))
+        dates = jc.human_comment_dates(doc(comments=[comment("2026-11-02")]))
         self.assertEqual(dates, [date(2026, 11, 2)])
 
     def test_movement_uses_the_most_recent_signal(self):
@@ -150,15 +151,15 @@ class ChangelogSignalTest(unittest.TestCase):
         return base
 
     def apply(self, status_entered=None, assigned=None):
-        with mock.patch.object(pc, "jira_api", return_value=self.api), \
-             mock.patch.object(pc, "changelog_dates", return_value=(status_entered, assigned)):
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
+             mock.patch.object(jc, "changelog_dates", return_value=(status_entered, assigned)):
             return pc.apply_changelog_signals([self.item], TODAY, 1)
 
     def test_status_change_inside_a_category_resets_the_clock(self):
         item = self.item(days_in_status=15, days_without_movement=15)
-        with mock.patch.object(pc, "jira_api", return_value=self.api), \
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 pc, "changelog_dates", return_value=(date(2026, 10, 30), None)
+                 jc, "changelog_dates", return_value=(date(2026, 10, 30), None)
              ):
             report = pc.apply_changelog_signals([item], TODAY, 1)
         self.assertEqual(item["days_in_status"], 4)
@@ -177,9 +178,9 @@ class ChangelogSignalTest(unittest.TestCase):
 
     def test_assignment_resets_the_clock(self):
         item = self.item()
-        with mock.patch.object(pc, "jira_api", return_value=self.api), \
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 pc, "changelog_dates", return_value=(None, date(2026, 10, 30))
+                 jc, "changelog_dates", return_value=(None, date(2026, 10, 30))
              ):
             report = pc.apply_changelog_signals([item], TODAY, 1)
         self.assertEqual(item["days_without_movement"], 4)
@@ -189,16 +190,16 @@ class ChangelogSignalTest(unittest.TestCase):
 
     def test_signals_never_raise_the_clock(self):
         item = self.item(days_in_status=2, days_since_comment=None, days_without_movement=2)
-        with mock.patch.object(pc, "jira_api", return_value=self.api), \
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 pc, "changelog_dates", return_value=(date(2026, 1, 1), date(2026, 1, 1))
+                 jc, "changelog_dates", return_value=(date(2026, 1, 1), date(2026, 1, 1))
              ):
             pc.apply_changelog_signals([item], TODAY, 1)
         self.assertEqual(item["days_without_movement"], 2)
 
     def test_missing_token_keeps_the_old_clock(self):
         item = self.item()
-        with mock.patch.object(pc, "jira_api", return_value=None):
+        with mock.patch.object(jc, "jira_api", return_value=None):
             report = pc.apply_changelog_signals([item], TODAY, 1)
         self.assertFalse(report["available"])
         self.assertEqual(item["days_without_movement"], 13)
@@ -228,10 +229,10 @@ class ChangelogSignalTest(unittest.TestCase):
 
     def test_changelog_returns_the_latest_status_and_assignment(self):
         with mock.patch.object(
-            pc, "open_changelog", return_value=self.Response(self.histories())
+            jc, "open_changelog", return_value=self.Response(self.histories())
         ):
             self.assertEqual(
-                pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api),
+                jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api),
                 (date(2026, 10, 31), date(2026, 10, 31)),
             )
 
@@ -245,19 +246,19 @@ class ChangelogSignalTest(unittest.TestCase):
             }
         }
         with mock.patch.object(
-            pc, "open_changelog", return_value=self.Response(payload)
+            jc, "open_changelog", return_value=self.Response(payload)
         ):
             self.assertEqual(
-                pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api), (None, None)
+                jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api), (None, None)
             )
 
     def test_created_in_status_has_no_transition_date(self):
         payload = {"changelog": {"histories": []}}
         with mock.patch.object(
-            pc, "open_changelog", return_value=self.Response(payload)
+            jc, "open_changelog", return_value=self.Response(payload)
         ):
             self.assertEqual(
-                pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api), (None, None)
+                jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api), (None, None)
             )
 
     def test_binding_only_when_assignment_is_strictly_shortest(self):
@@ -290,9 +291,9 @@ class ChangelogFailureTest(unittest.TestCase):
         }
 
     def test_a_failed_read_is_counted_not_hidden(self):
-        with mock.patch.object(pc, "jira_api", return_value=self.api), \
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 pc, "changelog_dates",
+                 jc, "changelog_dates",
                  side_effect=pc.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
              ):
             report = pc.apply_changelog_signals([self.item()], TODAY, 1)
@@ -302,9 +303,9 @@ class ChangelogFailureTest(unittest.TestCase):
 
     def test_a_failed_read_leaves_the_clock_alone(self):
         item = self.item()
-        with mock.patch.object(pc, "jira_api", return_value=self.api), \
+        with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 pc, "changelog_dates", side_effect=pc.ChangelogUnavailable("boom")
+                 jc, "changelog_dates", side_effect=pc.ChangelogUnavailable("boom")
              ):
             pc.apply_changelog_signals([item], TODAY, 1)
         self.assertEqual(item["days_without_movement"], 13)
@@ -312,12 +313,12 @@ class ChangelogFailureTest(unittest.TestCase):
 
     def test_an_http_error_raises_instead_of_looking_empty(self):
         with mock.patch.object(
-            pc,
+            jc,
             "open_changelog",
-            side_effect=pc.urllib.error.URLError("401 Unauthorized"),
+            side_effect=jc.urllib.error.URLError("401 Unauthorized"),
         ):
             with self.assertRaises(pc.ChangelogUnavailable):
-                pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
+                jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
 
 
 class ChangelogTransportTest(unittest.TestCase):
@@ -335,17 +336,17 @@ class ChangelogTransportTest(unittest.TestCase):
 
     def call(self, payload=None, error=None):
         if error is not None:
-            patcher = mock.patch.object(pc, "open_changelog", side_effect=error)
+            patcher = mock.patch.object(jc, "open_changelog", side_effect=error)
         else:
             patcher = mock.patch.object(
-                pc, "open_changelog", return_value=self.Response(payload)
+                jc, "open_changelog", return_value=self.Response(payload)
             )
         with patcher:
-            return pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
+            return jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
 
     def test_a_truncated_response_is_counted(self):
         with self.assertRaises(pc.ChangelogUnavailable):
-            self.call(error=pc.http.client.IncompleteRead(b""))
+            self.call(error=jc.http.client.IncompleteRead(b""))
 
     def test_a_non_utf8_body_is_counted(self):
         error = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
@@ -377,10 +378,10 @@ class ChangelogTransportTest(unittest.TestCase):
         self.assertEqual(self.call(payload=payload)[0], date(2026, 10, 30))
 
     def test_a_redirect_is_refused(self):
-        handler = pc.NoRedirect()
-        with self.assertRaises(pc.urllib.error.HTTPError) as caught:
+        handler = jc.NoRedirect()
+        with self.assertRaises(jc.urllib.error.HTTPError) as caught:
             handler.redirect_request(
-                pc.urllib.request.Request("https://a.example"),
+                jc.urllib.request.Request("https://a.example"),
                 None,
                 302,
                 "Found",
@@ -393,16 +394,16 @@ class ChangelogTransportTest(unittest.TestCase):
 class RunJiraTest(unittest.TestCase):
     def test_a_timeout_is_a_pulse_error(self):
         with mock.patch.object(
-            pc.subprocess,
+            jc.subprocess,
             "run",
-            side_effect=pc.subprocess.TimeoutExpired("jira", 120),
+            side_effect=jc.subprocess.TimeoutExpired("jira", 120),
         ):
             with self.assertRaises(pc.PulseError):
                 pc.run_jira(["issue", "list"], "jira")
 
     def test_a_missing_binary_is_a_pulse_error(self):
         with mock.patch.object(
-            pc.subprocess, "run", side_effect=FileNotFoundError("jira")
+            jc.subprocess, "run", side_effect=FileNotFoundError("jira")
         ):
             with self.assertRaises(pc.PulseError):
                 pc.run_jira(["issue", "list"], "jira")
@@ -417,9 +418,9 @@ class JiraApiTest(unittest.TestCase):
 
     def api(self, server):
         self.config.write_text(f"server: {server}\nlogin: someone@example.com\n")
-        with mock.patch.object(pc.Path, "home", return_value=Path(self.tmp.name)), \
-             mock.patch.dict(pc.os.environ, {"JIRA_API_TOKEN": "token"}):
-            return pc.jira_api()
+        with mock.patch.object(jc.Path, "home", return_value=Path(self.tmp.name)), \
+             mock.patch.dict(jc.os.environ, {"JIRA_API_TOKEN": "token"}):
+            return jc.jira_api()
 
     def test_https_is_kept(self):
         self.assertEqual(
@@ -440,7 +441,7 @@ class ProjectArgumentTest(unittest.TestCase):
         self.assertEqual(pc.project_key("HYPERFLEET"), "HYPERFLEET")
 
     def test_jql_is_not_a_project_key(self):
-        with self.assertRaises(pc.argparse.ArgumentTypeError):
+        with self.assertRaises(jc.argparse.ArgumentTypeError):
             pc.project_key("HF OR project = SECRET")
 
 
@@ -648,6 +649,30 @@ class TicketRefTest(unittest.TestCase):
 
     def test_no_base_url_falls_back_to_bare(self):
         self.assertEqual(pc.ticket_ref("HYPERFLEET-1", None, "markdown"), "HYPERFLEET-1")
+
+
+class LargeItemQueryTest(unittest.TestCase):
+    def test_done_is_filtered_by_category_not_by_status_name(self):
+        with mock.patch.object(pc, "run_jira", return_value="HYPERFLEET-1\n") as fake:
+            keys = pc.large_item_keys("HYPERFLEET", 5, "Story Points", "jira")
+        jql = fake.call_args.args[0][fake.call_args.args[0].index("-q") + 1]
+        self.assertEqual(keys, ["HYPERFLEET-1"])
+        self.assertIn("statusCategory != Done", jql)
+        self.assertNotIn("status != Closed", jql)
+
+
+class OpenLinksTest(unittest.TestCase):
+    def test_a_done_category_closes_the_link(self):
+        self.assertEqual(jc.open_links(["HYPERFLEET-2"], {"HYPERFLEET-2": "Done"}), [])
+
+    def test_a_status_named_closed_but_still_in_progress_stays_open(self):
+        self.assertEqual(
+            jc.open_links(["HYPERFLEET-2"], {"HYPERFLEET-2": "In Progress"}),
+            ["HYPERFLEET-2"],
+        )
+
+    def test_an_unread_target_counts_as_open(self):
+        self.assertEqual(jc.open_links(["HYPERFLEET-2"], {}), ["HYPERFLEET-2"])
 
 
 if __name__ == "__main__":
