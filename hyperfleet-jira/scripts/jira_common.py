@@ -66,10 +66,6 @@ def status_name(doc: dict) -> str:
     return ((doc["fields"].get("status") or {}).get("name") or "").strip()
 
 
-def is_done_doc(doc: dict) -> bool:
-    return status_category(doc) == DONE_CATEGORY
-
-
 def open_links(keys: list[str], category_of: dict[str, str]) -> list[str]:
     """Link targets that are still open work.
 
@@ -287,15 +283,12 @@ def describe(key: str, doc: dict, sp_field: str, today: date) -> dict:
         # Jira's numeric id, which the development panel is keyed by.
         "issue_id": str(doc.get("id") or "") or None,
         "summary": (fields.get("summary") or "").strip(),
-        "type": (fields.get("issuetype") or {}).get("name", ""),
         "sp": points if isinstance(points, (int, float)) else None,
         "owner": ((fields.get("assignee") or {}).get("displayName") or "").strip(),
         "assignee_id": (fields.get("assignee") or {}).get("accountId") or None,
         "status": (status.get("name") or "").strip(),
         "category": category,
         "priority": (fields.get("priority") or {}).get("name", ""),
-        "epic": (fields.get("parent") or {}).get("key"),
-        "labels": fields.get("labels") or [],
         "created": (fields.get("created") or "")[:10],
         "status_changed": status_changed.isoformat(),
         "days_in_status": days_in_status,
@@ -744,18 +737,18 @@ def pr_ref(pr: dict, style: str) -> str:
     return f"{ref} ({state})" if state and state != "open" else ref
 
 
-def pr_refs(item: dict, style: str, limit: int = 2) -> str:
+def pr_refs(item: dict, style: str) -> str:
     """`PR #1, #2 +1` for an item, or "" when Jira reports no pull request.
 
-    `limit` is a line-width cap, not a choice: every pull request in the list
-    belongs to the ticket by its own title, and the count after `+` says how many
-    are not shown. Nothing is dropped from ownership, only from the line.
+    The two shown are a line-width cap, not a choice: every pull request in the
+    list belongs to the ticket by its own title, and the count after `+` says how
+    many are not shown. Nothing is dropped from ownership, only from the line.
     """
     prs = item.get("pr") or []
     if not prs:
         return ""
-    shown = ", ".join(pr_ref(pr, style) for pr in prs[:limit])
-    more = f" +{len(prs) - limit}" if len(prs) > limit else ""
+    shown = ", ".join(pr_ref(pr, style) for pr in prs[:2])
+    more = f" +{len(prs) - 2}" if len(prs) > 2 else ""
     return f"PR {shown}{more}"
 
 
@@ -839,3 +832,49 @@ def project_key(value: str) -> str:
     if not PROJECT_KEY.match(value):
         raise argparse.ArgumentTypeError(f"not a Jira project key: {value!r}")
     return value
+
+
+# --------------------------------------------------------------------------
+# CLI surface and signals shared by both collectors
+# --------------------------------------------------------------------------
+
+
+def add_common_arguments(parser: argparse.ArgumentParser) -> None:
+    """The flags both collectors accept, written once.
+
+    Two `--help` texts that drift are two contracts: the reviewer reads one and
+    the lead runs the other. The flags that mean the same thing in both scripts
+    live here; the ones that only one command has stay in its `main`.
+    """
+    parser.add_argument("--project", default="HYPERFLEET", type=project_key)
+    parser.add_argument("--jira", default="jira", help="jira-cli binary")
+    parser.add_argument(
+        "--sp-field", default="customfield_10028", help="custom field id holding story points"
+    )
+    parser.add_argument("--today", help="YYYY-MM-DD, for reproducible runs")
+    parser.add_argument(
+        "--no-prs",
+        action="store_true",
+        help="skip the pull request lookup for items in review",
+    )
+    parser.add_argument("--jobs", type=int, default=8)
+
+
+def no_prs_signal() -> dict:
+    """The `pr_signal` of a run that skipped the lookup.
+
+    `skipped` is what keeps the renderer from blaming a missing token for a call
+    the caller turned off.
+    """
+    return {"available": True, "failed": 0, "checked": 0, "found": 0, "skipped": True}
+
+
+def warn_changelog_failure(signal: dict) -> None:
+    """Say once, on stderr, that some movement clocks fell back."""
+    if not signal.get("failed"):
+        return
+    print(
+        f"warning: {signal['failed']} of {signal['checked']} changelog reads "
+        "failed; those items fall back to the status category date",
+        file=sys.stderr,
+    )

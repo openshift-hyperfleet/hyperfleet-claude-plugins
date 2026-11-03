@@ -294,7 +294,7 @@ class ChangelogFailureTest(unittest.TestCase):
         with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
                  jc, "changelog_dates",
-                 side_effect=pc.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
+                 side_effect=jc.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
              ):
             report = pc.apply_changelog_signals([self.item()], TODAY, 1)
         self.assertFalse(report["available"])
@@ -305,7 +305,7 @@ class ChangelogFailureTest(unittest.TestCase):
         item = self.item()
         with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 jc, "changelog_dates", side_effect=pc.ChangelogUnavailable("boom")
+                 jc, "changelog_dates", side_effect=jc.ChangelogUnavailable("boom")
              ):
             pc.apply_changelog_signals([item], TODAY, 1)
         self.assertEqual(item["days_without_movement"], 13)
@@ -317,7 +317,7 @@ class ChangelogFailureTest(unittest.TestCase):
             "open_changelog",
             side_effect=jc.urllib.error.URLError("401 Unauthorized"),
         ):
-            with self.assertRaises(pc.ChangelogUnavailable):
+            with self.assertRaises(jc.ChangelogUnavailable):
                 jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
 
 
@@ -345,16 +345,16 @@ class ChangelogTransportTest(unittest.TestCase):
             return jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
 
     def test_a_truncated_response_is_counted(self):
-        with self.assertRaises(pc.ChangelogUnavailable):
+        with self.assertRaises(jc.ChangelogUnavailable):
             self.call(error=jc.http.client.IncompleteRead(b""))
 
     def test_a_non_utf8_body_is_counted(self):
         error = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
-        with self.assertRaises(pc.ChangelogUnavailable):
+        with self.assertRaises(jc.ChangelogUnavailable):
             self.call(error=error)
 
     def test_a_capped_changelog_is_counted(self):
-        with self.assertRaises(pc.ChangelogUnavailable):
+        with self.assertRaises(jc.ChangelogUnavailable):
             self.call(payload={"changelog": {"total": 150, "histories": []}})
 
     def test_a_complete_changelog_is_read(self):
@@ -438,11 +438,11 @@ class JiraApiTest(unittest.TestCase):
 
 class ProjectArgumentTest(unittest.TestCase):
     def test_a_project_key_is_accepted(self):
-        self.assertEqual(pc.project_key("HYPERFLEET"), "HYPERFLEET")
+        self.assertEqual(jc.project_key("HYPERFLEET"), "HYPERFLEET")
 
     def test_jql_is_not_a_project_key(self):
         with self.assertRaises(jc.argparse.ArgumentTypeError):
-            pc.project_key("HF OR project = SECRET")
+            jc.project_key("HF OR project = SECRET")
 
 
 class AskTest(unittest.TestCase):
@@ -588,7 +588,7 @@ class AskTest(unittest.TestCase):
         self.assertNotIn("office hours", self.ask("Backlog", 12).lower())
 
 
-class CrossReferenceAskTest(unittest.TestCase):
+class PullRequestAskTest(unittest.TestCase):
     """Jira links a pull request to every ticket its title names, and only the title decides."""
 
     def item(self, pr=()):

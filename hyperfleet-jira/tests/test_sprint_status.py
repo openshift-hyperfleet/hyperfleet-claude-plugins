@@ -707,7 +707,7 @@ class ChangelogFailureTest(unittest.TestCase):
         with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
                  jc, "changelog_dates",
-                 side_effect=ss.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
+                 side_effect=jc.ChangelogUnavailable("HYPERFLEET-1671: HTTPError"),
              ):
             report = ss.apply_changelog_signals([self.item()], TODAY, 1)
         self.assertFalse(report["available"])
@@ -717,7 +717,7 @@ class ChangelogFailureTest(unittest.TestCase):
         subject = self.item()
         with mock.patch.object(jc, "jira_api", return_value=self.api), \
              mock.patch.object(
-                 jc, "changelog_dates", side_effect=ss.ChangelogUnavailable("boom")
+                 jc, "changelog_dates", side_effect=jc.ChangelogUnavailable("boom")
              ):
             ss.apply_changelog_signals([subject], TODAY, 1)
         self.assertEqual(subject["days_without_movement"], 13)
@@ -773,20 +773,20 @@ class ChangelogTransportTest(unittest.TestCase):
             return jc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
 
     def test_a_network_error_is_counted(self):
-        with self.assertRaises(ss.ChangelogUnavailable):
+        with self.assertRaises(jc.ChangelogUnavailable):
             self.call(error=jc.urllib.error.URLError("401 Unauthorized"))
 
     def test_a_truncated_response_is_counted(self):
-        with self.assertRaises(ss.ChangelogUnavailable):
+        with self.assertRaises(jc.ChangelogUnavailable):
             self.call(error=jc.http.client.IncompleteRead(b""))
 
     def test_a_non_utf8_body_is_counted(self):
         error = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
-        with self.assertRaises(ss.ChangelogUnavailable):
+        with self.assertRaises(jc.ChangelogUnavailable):
             self.call(error=error)
 
     def test_a_capped_changelog_is_counted(self):
-        with self.assertRaises(ss.ChangelogUnavailable):
+        with self.assertRaises(jc.ChangelogUnavailable):
             self.call(payload={"changelog": {"total": 150, "histories": []}})
 
     def test_a_complete_changelog_is_read(self):
@@ -825,11 +825,11 @@ class ChangelogTransportTest(unittest.TestCase):
 
 class ProjectArgumentTest(unittest.TestCase):
     def test_a_project_key_is_accepted(self):
-        self.assertEqual(ss.project_key("HYPERFLEET"), "HYPERFLEET")
+        self.assertEqual(jc.project_key("HYPERFLEET"), "HYPERFLEET")
 
     def test_jql_is_not_a_project_key(self):
         with self.assertRaises(jc.argparse.ArgumentTypeError):
-            ss.project_key("HF OR project = SECRET")
+            jc.project_key("HF OR project = SECRET")
 
 
 class BaselineTest(unittest.TestCase):

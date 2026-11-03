@@ -20,7 +20,7 @@ Read-only. The script never writes to Jira.
 
 Usage:
     python3 pulse_check.py                          # JSON, current sprint, today
-    python3 pulse_check.py --format text            # ready-to-paste block
+    python3 pulse_check.py --format markdown         # ready-to-paste block
     python3 pulse_check.py --today 2026-11-03       # reproducible run
     python3 pulse_check.py --project HYPERFLEET --min-sp 5 --max-rows 7
 """
@@ -36,22 +36,21 @@ from datetime import datetime, timezone
 # by category", one pager, one changelog reader. See jira_common.py.
 from jira_common import (
     OPEN_STATUS_JQL,
-    ChangelogUnavailable,
     JiraError,
     active_sprint,
+    add_common_arguments,
     apply_changelog_signals,
     apply_pull_requests,
     describe,
     fetch_all,
     jira_base_url,
+    no_prs_signal,
     open_links,
     parse_date,
     pr_refs,
-    project_key,
     run_jira,
-    status_category,
-    status_name,
     ticket_ref,
+    warn_changelog_failure,
 )
 
 # One error type, two names: the caller sees the script it invoked, not the module
@@ -298,26 +297,16 @@ def build(args) -> dict:
     # Resolve the status of every link target so "blocked" and "blocks" mean open work only.
     targets = {k for item in items for k in item["blocked_by"] + item["blocks"]} - set(docs)
     extra = fetch_all(sorted(targets), args.project, args.jira, args.jobs) if targets else {}
-    status_of = {k: status_name(d) for k, d in {**docs, **extra}.items()}
-    category_of = {k: status_category(d) for k, d in {**docs, **extra}.items()}
-    owner_of = {
-        k: (((d["fields"].get("assignee") or {}).get("displayName")) or "").strip()
-        for k, d in {**docs, **extra}.items()
-    }
 
     # Descriptors for the targets as well, so a blocker's ask can carry its own age.
     target_items = [describe(k, d, args.sp_field, today) for k, d in extra.items()]
     by_key = {entry["key"]: entry for entry in items + target_items}
+    category_of = {key: entry["category"] for key, entry in by_key.items()}
 
     # Exact status transitions and owner changes reset the movement clock. Must run
     # before the asks are derived.
     signals = apply_changelog_signals(items + target_items, today, args.jobs)
-    if signals.get("failed"):
-        print(
-            f"warning: {signals['failed']} of {signals['checked']} changelog reads "
-            "failed; those items fall back to the status category date",
-            file=sys.stderr,
-        )
+    warn_changelog_failure(signals)
 
     base_url = jira_base_url()
 
@@ -341,18 +330,14 @@ def build(args) -> dict:
         if by_key.get(key, {}).get("status") == "Review"
     }
     pr_targets = [by_key[key] for key in sorted(review_keys) if key in by_key]
-    pr_signal = (
-        apply_pull_requests(pr_targets, args.jobs)
-        if not args.no_prs
-        else {"available": True, "failed": 0, "checked": 0, "found": 0, "skipped": True}
-    )
+    pr_signal = no_prs_signal() if args.no_prs else apply_pull_requests(pr_targets, args.jobs)
 
     for item in items:
         item["blocker_detail"] = [
             {
                 "key": k,
-                "status": status_of.get(k, "?"),
-                "owner": owner_of.get(k) or None,
+                "status": by_key[k]["status"] if k in by_key else "?",
+                "owner": (by_key[k]["owner"] or None) if k in by_key else None,
                 "days_in_status": by_key[k]["days_in_status"] if k in by_key else None,
                 "reviewers": reviewers_of(by_key[k]) if k in by_key else [],
                 "has_live_pr": bool(live_pull_requests(by_key[k])) if k in by_key else False,
@@ -550,19 +535,11 @@ def field_name(value: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect the sprint pulse check data.")
-    parser.add_argument("--project", default="HYPERFLEET", type=project_key)
-    parser.add_argument("--jira", default="jira", help="jira-cli binary")
+    add_common_arguments(parser)
     parser.add_argument("--min-sp", type=int, default=5)
     parser.add_argument("--max-rows", type=int, default=7)
     parser.add_argument("--action-after", type=int, default=5, help="days without movement that trigger an ask")
-    parser.add_argument("--sp-field", default="customfield_10028", help="custom field id holding story points")
     parser.add_argument("--sp-field-name", default="Story Points", type=field_name, help="JQL name of the story points field")
-    parser.add_argument("--today", help="YYYY-MM-DD, for reproducible runs")
-    parser.add_argument(
-        "--no-prs",
-        action="store_true",
-        help="skip the pull request lookup for items in review",
-    )
     parser.add_argument("--next-pulse", help="YYYY-MM-DD printed in the text output")
     parser.add_argument(
         "--link-style",
@@ -570,8 +547,12 @@ def main() -> int:
         default="markdown",
         help="how ticket keys are rendered in the table",
     )
-    parser.add_argument("--jobs", type=int, default=8)
-    parser.add_argument("--format", choices=["json", "text"], default="json")
+    parser.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="json",
+        help="markdown and text are the same ready-to-paste block",
+    )
     args = parser.parse_args()
 
     try:
@@ -580,7 +561,11 @@ def main() -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    print(render_text(data) if args.format == "text" else json.dumps(data, indent=2, ensure_ascii=False))
+    print(
+        json.dumps(data, indent=2, ensure_ascii=False)
+        if args.format == "json"
+        else render_text(data)
+    )
     return 0
 
 

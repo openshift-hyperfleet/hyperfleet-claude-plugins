@@ -42,24 +42,25 @@ from datetime import date, datetime, timezone
 # category", one pager, one changelog reader. See jira_common.py.
 from jira_common import (
     CATEGORY_ORDER,
-    ChangelogUnavailable,
     JiraError,
     active_sprint,
+    add_common_arguments,
     apply_changelog_signals,
     apply_pull_requests,
     describe,
     fetch_all,
     jira_base_url,
     jql_project,
+    no_prs_signal,
     open_links,
     parse_date,
     pr_refs,
-    project_key,
     search_keys,
     sprint_rows,
     status_category,
     status_name,
     ticket_ref,
+    warn_changelog_failure,
 )
 
 # One error type, two names: the caller sees the script it invoked, not the module
@@ -391,20 +392,11 @@ def build(args) -> dict:
     signals = apply_changelog_signals(
         [item for item in items if not item["is_done"]], today, args.jobs
     )
-    if signals.get("failed"):
-        print(
-            f"warning: {signals['failed']} of {signals['checked']} changelog reads "
-            "failed; those items fall back to the status category date",
-            file=sys.stderr,
-        )
+    warn_changelog_failure(signals)
 
     totals = summarise(items)
     open_items = [item for item in items if not item["is_done"]]
-    pr_signal = (
-        apply_pull_requests(open_items, args.jobs)
-        if not args.no_prs
-        else {"available": True, "failed": 0, "checked": 0, "found": 0, "skipped": True}
-    )
+    pr_signal = no_prs_signal() if args.no_prs else apply_pull_requests(open_items, args.jobs)
     open_statuses = [
         bucket["status"] for bucket in totals["by_status"] if bucket["category"] != "Done"
     ]
@@ -655,7 +647,7 @@ def render_text(data: dict) -> str:
     lines.append(
         f"Needs a decision: {carry['items']} items / {carry['sp']:g} SP "
         f"({reasons['unassigned']} unassigned, {reasons['stale']} stale, "
-        f"{reasons['unestimated']} unestimated; a ticket can be listed twice)"
+        f"{reasons['unestimated']} unestimated; a ticket can be counted in multiple reasons)"
     )
 
     projection = data["capacity"]
@@ -717,27 +709,23 @@ def render_text(data: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect the sprint status data.")
-    parser.add_argument("--project", default="HYPERFLEET", type=project_key)
-    parser.add_argument("--jira", default="jira", help="jira-cli binary")
+    add_common_arguments(parser)
     parser.add_argument("--sprint", help="sprint id; defaults to the active sprint")
-    parser.add_argument("--sp-field", default="customfield_10028", help="custom field id holding story points")
     parser.add_argument("--blocker-priority", default="Major", help="priority name that counts as top priority")
     parser.add_argument("--stale-days", type=int, default=5, help="days without movement that count as stale")
-    parser.add_argument("--today", help="YYYY-MM-DD, for reproducible runs")
     parser.add_argument("--no-baseline", action="store_true", help="skip the previous sprint lookup")
-    parser.add_argument(
-        "--no-prs",
-        action="store_true",
-        help="skip the pull request lookup for items in review",
-    )
-    parser.add_argument("--jobs", type=int, default=8)
     parser.add_argument(
         "--link-style",
         choices=["markdown", "slack", "bare"],
         default="markdown",
         help="how ticket keys are rendered in lists",
     )
-    parser.add_argument("--format", choices=["json", "text", "markdown"], default="json")
+    parser.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="json",
+        help="markdown and text are the same ready-to-paste report",
+    )
     args = parser.parse_args()
 
     try:
@@ -747,9 +735,9 @@ def main() -> int:
         return 1
 
     print(
-        render_text(data)
-        if args.format in ("text", "markdown")
-        else json.dumps(data, indent=2, ensure_ascii=False)
+        json.dumps(data, indent=2, ensure_ascii=False)
+        if args.format == "json"
+        else render_text(data)
     )
     return 0
 
