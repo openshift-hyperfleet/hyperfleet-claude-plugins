@@ -59,12 +59,12 @@ Comprehensive sprint health report for team leads and scrum masters.
 
 ## Ticket References
 
-Every key in the report must be resolvable, and no table may turn into link soup.
+Every ticket key in the report is a link, and the same key is linked every time it appears.
 
-- Print the base URL once, in Sprint Overview. The script emits it as `Jira: <server>/browse/`, read from the `server:` entry in `~/.config/.jira/.config.yml`. It is the fallback for every key that stays bare.
-- Link each item's own key once, at the start of its Blockers, Highest-priority, Stale or Carry-Over line. That is where the reader acts. Blocker keys inside the same line stay bare: that is what keeps a long line readable.
+- Print the base URL once, in Sprint Overview. The script emits it as `Jira: <server>/browse/`, read from the `server:` entry in `~/.config/.jira/.config.yml`. It documents where the links point; it is not a fallback for unlinked keys.
+- Link the item's own key at the start of its Blockers, Highest-priority, Stale or Carry-Over line, and link every blocker key inside that line too. A blocked item is actionable only through its blockers, so a bare blocker key is a dead end on the line where the reader decides.
 - The report's tables carry no ticket keys. If a table ever lists tickets, link the key there too.
-- Never link the same ticket twice in the same section.
+- A key repeated across sections is linked in each of them: the reader arrives at a section, not at the document.
 
 Match the syntax to the destination, because only one of the three renders all of them:
 
@@ -73,6 +73,8 @@ Match the syntax to the destination, because only one of the three renders all o
 | Chat / TUI | `[HYPERFLEET-XXXX](url)` | default; the script emits this |
 | Slack | `<url\|HYPERFLEET-XXXX>` | run the script with `--link-style slack` |
 | Plain log / paste | `HYPERFLEET-XXXX` | run the script with `--link-style bare` |
+
+Links are the default, not a decoration. When the destination cannot render them, say so in the reply and switch the whole report to `--link-style bare`; never strip the links from part of the report.
 
 ## Output Format
 
@@ -106,7 +108,7 @@ Progress: [=====>      ] X% by SP (X of X) | X% by count (X of X)
 ### Risk Assessment
 
 #### Blocked by open work
-- KEY: [Summary] - [Owner or UNASSIGNED] - [Status] - blocked by KEY (Status), KEY (Status)
+- KEY: [Summary] - [Owner or UNASSIGNED] - [Status] - blocked by [KEY](url) (Status), [KEY](url) (Status)
 
 #### Highest-priority open items
 - KEY: [Summary] - [Owner or UNASSIGNED] - [Status] - [X days without movement]

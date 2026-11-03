@@ -68,7 +68,7 @@ And two rules that come from running the check:
 
 ## Output Format
 
-One screen. Slack-ready. Ticket keys are links; keys in prose stay bare. No progress bar.
+One screen. Slack-ready. Every ticket key is a link. No progress bar.
 
 ```text
 Pulse check - Hyperfleet Sprint 19, 2026-11-03
@@ -81,11 +81,11 @@ Nudge queue (5 of 7 owned large items need action):
 | [HYPERFLEET-1413](https://<server>/browse/HYPERFLEET-1413) | Verify N-1 to N operator upgrades converge the API operand | Tirth | 5 | In Progress · 20d | Propose a split with dates, or re-scope |
 | [HYPERFLEET-1616](https://<server>/browse/HYPERFLEET-1616) | SPIKE: Extend Prow testing to support OLM installs classic and v1 | Mallory | 5 | Backlog · 60d (since 09-04) | Post the decision note this week or drop from the sprint |
 
-No action: HYPERFLEET-1671 (4d, assigned 10-30), HYPERFLEET-1751 (1d)
+No action: [HYPERFLEET-1671](https://<server>/browse/HYPERFLEET-1671) (4d, assigned 10-30), [HYPERFLEET-1751](https://<server>/browse/HYPERFLEET-1751) (1d)
 
 Assignment gap: 17 items / 85 SP have no owner
 - sizes present: 5 SP
-- assign these first: HYPERFLEET-XXXX (blocks 7), HYPERFLEET-XXXX (blocks 4)
+- assign these first: [HYPERFLEET-XXXX](https://<server>/browse/HYPERFLEET-XXXX) (blocks 7), [HYPERFLEET-XXXX](https://<server>/browse/HYPERFLEET-XXXX) (blocks 4)
 
 Concentration: Phuongnhat holds 3 of 7 owned items (21 of 41 SP)
 
@@ -96,18 +96,18 @@ Next pulse: 2026-11-05
 Rules for the output:
 
 - **Never wrap the report in a code fence for chat or TUI.** The fence in the template is illustrative: inside it the links and emphasis reach the reader as literal characters. Use the fence only when the destination is Slack, email, or a log file, and say which one you are formatting for.
-- **Print the base URL once, under the title.** It is the fallback for the keys that stay bare in prose. The script emits it from the `server:` entry in `~/.config/.jira/.config.yml`; never hardcode it.
-- **Ticket keys are links.** The script emits `[HYPERFLEET-XXXX](url)` by default; pass `--link-style slack` for Slack (`<url|HYPERFLEET-XXXX>`) and `--link-style bare` for a log or a plain-text paste. Never mix two styles in one output.
+- **Print the base URL once, under the title.** It documents where the links point; it is not a fallback for unlinked keys. The script emits it from the `server:` entry in `~/.config/.jira/.config.yml`; never hardcode it.
+- **Every ticket key is a link**, in the table and in the prose lines below it (`No action`, `Escalation`, `assign these first`, and the blocker named in an `Ask`). The script renders all of them for you; pass `--link-style slack` for Slack (`<url|HYPERFLEET-XXXX>`) and `--link-style bare` for a log or a plain-text paste. Never mix two styles in one output.
 - **One table row per item, six columns, `Ask` last.** `Ticket | Title | Owner | SP | Status · age | Ask`. No second row, no empty cell: an `Ask` row under the data row squeezes the text into the first column, and Markdown has no `colspan` to fix it. `Ask` sits last because the last column is the one that grows, so a long ask wraps at the right edge instead of widening the table from the left.
 - **Status and age share a column.** "Review · 12d" is one thought for the reader. Splitting it into two columns costs width and buys nothing.
 - **Keep the title and the SP.** Without the title the ask loses its referent; without the SP an 8-point item gets the same nudge as a 5.
-- The **Ask** names the next action, not the problem, and it starts with a verb: `Ask Martin to approve or reject HYPERFLEET-1636 (Review 7d); assign HYPERFLEET-1523`, `Ask a reviewer to approve or reject`, `Start this week or drop from the sprint`, `Post a start date and the first step on the ticket`.
+- The **Ask** names the next action, not the problem, and it starts with a verb: `Ask Martin to approve or reject [HYPERFLEET-1636](url) (Review 7d); assign [HYPERFLEET-1523](url)`, `Ask a reviewer to approve or reject`, `Start this week or drop from the sprint`, `Post a start date and the first step on the ticket`.
 - **The verb comes from a closed set:** `ask` (approve/reject, status, start or drop), `assign`, `post`, `start`, `propose` (a split), `confirm` (a date). A closed set keeps the column scannable and countable, and it bounds the hand rewrite in step 4 to the specifics - who, which PR, which blocker - never to the choice of action.
 - **Never restate the item's own age in the Ask.** It is in the `Status · age` cell beside it; repeating it costs width and produces "20+ days: 20+ days". A blocker's age does appear, because that clock is not in the table.
 - **The verb follows the state, not the age alone:** blocked items name the blocker's move, `Review` asks a reviewer for a decision, `In Progress` asks for evidence on the ticket, and unstarted work asks for a date; a spike asks for the decision note, never for a start date.
 - Items in good standing stay visible only in the single "No action" line, never as table rows.
 - In the `Status · age` cell, `(assigned MM-DD)` marks a clock shortened by a reassignment and `(since MM-DD)` marks a Backlog item with no start. Never show both.
-- A blocker's age is its own last workflow transition, not the blocked item's. A blocker in `Review` leads the ask and names its reviewer (`Ask Martin to approve or reject HYPERFLEET-1636 (Review 7d)`); an unowned blocker becomes `assign HYPERFLEET-1523`, because there is nobody to ask.
+- A blocker's age is its own last workflow transition, not the blocked item's. A blocker in `Review` leads the ask and names its reviewer (`Ask Martin to approve or reject [HYPERFLEET-1636](url) (Review 7d)`); an unowned blocker becomes `assign [HYPERFLEET-1523](url)`, because there is nobody to ask.
 - **Say when the signal is partial.** The command reads JSON, so the script's own text warning never appears. If `changelog_signal.failed` is non-zero, add one line under the queue: `Signal: partial - N of M changelog reads failed; those items use the status category date`. If `changelog_signal.available` is false, add: `Signal: partial - no JIRA_API_TOKEN, so movement ignores exact status changes and assignments`.
 - State the movement definition in every output. Without it the numbers start arguments.
 - Date the output, and print the next pulse date, so a stale copy is recognizable at a glance.

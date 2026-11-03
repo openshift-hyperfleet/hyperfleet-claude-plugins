@@ -458,6 +458,25 @@ class AskTest(unittest.TestCase):
         }
         return pc.suggested_ask(item)
 
+    def test_the_blocker_in_the_ask_is_a_link(self):
+        ask = pc.suggested_ask(
+            {
+                "summary": "A large item",
+                "status": "Backlog",
+                "days_without_movement": 3,
+                "open_blockers": ["HYPERFLEET-1636"],
+                "blocker_detail": [
+                    {"key": "HYPERFLEET-1636", "status": "Review", "owner": "Martin Liptak"}
+                ],
+            },
+            lambda key: pc.ticket_ref(key, "https://example.atlassian.net/browse/", "markdown"),
+        )
+        self.assertIn(
+            "approve or reject [HYPERFLEET-1636]"
+            "(https://example.atlassian.net/browse/HYPERFLEET-1636)",
+            ask,
+        )
+
     def test_blocked_item_names_the_blocker_and_the_move(self):
         ask = self.ask("Backlog", 70, ["HYPERFLEET-1636"])
         self.assertIn("HYPERFLEET-1636", ask)
@@ -568,7 +587,11 @@ class RenderTest(unittest.TestCase):
              "days_in_status": 47, "days_since_comment": 13,
              "days_since_assignment": 4, "assigned": "2026-10-30"}
         ]
-        self.assertIn("No action: HYPERFLEET-1671 (4d, assigned 10-30)", pc.render_text(data))
+        self.assertIn(
+            "No action: [HYPERFLEET-1671](https://example.atlassian.net/browse/HYPERFLEET-1671)"
+            " (4d, assigned 10-30)",
+            pc.render_text(data),
+        )
 
     def test_no_action_line_hides_an_assignment_that_is_not_the_binding_signal(self):
         data = self.data()
@@ -577,7 +600,10 @@ class RenderTest(unittest.TestCase):
              "days_in_status": 30, "days_since_comment": 1,
              "days_since_assignment": 4, "assigned": "2026-10-30"}
         ]
-        self.assertIn("No action: HYPERFLEET-1751 (1d)", pc.render_text(data))
+        self.assertIn(
+            "No action: [HYPERFLEET-1751](https://example.atlassian.net/browse/HYPERFLEET-1751) (1d)",
+            pc.render_text(data),
+        )
         self.assertNotIn("assigned 10-30", pc.render_text(data))
 
     def test_one_table_row_per_item_with_the_ask_last(self):
@@ -596,6 +622,34 @@ class RenderTest(unittest.TestCase):
         data["queue"][0]["summary"] = "Add | remove on the remote transport"
         row = [line for line in pc.render_text(data).splitlines() if "HYPERFLEET-1)" in line][0]
         self.assertEqual(row.count("|") - row.count("\\|"), 7)
+
+    def test_prose_keys_are_links(self):
+        data = self.data()
+        data["escalation_20d"] = ["HYPERFLEET-2"]
+        data["assignment_gap"] = {
+            "items": 1,
+            "sp": 5,
+            "sizes": [5],
+            "blocking_other_work": [{"key": "HYPERFLEET-3", "sp": 5, "blocks_open": 7}],
+        }
+        text = pc.render_text(data)
+        self.assertIn(
+            "Escalation 20+ days: [HYPERFLEET-2](https://example.atlassian.net/browse/HYPERFLEET-2)",
+            text,
+        )
+        self.assertIn(
+            "assign these first: [HYPERFLEET-3](https://example.atlassian.net/browse/HYPERFLEET-3)"
+            " (blocks 7)",
+            text,
+        )
+
+    def test_bare_style_leaves_every_key_plain(self):
+        data = self.data()
+        data["link_style"] = "bare"
+        data["escalation_20d"] = ["HYPERFLEET-2"]
+        text = pc.render_text(data)
+        self.assertIn("Escalation 20+ days: HYPERFLEET-2", text)
+        self.assertNotIn("](", text)
 
     def test_a_failed_changelog_read_is_named_in_the_report(self):
         data = self.data()

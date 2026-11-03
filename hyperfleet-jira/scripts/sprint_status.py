@@ -587,7 +587,7 @@ def render_text(data: dict) -> str:
         )
         for item in blockers["blocked"][:10]:
             detail = ", ".join(
-                f"{d['key']} ({d['status']})" for d in item["blocker_detail"]
+                f"{ref(d['key'])} ({d['status']})" for d in item["blocker_detail"]
                 if d["category"] != "Done"
             )
             owner = item["owner"] or "UNASSIGNED"

@@ -100,7 +100,7 @@ def is_spike(item: dict) -> bool:
     return item.get("summary", "").lstrip().upper().startswith(("SPIKE", "[SPIKE]"))
 
 
-def suggested_ask(item: dict) -> str:
+def suggested_ask(item: dict, ref=None) -> str:
     """One imperative per item: verb first, then who and what artifact.
 
     The verb comes from a fixed set - ask to approve/reject, assign, unblock,
@@ -108,7 +108,12 @@ def suggested_ask(item: dict) -> str:
     The item's own age lives in the `Status . age` cell, so the text never
     repeats it; a blocker"s age does appear, because that clock is not in the
     table and it is what makes the blocker urgent or not.
+
+    `ref` renders a key for the destination, so a blocker named in the ask is a
+    link like every other key in the report. It defaults to the bare key, which
+    keeps the ask readable in a test and in a log.
     """
+    ref = ref or (lambda key: key)
     if item["open_blockers"]:
         # A blocker in Review is the one an ask can move today, so it leads.
         detail = sorted(
@@ -121,15 +126,19 @@ def suggested_ask(item: dict) -> str:
             when = f" {days}d" if days is not None else ""
             if d["status"] == "Review" and d.get("owner"):
                 clauses.append(
-                    f"ask {d['owner'].split()[0]} to approve or reject {d['key']} "
+                    f"ask {d['owner'].split()[0]} to approve or reject {ref(d['key'])} "
                     f"(Review{when})"
                 )
             elif not d.get("owner"):
-                clauses.append(f"assign {d['key']}")
+                clauses.append(f"assign {ref(d['key'])}")
             elif d["status"] == "In Progress":
-                clauses.append(f"ask {d['owner'].split()[0]} for the status of {d['key']}")
+                clauses.append(
+                    f"ask {d['owner'].split()[0]} for the status of {ref(d['key'])}"
+                )
             else:
-                clauses.append(f"ask {d['owner'].split()[0]} to start or drop {d['key']}")
+                clauses.append(
+                    f"ask {d['owner'].split()[0]} to start or drop {ref(d['key'])}"
+                )
         shown = "; ".join(clauses[:2])
         more = f" (+{len(clauses) - 2} more)" if len(clauses) > 2 else ""
         return shown[0].upper() + shown[1:] + more
@@ -190,6 +199,11 @@ def build(args) -> dict:
             file=sys.stderr,
         )
 
+    base_url = jira_base_url()
+
+    def ref(key: str) -> str:
+        return ticket_ref(key, base_url, args.link_style)
+
     for item in items:
         item["open_blockers"] = open_links(item["blocked_by"], category_of)
         item["blocked"] = bool(item["open_blockers"])
@@ -203,7 +217,7 @@ def build(args) -> dict:
             for k in item["open_blockers"]
         ]
         item["blocks_open"] = open_links(item["blocks"], category_of)
-        item["ask"] = suggested_ask(item)
+        item["ask"] = suggested_ask(item, ref)
 
     owned = [i for i in items if i["owner"]]
     unowned = [i for i in items if not i["owner"]]
@@ -231,7 +245,7 @@ def build(args) -> dict:
     return {
         "generated_for": today.isoformat(),
         "project": args.project,
-        "jira_base_url": jira_base_url(),
+        "jira_base_url": base_url,
         "link_style": args.link_style,
         "sprint": sprint,
         "definition": (
@@ -290,6 +304,10 @@ def render_text(data: dict) -> str:
     queue = data["queue"]
     base_url = data.get("jira_base_url")
     style = data.get("link_style", "markdown")
+
+    def ref(key: str) -> str:
+        return ticket_ref(key, base_url, style)
+
     lines.append(
         f"Nudge queue ({len(queue)} of {totals['owned']['items']} owned large items need action):"
     )
@@ -316,17 +334,19 @@ def render_text(data: dict) -> str:
     if data["no_action"]:
         entries = []
         for i in data["no_action"]:
-            entry = f"{i['key']} ({i['days_without_movement']}d"
+            entry = f"{ref(i['key'])} ({i['days_without_movement']}d"
             if assignment_is_binding(i) and i.get("assigned"):
                 entry += f", assigned {i['assigned'][5:]}"
             entries.append(f"{entry})")
         lines.append(f"\nNo action: {', '.join(entries)}")
 
     if data["escalation_20d"]:
-        lines.append(f"\nEscalation 20+ days: {', '.join(data['escalation_20d'])}"
+        keys = ", ".join(ref(key) for key in data["escalation_20d"])
+        lines.append(f"\nEscalation 20+ days: {keys}"
                      " — lead decides: start, split, re-scope or drop")
     if data["escalation_excluded_blocked"]:
-        lines.append(f"(excluded as blocked: {', '.join(data['escalation_excluded_blocked'])})")
+        keys = ", ".join(ref(key) for key in data["escalation_excluded_blocked"])
+        lines.append(f"(excluded as blocked: {keys})")
 
     gap = data["assignment_gap"]
     if gap["items"]:
@@ -335,7 +355,8 @@ def render_text(data: dict) -> str:
         lines.append(f"- sizes present: {sizes}")
         if gap["blocking_other_work"]:
             top = ", ".join(
-                f"{o['key']} (blocks {o['blocks_open']})" for o in gap["blocking_other_work"][:4]
+                f"{ref(o['key'])} (blocks {o['blocks_open']})"
+                for o in gap["blocking_other_work"][:4]
             )
             lines.append(f"- assign these first: {top}")
 
