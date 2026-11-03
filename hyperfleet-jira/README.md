@@ -139,7 +139,7 @@ Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` for anothe
 
 Two rules decide what the output is worth:
 
-- **A pull request belongs to the ticket its title names**, not to every ticket Jira links it to. Jira attaches a pull request to every ticket its title mentions, so the link alone would report another ticket's diff as this one's. A link titled for another ticket is printed with that ticket's key (`PR [#255](url) (titled HYPERFLEET-1636)`) instead of being dropped, because a hidden link reads as "no pull request linked" on a ticket that visibly has one.
+- **A pull request belongs to the ticket its title names**, and only to it. Jira attaches a pull request to every ticket its title mentions, so `architecture#255`, titled `HYPERFLEET-1636`, is `HYPERFLEET-1636`'s pull request and never `HYPERFLEET-1669`'s, even when the panel shows it on both. A link titled for another ticket, or for no ticket at all, is not printed on the ticket's line: the reviewer named there would open someone else's diff, and two stalls would read as one shared blocker.
 - **A listed pull request may already be merged.** The development panel carries the link, not the state, so the line says "there is something to review", never "it is still pending". `--no-prs` skips the lookup; a failed read is reported as a partial signal instead of a silent gap.
 
 #### `/hyperfleet-jira:sprint-pulse-check` (Team Leads)

@@ -52,7 +52,6 @@ from jira_common import (
     jira_base_url,
     jql_project,
     open_links,
-    other_pr_refs,
     parse_date,
     pr_refs,
     project_key,
@@ -535,7 +534,7 @@ def render_text(data: dict) -> str:
         return ticket_ref(key, base_url, style)
 
     def pr_tail(item: dict) -> str:
-        rendered = pr_refs(item, style) or other_pr_refs(item, style, ref)
+        rendered = pr_refs(item, style)
         return f" - {rendered}" if rendered else ""
 
     lines: list[str] = []

@@ -45,7 +45,6 @@ from jira_common import (
     fetch_all,
     jira_base_url,
     open_links,
-    other_pr_refs,
     parse_date,
     pr_refs,
     project_key,
@@ -162,16 +161,14 @@ def suggested_ask(item: dict, ref=None) -> str:
     return "Confirm a start date on the ticket"
 
 
-def decorate_ask(item: dict, style: str, ref=None) -> str:
-    """Fold the pull request into the ask, or name the one it does not own.
+def decorate_ask(item: dict, style: str) -> str:
+    """Fold this ticket's pull request into the ask, or say it has none.
 
-    A ticket whose only link is titled for another ticket has work to look at and
-    no pull request of its own, and the report cannot tell which of the two is
-    true: either that pull request delivers this ticket and its title is
-    incomplete, or there is nothing to review here. So the ask offers the two
-    moves the owner can make - post its own, or close it as delivered - and shows
-    the link as evidence rather than as its own pull request. It never asks the
-    reader to go and find out what a diff contains; the report did not read it.
+    Ownership comes from the title, so a link Jira shows that is titled for another
+    ticket is not this ticket's pull request and never appears here: the reviewer
+    it named would open someone else's diff. That leaves an item in Review whose
+    generic ask says "ask a reviewer to approve or reject" with nothing to open, so
+    the ask names the two moves its owner can make instead.
     """
     ask = item["ask"]
     prs = pr_refs(item, style)
@@ -182,10 +179,8 @@ def decorate_ask(item: dict, style: str, ref=None) -> str:
         if ask.startswith("Ask a reviewer"):
             return f"{ask} {prs}"
         return f"{ask} - {prs}"
-    if item.get("status") == "Review":
-        shared = other_pr_refs(item, style, ref)
-        if shared:
-            return f"Post this ticket's pull request, or close it as delivered by {shared}"
+    if item.get("status") == "Review" and ask.startswith("Ask a reviewer"):
+        return "Post this ticket's pull request, or move it back to In Progress"
     return ask
 
 
@@ -254,7 +249,7 @@ def build(args) -> dict:
         ]
         item["blocks_open"] = open_links(item["blocks"], category_of)
         item["ask"] = suggested_ask(item, ref)
-        item["ask"] = decorate_ask(item, args.link_style, ref)
+        item["ask"] = decorate_ask(item, args.link_style)
 
     owned = [i for i in items if i["owner"]]
     unowned = [i for i in items if not i["owner"]]
