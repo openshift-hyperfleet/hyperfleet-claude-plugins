@@ -577,6 +577,26 @@ class CrossReferenceAskTest(unittest.TestCase):
             "Attach this ticket's pull request, or move it back to In Progress",
         )
 
+    def test_a_merged_pull_request_asks_for_a_status_not_a_review(self):
+        item = self.item(
+            pr=[{"number": 181, "url": "https://github.com/o/r/pull/181", "status": "MERGED"}]
+        )
+        ask = pc.decorate_ask(item, "markdown")
+        self.assertTrue(ask.startswith("Move this ticket out of Review"))
+        self.assertIn("(merged)", ask)
+        self.assertNotIn("Ask a reviewer", ask)
+
+    def test_one_open_pull_request_keeps_the_review_ask(self):
+        item = self.item(
+            pr=[
+                {"number": 122, "url": "https://github.com/o/r/pull/122", "status": "MERGED"},
+                {"number": 177, "url": "https://github.com/o/r/pull/177", "status": "OPEN"},
+            ]
+        )
+        ask = pc.decorate_ask(item, "markdown")
+        self.assertTrue(ask.startswith("Ask a reviewer"))
+        self.assertIn("[#177](https://github.com/o/r/pull/177)", ask)
+
 
 class RenderTest(unittest.TestCase):
     def data(self):

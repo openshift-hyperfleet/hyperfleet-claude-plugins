@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
@@ -283,6 +284,8 @@ def describe(key: str, doc: dict, sp_field: str, today: date) -> dict:
 
     return {
         "key": key,
+        # Jira's numeric id, which the development panel is keyed by.
+        "issue_id": str(doc.get("id") or "") or None,
         "summary": (fields.get("summary") or "").strip(),
         "type": (fields.get("issuetype") or {}).get("name", ""),
         "sp": points if isinstance(points, (int, float)) else None,
@@ -484,10 +487,15 @@ def read_changelog(
 PR_URL = re.compile(r"/pull/(\d+)")
 
 
-def pull_requests_from(payload: list, key: str) -> list[dict]:
-    """The pull requests `key` owns, newest first.
+def key_in_title(key: str, title: str) -> bool:
+    """Whether `title` names `key`, and not a longer key that starts with it."""
+    return bool(re.search(rf"{re.escape(key)}(?!\d)", title or "", re.IGNORECASE))
 
-    Two filters, because the panel is generous:
+
+def pull_requests_from(payload: list, key: str) -> list[dict]:
+    """The pull requests `key` owns, from a remote-link payload.
+
+    Two filters, because the payload is generous:
 
     - The URL must be a pull request. Jira stores a branch and a commit as remote
       links too, in the same shape, so only `/pull/<n>` counts.
@@ -498,11 +506,10 @@ def pull_requests_from(payload: list, key: str) -> list[dict]:
       request; printing it here would send the reviewer to someone else's diff and
       make two stalls look like one shared blocker.
 
-    Duplicates are common (a PR appears once per branch event), so the number
-    dedupes them. Order is newest first: within one repository the number grows,
-    so the highest one is the latest attempt.
+    Remote links are the smaller half of the panel: the GitHub app reports through
+    `dev-status`, which `development_pull_requests` reads. Both are merged, because
+    some links exist only here.
     """
-    wanted = re.compile(rf"{re.escape(key)}(?!\d)", re.IGNORECASE)
     owned: dict[int, str] = {}
     for link in payload or []:
         if not isinstance(link, dict):
@@ -512,19 +519,86 @@ def pull_requests_from(payload: list, key: str) -> list[dict]:
         match = PR_URL.search(url)
         if not match or not url.startswith("https://"):
             continue
-        if wanted.search(obj.get("title") or ""):
+        if key_in_title(key, obj.get("title") or ""):
             owned.setdefault(int(match.group(1)), url)
     return [{"number": number, "url": owned[number]} for number in sorted(owned, reverse=True)]
 
 
+def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list[dict], str | None]:
+    """(pull requests the development panel reports, error).
 
-def read_pull_requests(key: str, api: tuple[str, str] | None) -> tuple[list[dict], str | None]:
+    The panel is served by `dev-status`, not by remote links: the GitHub app posts
+    its own records there, and they are the ones carrying every repository. On
+    Sprint 19 the remote links held nothing from `hyperfleet-api`, so ten API items
+    looked like they had no pull request while theirs were open.
+
+    `applicationType` is not a constant - it is the instance id the app reports
+    (`oAuth-com.github.integration.production` here, `GitHub` elsewhere) - so the
+    summary call supplies it instead of a guess. The same records carry `status`,
+    which is the one thing remote links never have.
+    """
+    server, auth = api
+    headers = {"Authorization": f"Basic {auth}", "Accept": "application/json"}
+
+    def get(url: str):
+        request = urllib.request.Request(url, headers=headers)
+        with open_changelog(request) as response:
+            return json.load(response)
+
+    try:
+        summary = get(f"{server}/rest/dev-status/1.0/issue/summary?issueId={issue_id}")
+        types = list(
+            ((summary.get("summary") or {}).get("pullrequest") or {}).get("byInstanceType") or {}
+        )
+        found: list[dict] = []
+        for app in types:
+            detail = get(
+                f"{server}/rest/dev-status/latest/issue/detail?issueId={issue_id}"
+                f"&applicationType={urllib.parse.quote(app)}&dataType=pullrequest"
+            )
+            for group in detail.get("detail") or []:
+                found.extend(group.get("pullRequests") or [])
+    except (
+        urllib.error.URLError,
+        http.client.HTTPException,
+        OSError,
+        ValueError,
+    ) as exc:
+        return [], type(exc).__name__
+
+    prs = []
+    for pr in found:
+        url = (pr.get("url") or "").strip()
+        match = PR_URL.search(url)
+        if not match:
+            continue
+        prs.append(
+            {
+                "number": int(match.group(1)),
+                "url": url,
+                "title": pr.get("name") or "",
+                "status": (pr.get("status") or "").upper() or None,
+                "updated": pr.get("lastUpdate") or "",
+            }
+        )
+    return prs, None
+
+
+
+def read_pull_requests(
+    key: str, issue_id: str | None, api: tuple[str, str] | None
+) -> tuple[list[dict], str | None]:
     """(pull requests of `key`, error).
 
-    The panel shows the link, not the state: an open and a merged pull request
-    look the same here, so this says "there is something to review", never "it is
-    still under review". Ownership comes from the title - a link the title
-    attributes to another ticket is not returned, see `pull_requests_from`.
+    The panel shows two kinds of record, and a ticket can have both: the GitHub app
+    posts through `dev-status` (every repository, with a state), and a link the
+    team attached by hand lives in `remotelink` (no state). Reading only the second
+    is what hid every `hyperfleet-api` pull request on Sprint 19.
+
+    Ownership comes from the title on both sides - see `pull_requests_from` - so a
+    link titled for another ticket contributes a state to that ticket, not a pull
+    request to this one. The state is why the two are merged instead of one being
+    dropped: it says whether the diff a reviewer opens is still open.
     """
     if not api:
         return [], "no JIRA_API_TOKEN or jira-cli login"
@@ -543,14 +617,43 @@ def read_pull_requests(key: str, api: tuple[str, str] | None) -> tuple[list[dict
         ValueError,
     ) as exc:
         return [], f"{key}: {type(exc).__name__}"
-    return pull_requests_from(payload, key), None
+
+    owned = pull_requests_from(payload, key)
+    states: dict[str, dict] = {}
+    if issue_id:
+        panel, error = development_pull_requests(issue_id, api)
+        if error:
+            return [], f"{key}: {error}"
+        for pr in panel:
+            if key_in_title(key, pr["title"]):
+                owned.append({"number": pr["number"], "url": pr["url"]})
+                states[pr["url"]] = pr
+
+    unique: dict[str, dict] = {}
+    for pr in owned:
+        record = {"number": pr["number"], "url": pr["url"]}
+        state = states.get(pr["url"])
+        if state:
+            record["status"] = state["status"]
+            record["updated"] = state["updated"]
+        unique.setdefault(pr["url"], record)
+
+    # Numbers restart in every repository, so they only break ties: a pull request
+    # is newest by its own last update when Jira reports one.
+    ordered = sorted(
+        unique.values(),
+        key=lambda pr: (pr.get("updated") or "", pr["number"]),
+        reverse=True,
+    )
+    return ordered, None
 
 
 def apply_pull_requests(items: list[dict], jobs: int) -> dict:
     """Attach `pr` to the items in review; other items get an empty list.
 
     `pr` is ownership - the title names the ticket. An item in Review with an empty
-    list carries no pull request of its own, whatever Jira links on the panel.
+    list carries no pull request Jira knows about, which is not the same as no pull
+    request: a repository without the GitHub app reports nothing here.
     """
     for item in items:
         item["pr"] = []
@@ -570,7 +673,12 @@ def apply_pull_requests(items: list[dict], jobs: int) -> dict:
         }
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        results = list(pool.map(lambda item: read_pull_requests(item["key"], api), in_review))
+        results = list(
+            pool.map(
+                lambda item: read_pull_requests(item["key"], item.get("issue_id"), api),
+                in_review,
+            )
+        )
 
     failed = found = 0
     for item, (prs, error) in zip(in_review, results):
@@ -589,13 +697,22 @@ def apply_pull_requests(items: list[dict], jobs: int) -> dict:
 
 
 def pr_ref(pr: dict, style: str) -> str:
-    """A pull request rendered for the destination, like `ticket_ref`."""
+    """A pull request rendered for the destination, like `ticket_ref`.
+
+    The state rides along when Jira reports one, because it changes what the reader
+    does next: `PR #181 (merged)` is a ticket waiting for its status, `PR #177` is
+    one waiting for a reviewer. Remote links carry no state, so the suffix is
+    absent there - not "open", just unknown.
+    """
     number, url = pr["number"], pr["url"]
     if style == "bare":
-        return f"#{number} ({url})"
-    if style == "slack":
-        return f"<{url}|#{number}>"
-    return f"[#{number}]({url})"
+        ref = f"#{number} ({url})"
+    elif style == "slack":
+        ref = f"<{url}|#{number}>"
+    else:
+        ref = f"[#{number}]({url})"
+    state = (pr.get("status") or "").lower()
+    return f"{ref} ({state})" if state and state != "open" else ref
 
 
 def pr_refs(item: dict, style: str, limit: int = 2) -> str:

@@ -464,6 +464,98 @@ class PullRequestTest(unittest.TestCase):
         self.assertEqual(items[1]["pr"], [])
 
 
+class DevelopmentPanelTest(unittest.TestCase):
+    """The GitHub app reports through `dev-status`; remote links are the smaller half."""
+
+    api = ("https://example.atlassian.net", "auth")
+    app = "oAuth-com.github.integration.production"
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __enter__(self):
+            return io.StringIO(json.dumps(self.payload))
+
+        def __exit__(self, *exc):
+            return False
+
+    def pr(self, number, title, status="OPEN", repo="hyperfleet-api"):
+        return {
+            "id": f"#{number}",
+            "name": title,
+            "status": status,
+            "url": f"https://github.com/openshift-hyperfleet/{repo}/pull/{number}",
+            "lastUpdate": "2026-11-02T10:00:00.000+0000",
+        }
+
+    def patch(self, panel=(), links=()):
+        """Route each request by URL: summary, detail, or remote links."""
+        urls = []
+
+        def open_(request):
+            url = request.full_url
+            urls.append(url)
+            if "issue/summary" in url:
+                return self.Response(
+                    {"summary": {"pullrequest": {"byInstanceType": {self.app: {"count": 1}}}}}
+                )
+            if "issue/detail" in url:
+                return self.Response({"detail": [{"pullRequests": list(panel)}]})
+            if "remotelink" in url:
+                return self.Response(list(links))
+            raise AssertionError(f"unexpected url {url}")
+
+        return mock.patch.object(jc, "open_changelog", side_effect=open_), urls
+
+    def read(self, key="HYPERFLEET-1669", panel=(), links=()):
+        patcher, urls = self.patch(panel, links)
+        with patcher:
+            return jc.read_pull_requests(key, "7126783", self.api), urls
+
+    def test_the_application_type_is_read_from_the_summary(self):
+        _, urls = self.read(panel=[self.pr(416, "HYPERFLEET-1669 - fix: claims")])
+        detail = [url for url in urls if "issue/detail" in url]
+        self.assertTrue(detail)
+        self.assertIn(f"applicationType={self.app}", detail[0])
+
+    def test_a_pull_request_titled_for_the_ticket_keeps_its_state(self):
+        (prs, error), _ = self.read(
+            panel=[self.pr(416, "HYPERFLEET-1669 - fix: claims", status="MERGED")]
+        )
+        self.assertIsNone(error)
+        self.assertEqual([pr["number"] for pr in prs], [416])
+        self.assertEqual(prs[0]["status"], "MERGED")
+
+    def test_a_pull_request_titled_for_another_ticket_does_not_appear(self):
+        (prs, _), _ = self.read(panel=[self.pr(255, "HYPERFLEET-1636 - docs: contract")])
+        self.assertEqual(prs, [])
+
+    def test_a_link_that_only_exists_as_a_remote_link_is_kept(self):
+        links = [
+            {"object": {"url": "https://github.com/openshift-hyperfleet/architecture/pull/255",
+                        "title": "openshift-hyperfleet/architecture#255: HYPERFLEET-1669 - docs"}}
+        ]
+        (prs, _), _ = self.read(panel=[], links=links)
+        self.assertEqual([pr["number"] for pr in prs], [255])
+
+    def test_the_same_pull_request_from_both_sources_is_listed_once_with_its_state(self):
+        url = "https://github.com/openshift-hyperfleet/hyperfleet-api/pull/416"
+        links = [{"object": {"url": url, "title": "HYPERFLEET-1669 - fix: claims"}}]
+        (prs, _), _ = self.read(
+            panel=[self.pr(416, "HYPERFLEET-1669 - fix: claims", status="MERGED")],
+            links=links,
+        )
+        self.assertEqual(len(prs), 1)
+        self.assertEqual(prs[0]["status"], "MERGED")
+
+    def test_a_merged_state_is_rendered_and_open_is_not(self):
+        merged = {"number": 181, "url": "https://github.com/o/r/pull/181", "status": "MERGED"}
+        opened = {"number": 177, "url": "https://github.com/o/r/pull/177", "status": "OPEN"}
+        self.assertTrue(jc.pr_ref(merged, "markdown").endswith("(merged)"))
+        self.assertEqual(jc.pr_ref(opened, "markdown"), "[#177](https://github.com/o/r/pull/177)")
+
+
 class PreviousSprintTest(unittest.TestCase):
     rows = [
         {"id": "1", "name": "Sprint 17", "start": "2026-09-01", "end": "2026-09-21", "state": "closed"},

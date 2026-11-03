@@ -180,6 +180,13 @@ def decorate_ask(item: dict, style: str) -> str:
         # The pull request is where a reviewer acts, so it rides in the ask
         # rather than in a seventh column. The generic review ask names no
         # ticket, so the PR becomes its object instead of a suffix.
+        merged = all(
+            (pr.get("status") or "").upper() == "MERGED" for pr in item.get("pr") or []
+        )
+        if merged and item.get("status") == "Review":
+            # Asking for review of a merged diff sends the reader to closed work.
+            # What the ticket needs is a status, not a reviewer.
+            return f"Move this ticket out of Review: {prs}"
         if ask.startswith("Ask a reviewer"):
             return f"{ask} {prs}"
         return f"{ask} - {prs}"
