@@ -586,7 +586,7 @@ class CrossReferenceAskTest(unittest.TestCase):
         self.assertIn("(merged)", ask)
         self.assertNotIn("Ask a reviewer", ask)
 
-    def test_one_open_pull_request_keeps_the_review_ask(self):
+    def test_a_closed_pull_request_is_not_what_the_ask_asks_to_review(self):
         item = self.item(
             pr=[
                 {"number": 122, "url": "https://github.com/o/r/pull/122", "status": "MERGED"},
@@ -596,6 +596,7 @@ class CrossReferenceAskTest(unittest.TestCase):
         ask = pc.decorate_ask(item, "markdown")
         self.assertTrue(ask.startswith("Ask a reviewer"))
         self.assertIn("[#177](https://github.com/o/r/pull/177)", ask)
+        self.assertNotIn("#122", ask)
 
 
 class RenderTest(unittest.TestCase):

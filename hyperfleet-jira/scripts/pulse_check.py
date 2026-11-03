@@ -162,34 +162,39 @@ def suggested_ask(item: dict, ref=None) -> str:
 
 
 def decorate_ask(item: dict, style: str) -> str:
-    """Fold this ticket's pull request into the ask, or say that Jira links none.
+    """Fold the pull request a reviewer can act on into the ask.
 
     Ownership comes from the title, so a link Jira shows that is titled for another
     ticket is not this ticket's pull request and never appears here: the reviewer
-    it named would open someone else's diff. That leaves an item in Review whose
-    generic ask says "ask a reviewer to approve or reject" with nothing to open.
+    it named would open someone else's diff.
 
-    The replacement says "Jira links none", not "there is none": the panel is the
-    only source this script reads, and a repository without the GitHub integration
-    shows no link on every one of its tickets. The two moves an owner can make are
-    the same either way - attach the pull request, or move the ticket back.
+    The ask carries the pull requests a reviewer can act on, which is not the same
+    as every pull request the ticket owns. A ticket that merged `infra#122` and
+    then opened `e2e#177` owns both, but "approve or reject #122 (merged)" sends
+    the reader to a closed diff. Closed ones stay in the report line; only the live
+    ones become the ask. When every one of them is closed, the ticket needs a
+    status, not a reviewer.
+
+    With no pull request at all, the ask says "Jira links none", not "there is
+    none": the panel is the only source this script reads, and the two moves an
+    owner can make are the same either way - attach the pull request, or move the
+    ticket back.
     """
     ask = item["ask"]
-    prs = pr_refs(item, style)
-    if prs:
+    owned = list(item.get("pr") or [])
+    live = [pr for pr in owned if (pr.get("status") or "").upper() not in ("MERGED", "DECLINED")]
+    if live:
         # The pull request is where a reviewer acts, so it rides in the ask
         # rather than in a seventh column. The generic review ask names no
         # ticket, so the PR becomes its object instead of a suffix.
-        merged = all(
-            (pr.get("status") or "").upper() == "MERGED" for pr in item.get("pr") or []
-        )
-        if merged and item.get("status") == "Review":
-            # Asking for review of a merged diff sends the reader to closed work.
-            # What the ticket needs is a status, not a reviewer.
-            return f"Move this ticket out of Review: {prs}"
+        prs = pr_refs({"pr": live}, style)
         if ask.startswith("Ask a reviewer"):
             return f"{ask} {prs}"
         return f"{ask} - {prs}"
+    if owned:
+        # Asking for review of a closed diff sends the reader to finished work.
+        # What the ticket needs is a status, not a reviewer.
+        return f"Move this ticket out of Review: {pr_refs(item, style)}"
     if item.get("status") == "Review" and ask.startswith("Ask a reviewer"):
         return "Attach this ticket's pull request, or move it back to In Progress"
     return ask
