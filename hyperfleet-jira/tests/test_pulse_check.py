@@ -545,6 +545,52 @@ class AskTest(unittest.TestCase):
         self.assertNotIn("office hours", self.ask("Backlog", 12).lower())
 
 
+class CrossReferenceAskTest(unittest.TestCase):
+    """Jira links a pull request to every ticket its title names, and only the title decides."""
+
+    ref = staticmethod(lambda key: f"[{key}](https://example.atlassian.net/browse/{key})")
+
+    def item(self, pr=(), other=()):
+        return {
+            "summary": "Read tenant dimensions from wristband claims",
+            "status": "Review",
+            "days_without_movement": 4,
+            "open_blockers": [],
+            "blocker_detail": [],
+            "ask": "Ask a reviewer to approve or reject",
+            "pr": list(pr),
+            "pr_other": list(other),
+        }
+
+    def test_an_owned_pull_request_rides_in_the_ask(self):
+        ask = pc.decorate_ask(
+            self.item(pr=[{"number": 257, "url": "https://github.com/o/r/pull/257"}]), "markdown"
+        )
+        self.assertIn("approve or reject PR [#257]", ask)
+
+    def test_a_cross_reference_does_not_become_the_tickets_pull_request(self):
+        ask = pc.decorate_ask(
+            self.item(
+                other=[
+                    {"number": 255, "url": "https://github.com/o/r/pull/255",
+                     "titled": "HYPERFLEET-1636"}
+                ]
+            ),
+            "markdown",
+            self.ref,
+        )
+        self.assertIn("Confirm whether", ask)
+        self.assertIn("[#255](https://github.com/o/r/pull/255)", ask)
+        self.assertIn("titled [HYPERFLEET-1636]", ask)
+        self.assertNotIn("approve or reject PR", ask)
+
+    def test_no_link_at_all_keeps_the_generic_review_ask(self):
+        self.assertEqual(
+            pc.decorate_ask(self.item(), "markdown"),
+            "Ask a reviewer to approve or reject",
+        )
+
+
 class RenderTest(unittest.TestCase):
     def data(self):
         return {

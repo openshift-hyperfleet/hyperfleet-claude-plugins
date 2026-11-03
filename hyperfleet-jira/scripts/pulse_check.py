@@ -45,6 +45,7 @@ from jira_common import (
     fetch_all,
     jira_base_url,
     open_links,
+    other_pr_refs,
     parse_date,
     pr_refs,
     project_key,
@@ -161,6 +162,33 @@ def suggested_ask(item: dict, ref=None) -> str:
     return "Confirm a start date on the ticket"
 
 
+def decorate_ask(item: dict, style: str, ref=None) -> str:
+    """Fold the pull request into the ask, or say why it is not this ticket's.
+
+    A ticket whose only link is titled for another ticket has work to look at and
+    no pull request of its own. Leaving the generic "ask a reviewer" ask there
+    would read as "nothing to review yet", which is the opposite of what Jira
+    shows, so the ask names the link and the choice.
+    """
+    ask = item["ask"]
+    prs = pr_refs(item, style)
+    if prs:
+        # The pull request is where a reviewer acts, so it rides in the ask
+        # rather than in a seventh column. The generic review ask names no
+        # ticket, so the PR becomes its object instead of a suffix.
+        if ask.startswith("Ask a reviewer"):
+            return f"{ask} {prs}"
+        return f"{ask} - {prs}"
+    if item.get("status") == "Review":
+        shared = other_pr_refs(item, style, ref)
+        if shared:
+            return (
+                f"Confirm whether {shared} delivers this ticket too; "
+                "if it does, add this key to the pull request title"
+            )
+    return ask
+
+
 def build(args) -> dict:
     today = parse_date(args.today) if args.today else datetime.now(timezone.utc).date()
     sprint = active_sprint(args.project, args.jira)
@@ -226,15 +254,7 @@ def build(args) -> dict:
         ]
         item["blocks_open"] = open_links(item["blocks"], category_of)
         item["ask"] = suggested_ask(item, ref)
-        prs = pr_refs(item, args.link_style)
-        if prs:
-            # The pull request is where a reviewer acts, so it rides in the ask
-            # rather than in a seventh column. The generic review ask names no
-            # ticket, so the PR becomes its object instead of a suffix.
-            if item["ask"].startswith("Ask a reviewer"):
-                item["ask"] = f"{item['ask']} {prs}"
-            else:
-                item["ask"] = f"{item['ask']} - {prs}"
+        item["ask"] = decorate_ask(item, args.link_style, ref)
 
     owned = [i for i in items if i["owner"]]
     unowned = [i for i in items if not i["owner"]]

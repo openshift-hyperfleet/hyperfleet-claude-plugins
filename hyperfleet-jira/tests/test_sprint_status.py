@@ -362,10 +362,11 @@ class PullRequestTest(unittest.TestCase):
         ]
 
     def test_only_pull_request_urls_count_and_a_duplicate_is_listed_once(self):
-        prs = jc.pull_requests_from(self.payload(), "HYPERFLEET-104")
-        self.assertEqual([pr["number"] for pr in prs], [104, 99])
+        owned, other = jc.pull_requests_from(self.payload(), "HYPERFLEET-104")
+        self.assertEqual([pr["number"] for pr in owned], [104, 99])
+        self.assertEqual(other, [])
 
-    def test_a_pull_request_titled_for_another_ticket_is_not_this_tickets(self):
+    def test_a_pull_request_titled_for_another_ticket_is_a_cross_reference(self):
         payload = [
             {
                 "object": {
@@ -374,7 +375,12 @@ class PullRequestTest(unittest.TestCase):
                 }
             }
         ]
-        self.assertEqual(jc.pull_requests_from(payload, "HYPERFLEET-1669"), [])
+        owned, other = jc.pull_requests_from(payload, "HYPERFLEET-1669")
+        self.assertEqual(owned, [])
+        self.assertEqual(
+            other,
+            [{"number": 255, "url": "https://github.com/o/r/pull/255", "titled": "HYPERFLEET-1636"}],
+        )
 
     def test_a_pull_request_that_names_both_tickets_belongs_to_both(self):
         payload = [
@@ -385,16 +391,17 @@ class PullRequestTest(unittest.TestCase):
                 }
             }
         ]
-        self.assertEqual(
-            [pr["number"] for pr in jc.pull_requests_from(payload, "HYPERFLEET-1669")],
-            [255],
-        )
+        owned, other = jc.pull_requests_from(payload, "HYPERFLEET-1669")
+        self.assertEqual([pr["number"] for pr in owned], [255])
+        self.assertEqual(other, [])
 
-    def test_a_title_without_any_ticket_key_is_not_evidence(self):
+    def test_a_title_without_any_ticket_key_is_shown_without_a_claim(self):
         payload = [
             {"object": {"url": "https://github.com/o/r/pull/5", "title": "fix: a thing"}}
         ]
-        self.assertEqual(jc.pull_requests_from(payload, "HYPERFLEET-104"), [])
+        owned, other = jc.pull_requests_from(payload, "HYPERFLEET-104")
+        self.assertEqual(owned, [])
+        self.assertEqual([pr["titled"] for pr in other], [None])
 
     def test_a_longer_key_does_not_match_the_shorter_one(self):
         payload = [
@@ -405,10 +412,12 @@ class PullRequestTest(unittest.TestCase):
                 }
             }
         ]
-        self.assertEqual(jc.pull_requests_from(payload, "HYPERFLEET-1636"), [])
+        owned, other = jc.pull_requests_from(payload, "HYPERFLEET-1636")
+        self.assertEqual(owned, [])
+        self.assertEqual([pr["titled"] for pr in other], ["HYPERFLEET-16360"])
 
     def test_the_newest_pull_request_comes_first(self):
-        prs = jc.pull_requests_from(
+        owned, _ = jc.pull_requests_from(
             [
                 {"object": {"url": "https://github.com/o/r/pull/9",
                             "title": "HYPERFLEET-104 - a"}},
@@ -419,7 +428,7 @@ class PullRequestTest(unittest.TestCase):
             ],
             "HYPERFLEET-104",
         )
-        self.assertEqual([pr["number"] for pr in prs], [120, 11, 9])
+        self.assertEqual([pr["number"] for pr in owned], [120, 11, 9])
 
     def test_markdown_links_the_number_not_the_url(self):
         self.assertEqual(
@@ -447,6 +456,27 @@ class PullRequestTest(unittest.TestCase):
 
     def test_an_item_without_a_pull_request_renders_nothing(self):
         self.assertEqual(jc.pr_refs({"pr": []}, "markdown"), "")
+
+    def test_a_cross_reference_names_the_ticket_its_title_names(self):
+        item = {
+            "pr": [],
+            "pr_other": [
+                {"number": 255, "url": "https://github.com/o/r/pull/255",
+                 "titled": "HYPERFLEET-1636"}
+            ],
+        }
+        rendered = jc.other_pr_refs(item, "markdown")
+        self.assertIn("[#255](https://github.com/o/r/pull/255)", rendered)
+        self.assertIn("titled HYPERFLEET-1636", rendered)
+
+    def test_a_cross_reference_without_a_key_says_so(self):
+        item = {
+            "pr": [],
+            "pr_other": [
+                {"number": 5, "url": "https://github.com/o/r/pull/5", "titled": None}
+            ],
+        }
+        self.assertIn("no ticket key in the title", jc.other_pr_refs(item, "markdown"))
 
     def test_only_review_items_are_looked_up(self):
         items = [

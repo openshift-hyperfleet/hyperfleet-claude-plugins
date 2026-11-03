@@ -482,27 +482,34 @@ def read_changelog(
 
 
 PR_URL = re.compile(r"/pull/(\d+)")
+KEY_IN_TITLE = re.compile(r"[A-Z][A-Z0-9_]{1,9}-\d+", re.IGNORECASE)
 
 
-def pull_requests_from(payload: list, key: str) -> list[dict]:
-    """[(number, url)] of the pull requests that belong to `key`.
+def pull_requests_from(payload: list, key: str) -> tuple[list[dict], list[dict]]:
+    """(pull requests titled for `key`, pull requests titled for someone else).
 
     Two filters, because the panel is generous:
 
     - The URL must be a pull request. Jira stores a branch and a commit as remote
       links too, in the same shape, so only `/pull/<n>` counts.
-    - The title must name `key`. Jira links a pull request to every ticket its
+    - The title decides ownership. Jira links a pull request to every ticket its
       title mentions, so a link on HYPERFLEET-1669 can be the pull request of
       HYPERFLEET-1636; reporting that as 1669's pull request sends the reviewer to
-      the wrong diff. A title with no key at all is dropped as well: an
-      unverified link reads as ownership.
+      the wrong diff and makes two stalls look like one shared blocker.
+
+    A link the title does not claim is not dropped, because dropping it made the
+    report say "no pull request linked" about a ticket that visibly has one. It
+    comes back as a cross-reference: the link plus the key its title names, or
+    `titled: None` when the title names none at all. The reader sees the shared
+    work without the report claiming it as this ticket's own.
 
     Duplicates are common (a PR appears once per branch event), so the number
     dedupes them. Order is newest first: within one repository the number grows,
-    so the highest one is the latest attempt at the ticket.
+    so the highest one is the latest attempt.
     """
     wanted = re.compile(rf"{re.escape(key)}(?!\d)", re.IGNORECASE)
-    found: dict[int, str] = {}
+    owned: dict[int, str] = {}
+    other: dict[int, dict] = {}
     for link in payload or []:
         if not isinstance(link, dict):
             continue
@@ -511,24 +518,35 @@ def pull_requests_from(payload: list, key: str) -> list[dict]:
         match = PR_URL.search(url)
         if not match or not url.startswith("https://"):
             continue
-        if not wanted.search(obj.get("title") or ""):
+        number = int(match.group(1))
+        title = obj.get("title") or ""
+        if wanted.search(title):
+            owned.setdefault(number, url)
             continue
-        found.setdefault(int(match.group(1)), url)
-    return [{"number": number, "url": found[number]} for number in sorted(found, reverse=True)]
+        named = KEY_IN_TITLE.search(title)
+        other.setdefault(
+            number,
+            {"number": number, "url": url, "titled": named.group(0).upper() if named else None},
+        )
+    return (
+        [{"number": number, "url": owned[number]} for number in sorted(owned, reverse=True)],
+        [other[number] for number in sorted(other, reverse=True)],
+    )
+
 
 
 def read_pull_requests(
     key: str, api: tuple[str, str] | None
-) -> tuple[list[dict], str | None]:
-    """(pull requests Jira links to the issue, error).
+) -> tuple[list[dict], list[dict], str | None]:
+    """(pull requests of `key`, cross-references, error).
 
     The panel shows the link, not the state: an open and a merged pull request
     look the same here, so this says "there is something to review", never "it is
     still under review". Ownership comes from the title - see
-    `pull_requests_from`.
+    `pull_requests_from`, which never hides a link it refuses to claim.
     """
     if not api:
-        return [], "no JIRA_API_TOKEN or jira-cli login"
+        return [], [], "no JIRA_API_TOKEN or jira-cli login"
     server, auth = api
     request = urllib.request.Request(
         f"{server}/rest/api/3/issue/{key}/remotelink",
@@ -543,23 +561,25 @@ def read_pull_requests(
         OSError,
         ValueError,
     ) as exc:
-        return [], f"{key}: {type(exc).__name__}"
-    return pull_requests_from(payload, key), None
+        return [], [], f"{key}: {type(exc).__name__}"
+    owned, other = pull_requests_from(payload, key)
+    return owned, other, None
 
 
 def apply_pull_requests(items: list[dict], jobs: int) -> dict:
-    """Attach `pr` to the items in review; every other item gets an empty list.
+    """Attach `pr` and `pr_other` to the items in review; other items get empty lists.
 
-    A pull request exists only once work has something to show, so the lookup is
-    scoped to `Review`: it is the one status where the reader's next click is the
-    pull request rather than the ticket.
+    `pr` is ownership - the title names the ticket. `pr_other` is a link the title
+    attributes elsewhere; it is kept apart so nothing has to lie about it: the
+    report can show the link and still say the ticket owns no pull request.
     """
     for item in items:
         item["pr"] = []
+        item["pr_other"] = []
 
     in_review = [item for item in items if item.get("status") == "Review"]
     if not in_review:
-        return {"available": True, "failed": 0, "checked": 0, "found": 0}
+        return {"available": True, "failed": 0, "checked": 0, "found": 0, "shared": 0}
 
     api = jira_api()
     if not api:
@@ -568,25 +588,30 @@ def apply_pull_requests(items: list[dict], jobs: int) -> dict:
             "failed": 0,
             "checked": len(in_review),
             "found": 0,
+            "shared": 0,
             "reason": "no JIRA_API_TOKEN or jira-cli login",
         }
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         results = list(pool.map(lambda item: read_pull_requests(item["key"], api), in_review))
 
-    failed = found = 0
-    for item, (prs, error) in zip(in_review, results):
+    failed = found = shared = 0
+    for item, (prs, others, error) in zip(in_review, results):
         if error:
             failed += 1
         if prs:
             found += 1
             item["pr"] = prs
+        if others:
+            shared += 1
+            item["pr_other"] = others
 
     return {
         "available": failed == 0,
         "failed": failed,
         "checked": len(in_review),
         "found": found,
+        "shared": shared,
     }
 
 
@@ -608,6 +633,28 @@ def pr_refs(item: dict, style: str, limit: int = 2) -> str:
     shown = ", ".join(pr_ref(pr, style) for pr in prs[:limit])
     more = f" +{len(prs) - limit}" if len(prs) > limit else ""
     return f"PR {shown}{more}"
+
+
+def other_pr_refs(item: dict, style: str, ref=None, limit: int = 1) -> str:
+    """A link the title attributes elsewhere, with the key it names.
+
+    Rendered apart from `pr_refs` because the sentence around it is different:
+    "PR #255 (titled HYPERFLEET-1636)" says there is work to look at and that it
+    belongs to another ticket, which is neither of the two things a bare link
+    implies. The one thing it must never become is an empty string on a ticket
+    that visibly carries a link.
+    """
+    others = item.get("pr_other") or []
+    if not others:
+        return ""
+    ref = ref or (lambda key: key)
+    shown = []
+    for pr in others[:limit]:
+        titled = pr.get("titled")
+        label = f"titled {ref(titled)}" if titled else "no ticket key in the title"
+        shown.append(f"{pr_ref(pr, style)} ({label})")
+    more = f" +{len(others) - limit}" if len(others) > limit else ""
+    return f"PR {', '.join(shown)}{more}"
 
 
 def apply_changelog_signals(items: list[dict], today: date, jobs: int) -> dict:
