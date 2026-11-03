@@ -163,12 +163,15 @@ def suggested_ask(item: dict, ref=None) -> str:
 
 
 def decorate_ask(item: dict, style: str, ref=None) -> str:
-    """Fold the pull request into the ask, or say why it is not this ticket's.
+    """Fold the pull request into the ask, or name the one it does not own.
 
     A ticket whose only link is titled for another ticket has work to look at and
-    no pull request of its own. Leaving the generic "ask a reviewer" ask there
-    would read as "nothing to review yet", which is the opposite of what Jira
-    shows, so the ask names the link and the choice.
+    no pull request of its own, and the report cannot tell which of the two is
+    true: either that pull request delivers this ticket and its title is
+    incomplete, or there is nothing to review here. So the ask offers the two
+    moves the owner can make - post its own, or close it as delivered - and shows
+    the link as evidence rather than as its own pull request. It never asks the
+    reader to go and find out what a diff contains; the report did not read it.
     """
     ask = item["ask"]
     prs = pr_refs(item, style)
@@ -182,10 +185,7 @@ def decorate_ask(item: dict, style: str, ref=None) -> str:
     if item.get("status") == "Review":
         shared = other_pr_refs(item, style, ref)
         if shared:
-            return (
-                f"Confirm whether {shared} delivers this ticket too; "
-                "if it does, add this key to the pull request title"
-            )
+            return f"Post this ticket's pull request, or close it as delivered by {shared}"
     return ask
 
 

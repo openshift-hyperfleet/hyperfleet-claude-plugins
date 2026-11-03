@@ -83,6 +83,8 @@ An item in `Review` also carries its pull requests at the end of the line, as `-
 
 The pull request's **title** decides ownership, not the link. Jira links a pull request to every ticket its title mentions, so a link whose title names another ticket is a cross-reference: reporting it as this ticket's pull request sends the reviewer to the wrong diff, and it makes two stalls look like one shared blocker. Hiding it is just as wrong, because the ticket visibly carries a link and `no pull request linked` would be false - so the line carries it with the key its title names, as `- PR [#255](url) (titled [HYPERFLEET-1636](url))`. The reader sees the shared work and knows why it is not counted. A title with no ticket key at all gets the same treatment, as `(no ticket key in the title)`.
 
+State the link, not a question about it. The report never read the pull request, so it cannot say whether that diff covers this ticket; a recommendation that asks someone to go and confirm it turns title hygiene into sprint work. Name the two moves instead - the pull request of this ticket, or closing it as delivered by the linked one - and let the person with the context pick.
+
 The panel carries the link and not the state, so a pull request listed here may already be merged - the link says "there is something to review", never "it is still pending". When the lookup fails, the Method section says so in its own `signal: partial` line instead of silently dropping the link.
 
 ## Output Format

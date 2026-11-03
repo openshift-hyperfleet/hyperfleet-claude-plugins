@@ -579,10 +579,12 @@ class CrossReferenceAskTest(unittest.TestCase):
             "markdown",
             self.ref,
         )
-        self.assertIn("Confirm whether", ask)
+        self.assertTrue(ask.startswith("Post this ticket's pull request"))
+        self.assertIn("or close it as delivered by", ask)
         self.assertIn("[#255](https://github.com/o/r/pull/255)", ask)
         self.assertIn("titled [HYPERFLEET-1636]", ask)
         self.assertNotIn("approve or reject PR", ask)
+        self.assertNotIn("Confirm whether", ask)
 
     def test_no_link_at_all_keeps_the_generic_review_ask(self):
         self.assertEqual(
