@@ -66,9 +66,11 @@ def cell(text: str) -> str:
     return prose(text).replace("|", "\\|")
 
 
-def large_item_keys(project: str, min_sp: int, sp_field_name: str, binary: str) -> list[str]:
+def large_item_keys(
+    project: str, sprint_id: str, min_sp: int, sp_field_name: str, binary: str
+) -> list[str]:
     jql = (
-        f'project = {project} AND sprint in openSprints() '
+        f'project = {project} AND sprint = {sprint_id} '
         f'AND "{sp_field_name}" >= {min_sp} AND {OPEN_STATUS_JQL}'
     )
     out = run_jira(
@@ -151,7 +153,9 @@ def suggested_ask(item: dict) -> str:
 def build(args) -> dict:
     today = parse_date(args.today) if args.today else datetime.now(timezone.utc).date()
     sprint = active_sprint(args.project, args.jira)
-    keys = large_item_keys(args.project, args.min_sp, args.sp_field_name, args.jira)
+    keys = large_item_keys(
+        args.project, sprint["id"], args.min_sp, args.sp_field_name, args.jira
+    )
     docs = fetch_all(keys, args.project, args.jira, args.jobs)
 
     items = []

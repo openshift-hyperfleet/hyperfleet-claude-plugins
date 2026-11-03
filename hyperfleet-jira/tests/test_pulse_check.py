@@ -654,11 +654,20 @@ class TicketRefTest(unittest.TestCase):
 class LargeItemQueryTest(unittest.TestCase):
     def test_done_is_filtered_by_category_not_by_status_name(self):
         with mock.patch.object(pc, "run_jira", return_value="HYPERFLEET-1\n") as fake:
-            keys = pc.large_item_keys("HYPERFLEET", 5, "Story Points", "jira")
+            keys = pc.large_item_keys(
+                "HYPERFLEET", "66537", 5, "Story Points", "jira"
+            )
         jql = fake.call_args.args[0][fake.call_args.args[0].index("-q") + 1]
         self.assertEqual(keys, ["HYPERFLEET-1"])
         self.assertIn("statusCategory != Done", jql)
         self.assertNotIn("status != Closed", jql)
+
+    def test_the_query_is_scoped_to_the_reported_sprint(self):
+        with mock.patch.object(pc, "run_jira", return_value="") as fake:
+            pc.large_item_keys("HYPERFLEET", "66537", 5, "Story Points", "jira")
+        jql = fake.call_args.args[0][fake.call_args.args[0].index("-q") + 1]
+        self.assertIn("sprint = 66537", jql)
+        self.assertNotIn("openSprints()", jql)
 
 
 class OpenLinksTest(unittest.TestCase):
