@@ -10,7 +10,11 @@ the tail of a sprint), the status names that match nothing in HYPERFLEET, and
 the movement signal that counts automation comments as activity.
 """
 
+import io
+import json
+import os
 import sys
+import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
@@ -459,6 +463,105 @@ class ChangelogFailureTest(unittest.TestCase):
             ss.apply_changelog_signals([subject], TODAY, 1)
         self.assertEqual(subject["days_without_movement"], 13)
         self.assertIsNone(subject["status_entered"])
+
+
+class JiraApiGuardTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        (Path(self.tmp.name) / ".config" / ".jira").mkdir(parents=True)
+        self.config = Path(self.tmp.name) / ".config" / ".jira" / ".config.yml"
+
+    def api(self, server):
+        self.config.write_text(f"server: {server}\nlogin: someone@example.com\n")
+        with mock.patch.object(ss.Path, "home", return_value=Path(self.tmp.name)), \
+             mock.patch.dict(os.environ, {"JIRA_API_TOKEN": "token"}):
+            return ss.jira_api()
+
+    def test_https_is_kept(self):
+        self.assertEqual(
+            self.api("https://x.atlassian.net")[0], "https://x.atlassian.net"
+        )
+
+    def test_a_bare_host_gets_https(self):
+        self.assertEqual(self.api("x.atlassian.net")[0], "https://x.atlassian.net")
+
+    def test_cleartext_http_is_refused(self):
+        self.assertIsNone(self.api("http://x.atlassian.net"))
+
+
+class ChangelogTransportTest(unittest.TestCase):
+    api = ("https://example.atlassian.net", "auth")
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __enter__(self):
+            return io.StringIO(json.dumps(self.payload))
+
+        def __exit__(self, *exc):
+            return False
+
+    def call(self, payload=None, error=None):
+        if error is not None:
+            patcher = mock.patch.object(ss, "open_changelog", side_effect=error)
+        else:
+            patcher = mock.patch.object(
+                ss, "open_changelog", return_value=self.Response(payload)
+            )
+        with patcher:
+            return ss.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
+
+    def test_a_network_error_is_counted(self):
+        with self.assertRaises(ss.ChangelogUnavailable):
+            self.call(error=ss.urllib.error.URLError("401 Unauthorized"))
+
+    def test_a_truncated_response_is_counted(self):
+        with self.assertRaises(ss.ChangelogUnavailable):
+            self.call(error=ss.http.client.IncompleteRead(b""))
+
+    def test_a_non_utf8_body_is_counted(self):
+        error = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
+        with self.assertRaises(ss.ChangelogUnavailable):
+            self.call(error=error)
+
+    def test_a_capped_changelog_is_counted(self):
+        with self.assertRaises(ss.ChangelogUnavailable):
+            self.call(payload={"changelog": {"total": 150, "histories": []}})
+
+    def test_a_complete_changelog_is_read(self):
+        payload = {
+            "changelog": {
+                "total": 1,
+                "histories": [
+                    {
+                        "created": "2026-10-30T10:00:00.000+0000",
+                        "items": [
+                            {
+                                "field": "status",
+                                "fromString": "In Progress",
+                                "toString": "Review",
+                            }
+                        ],
+                    }
+                ],
+            }
+        }
+        self.assertEqual(self.call(payload=payload)[0], date(2026, 10, 30))
+
+    def test_a_redirect_is_refused(self):
+        handler = ss.NoRedirect()
+        with self.assertRaises(ss.urllib.error.HTTPError) as caught:
+            handler.redirect_request(
+                ss.urllib.request.Request("https://a.example"),
+                None,
+                302,
+                "Found",
+                {},
+                "https://b.example",
+            )
+        caught.exception.close()
 
 
 class ProjectArgumentTest(unittest.TestCase):

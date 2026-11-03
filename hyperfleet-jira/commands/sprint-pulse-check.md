@@ -1,12 +1,12 @@
 ---
-description: Pulse check on large work items (5 and 8 SP) - the nudge queue leads work through twice a week
+description: Pulse check on large work items (5 SP and above) - the nudge queue leads work through twice a week
 allowed-tools: Bash
 argument-hint: [project-key]
 ---
 
 # Sprint Pulse Check
 
-Leads run a pulse check a couple of times per week during a sprint on the large items (5 and 8 SP), to find out whether the owner needs help or has open questions. The agreement behind it: work over 5 story points needs shared context, and a reviewer cannot reconstruct that context from a merged PR.
+Leads run a pulse check a couple of times per week during a sprint on the large items (5 SP and above), to find out whether the owner needs help or has open questions. The agreement behind it: work at 5 story points and above needs shared context, and a reviewer cannot reconstruct that context from a merged PR.
 
 This command produces a short nudge queue. It is not a sprint status report: it does not compute progress, and it does not summarize the sprint. For that, use `/sprint-status`.
 
@@ -18,8 +18,7 @@ This command produces a short nudge queue. It is not a sprint status report: it 
 1. **Locate the collector script.** It ships with this command in the plugin. No globs: an unmatched glob aborts the shell in zsh.
    ```bash
    PULSE=""
-   for root in "$CLAUDE_PLUGIN_ROOT" \
-               "$HOME/.claude/plugins/cache/hyperfleet-claude-plugins/hyperfleet-jira" \
+   for root in "${CLAUDE_PLUGIN_ROOT}" \
                "$HOME/.claude/plugins/marketplaces/hyperfleet-claude-plugins/hyperfleet-jira"; do
      [ -n "$root" ] || continue
      found=$(find "$root" -maxdepth 3 -name pulse_check.py -type f 2>/dev/null | head -1)
@@ -29,10 +28,9 @@ This command produces a short nudge queue. It is not a sprint status report: it 
    ```
    If `$PULSE` is empty, stop and say so. The script is the command: do not reimplement the calculation inline.
 
-2. **Run it.** Set `PROJECT` to `$1` when the user gave a project key, and leave it unset otherwise; the script rejects anything that is not a Jira project key.
+2. **Run it.** Claude Code substitutes `$1` into this command as text, so never paste it into shell source: a value such as `$(id)` would run. Accept the argument only when it matches `^[A-Z][A-Z0-9_]{1,9}$`; otherwise stop and say it is not a Jira project key. When it matches, use that key in place of `HYPERFLEET` below.
    ```bash
-   PROJECT="$1"
-   python3 "$PULSE" --project "${PROJECT:-HYPERFLEET}" --format json
+   python3 "$PULSE" --project HYPERFLEET --format json
    ```
    Options: `--today YYYY-MM-DD` for a reproducible run, `--format text` for a ready-to-paste block, `--min-sp` and `--max-rows` to move the thresholds, `--link-style markdown|slack|bare` to match the destination, `--next-pulse YYYY-MM-DD` to print the next scheduled pulse (omit it when the lead has not scheduled one, and the output says "to be scheduled").
 
@@ -43,7 +41,6 @@ This command produces a short nudge queue. It is not a sprint status report: it 
 4. **Sharpen the ask.** Each queue item carries a default `ask` derived from the ladder. Rewrite it only when you have concrete context the script cannot have - which reviewer to pull in, which blocker just closed, which decision stalled. Keep it to one line.
 
 5. **Apply the courtesies the script cannot:**
-   - merge two rows from the same owner when the ask is identical
    - never promote an item the script left out of the queue (below `--action-after` days)
    - when an item is `Review`, the ask names reviewers, not the owner
    - when the item is blocked, the ask names the blocker, never the person holding the ticket
@@ -108,10 +105,10 @@ Rules for the output:
 - **The verb comes from a closed set:** `ask` (approve/reject, status, start or drop), `assign`, `post`, `start`, `propose` (a split), `confirm` (a date). A closed set keeps the column scannable and countable, and it bounds the hand rewrite in step 4 to the specifics - who, which PR, which blocker - never to the choice of action.
 - **Never restate the item's own age in the Ask.** It is in the `Status · age` cell beside it; repeating it costs width and produces "20+ days: 20+ days". A blocker's age does appear, because that clock is not in the table.
 - **The verb follows the state, not the age alone:** blocked items name the blocker's move, `Review` asks a reviewer for a decision, `In Progress` asks for evidence on the ticket, and unstarted work asks for a date; a spike asks for the decision note, never for a start date.
-- Do not repeat the same owner across rows if two items have the same ask - merge them into one row.
 - Items in good standing stay visible only in the single "No action" line, never as table rows.
 - In the `Status · age` cell, `(assigned MM-DD)` marks a clock shortened by a reassignment and `(since MM-DD)` marks a Backlog item with no start. Never show both.
 - A blocker's age is its own last workflow transition, not the blocked item's. A blocker in `Review` leads the ask and names its reviewer (`Ask Martin to approve or reject HYPERFLEET-1636 (Review 7d)`); an unowned blocker becomes `assign HYPERFLEET-1523`, because there is nobody to ask.
+- **Say when the signal is partial.** The command reads JSON, so the script's own text warning never appears. If `changelog_signal.failed` is non-zero, add one line under the queue: `Signal: partial - N of M changelog reads failed; those items use the status category date`. If `changelog_signal.available` is false, add: `Signal: partial - no JIRA_API_TOKEN, so movement ignores exact status changes and assignments`.
 - State the movement definition in every output. Without it the numbers start arguments.
 - Date the output, and print the next pulse date, so a stale copy is recognizable at a glance.
 

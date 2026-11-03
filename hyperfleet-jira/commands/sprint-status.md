@@ -16,8 +16,7 @@ Comprehensive sprint health report for team leads and scrum masters.
 1. **Locate the collector script.** It ships with this command in the plugin. No globs: an unmatched glob aborts the shell in zsh.
    ```bash
    SPRINT=""
-   for root in "$CLAUDE_PLUGIN_ROOT" \
-               "$HOME/.claude/plugins/cache/hyperfleet-claude-plugins/hyperfleet-jira" \
+   for root in "${CLAUDE_PLUGIN_ROOT}" \
                "$HOME/.claude/plugins/marketplaces/hyperfleet-claude-plugins/hyperfleet-jira"; do
      [ -n "$root" ] || continue
      found=$(find "$root" -maxdepth 3 -name sprint_status.py -type f 2>/dev/null | head -1)
@@ -27,10 +26,9 @@ Comprehensive sprint health report for team leads and scrum masters.
    ```
    If `$SPRINT` is empty, stop and say so. The script is the command: do not fall back to hand-written JQL.
 
-2. **Run it.** Set `PROJECT` to `$1` when the user gave a project key, and leave it unset otherwise; the script rejects anything that is not a Jira project key.
+2. **Run it.** Claude Code substitutes `$1` into this command as text, so never paste it into shell source: a value such as `$(id)` would run. Accept the argument only when it matches `^[A-Z][A-Z0-9_]{1,9}$`; otherwise stop and say it is not a Jira project key. When it matches, use that key in place of `HYPERFLEET` below.
    ```bash
-   PROJECT="$1"
-   python3 "$SPRINT" --project "${PROJECT:-HYPERFLEET}" --format markdown
+   python3 "$SPRINT" --project HYPERFLEET --format markdown
    ```
    Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` to report on a sprint other than the active one, `--stale-days` to move the staleness threshold, `--blocker-priority` to change which priority counts as top, `--link-style markdown|slack|bare` to match the destination, `--no-baseline` to skip the previous sprint lookup.
 
@@ -46,7 +44,7 @@ Comprehensive sprint health report for team leads and scrum masters.
 
    Three definitions matter when you read it:
    - **Progress** is shown twice, by story points and by item count. The bar and the headline percentage use story points. Say which one you are quoting.
-   - **Movement** is the most recent of the exact last status change, the last human comment and the assignment to the current owner. The status and assignment parts need `JIRA_API_TOKEN`; without it the report falls back to `statusCategoryChangedDate` and comments only, so an item can look older than it is.
+   - **Movement** is the most recent of the exact last status change, the last human comment and the assignment to the current owner. The status and assignment parts need `JIRA_API_TOKEN`; without it the report falls back to `statusCategoryChangedDate` and comments only, so an item can look older than it is. A failed or unavailable changelog read adds a `signal: partial` line to the Method section; keep that line in the report.
    - **Capacity** is a projection from the previous sprint's pace, not a commitment. At the start of a sprint it is mostly noise; from mid-sprint on it is the number to argue with.
 
 5. **Add Recommendations.** The script cannot write these: they need a decision.
@@ -55,7 +53,7 @@ Comprehensive sprint health report for team leads and scrum masters.
    - Order by what unblocks the most work: an unassigned item that blocks seven others outranks an unassigned item that blocks none.
    - When the `Blocked by open work` list is long, recommend clearing the blockers rather than chasing the blocked items. The blocked owners cannot move.
    - Never recommend "add more people" without naming the item and the person.
-   - For large work items (5 and 8 SP), point the lead to `/sprint-pulse-check` instead of expanding this report.
+   - For large work items (5 SP and above), point the lead to `/sprint-pulse-check` instead of expanding this report.
 
 6. **Keep the report in English.** The chat reply that accompanies it follows the user's language.
 
@@ -122,7 +120,7 @@ Progress: [=====>      ] X% by SP (X of X) | X% by count (X of X)
 
 ### Carry-Over and Capacity
 ```text
-Needs a decision: X items / X SP (X unassigned, X stale, X unestimated; a ticket can be listed twice)
+Needs a decision: X items / X SP (X unassigned, X stale, X unestimated; a ticket can be counted in multiple reasons)
 Capacity: X SP remaining; at the previous sprint's pace the team delivers X SP
 in the X days left (X SP over capacity, or X SP of headroom)
 ```

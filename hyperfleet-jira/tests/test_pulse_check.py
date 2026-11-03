@@ -228,7 +228,7 @@ class ChangelogSignalTest(unittest.TestCase):
 
     def test_changelog_returns_the_latest_status_and_assignment(self):
         with mock.patch.object(
-            pc.urllib.request, "urlopen", return_value=self.Response(self.histories())
+            pc, "open_changelog", return_value=self.Response(self.histories())
         ):
             self.assertEqual(
                 pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api),
@@ -245,7 +245,7 @@ class ChangelogSignalTest(unittest.TestCase):
             }
         }
         with mock.patch.object(
-            pc.urllib.request, "urlopen", return_value=self.Response(payload)
+            pc, "open_changelog", return_value=self.Response(payload)
         ):
             self.assertEqual(
                 pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api), (None, None)
@@ -254,7 +254,7 @@ class ChangelogSignalTest(unittest.TestCase):
     def test_created_in_status_has_no_transition_date(self):
         payload = {"changelog": {"histories": []}}
         with mock.patch.object(
-            pc.urllib.request, "urlopen", return_value=self.Response(payload)
+            pc, "open_changelog", return_value=self.Response(payload)
         ):
             self.assertEqual(
                 pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api), (None, None)
@@ -312,12 +312,82 @@ class ChangelogFailureTest(unittest.TestCase):
 
     def test_an_http_error_raises_instead_of_looking_empty(self):
         with mock.patch.object(
-            pc.urllib.request,
-            "urlopen",
+            pc,
+            "open_changelog",
             side_effect=pc.urllib.error.URLError("401 Unauthorized"),
         ):
             with self.assertRaises(pc.ChangelogUnavailable):
                 pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
+
+
+class ChangelogTransportTest(unittest.TestCase):
+    api = ("https://example.atlassian.net", "auth")
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __enter__(self):
+            return io.StringIO(json.dumps(self.payload))
+
+        def __exit__(self, *exc):
+            return False
+
+    def call(self, payload=None, error=None):
+        if error is not None:
+            patcher = mock.patch.object(pc, "open_changelog", side_effect=error)
+        else:
+            patcher = mock.patch.object(
+                pc, "open_changelog", return_value=self.Response(payload)
+            )
+        with patcher:
+            return pc.changelog_dates("HYPERFLEET-1", "acc-1", self.api)
+
+    def test_a_truncated_response_is_counted(self):
+        with self.assertRaises(pc.ChangelogUnavailable):
+            self.call(error=pc.http.client.IncompleteRead(b""))
+
+    def test_a_non_utf8_body_is_counted(self):
+        error = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
+        with self.assertRaises(pc.ChangelogUnavailable):
+            self.call(error=error)
+
+    def test_a_capped_changelog_is_counted(self):
+        with self.assertRaises(pc.ChangelogUnavailable):
+            self.call(payload={"changelog": {"total": 150, "histories": []}})
+
+    def test_a_complete_changelog_is_read(self):
+        payload = {
+            "changelog": {
+                "total": 1,
+                "histories": [
+                    {
+                        "created": "2026-10-30T10:00:00.000+0000",
+                        "items": [
+                            {
+                                "field": "status",
+                                "fromString": "In Progress",
+                                "toString": "Review",
+                            }
+                        ],
+                    }
+                ],
+            }
+        }
+        self.assertEqual(self.call(payload=payload)[0], date(2026, 10, 30))
+
+    def test_a_redirect_is_refused(self):
+        handler = pc.NoRedirect()
+        with self.assertRaises(pc.urllib.error.HTTPError) as caught:
+            handler.redirect_request(
+                pc.urllib.request.Request("https://a.example"),
+                None,
+                302,
+                "Found",
+                {},
+                "https://b.example",
+            )
+        caught.exception.close()
 
 
 class RunJiraTest(unittest.TestCase):

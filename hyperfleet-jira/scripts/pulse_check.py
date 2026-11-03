@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import http.client
 import json
 import os
 import re
@@ -156,6 +157,18 @@ def jira_api() -> tuple[str, str] | None:
     return base, auth
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects: urllib copies the Authorization header to the target."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+
+def open_changelog(request: urllib.request.Request):
+    """GET that never follows a redirect, so the token stays on the Jira host."""
+    return urllib.request.build_opener(NoRedirect).open(request, timeout=15)
+
+
 def changelog_dates(
     key: str, account_id: str | None, api: tuple[str, str] | None
 ) -> tuple[date | None, date | None]:
@@ -179,14 +192,34 @@ def changelog_dates(
         url, headers={"Authorization": f"Basic {auth}", "Accept": "application/json"}
     )
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with open_changelog(request) as response:
             payload = json.load(response)
-    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+    except (
+        urllib.error.URLError,
+        http.client.HTTPException,
+        OSError,
+        ValueError,
+    ) as exc:
+        # HTTPError is a URLError and JSONDecodeError/UnicodeDecodeError are
+        # ValueErrors: every transport or decode failure is one counted failure.
         raise ChangelogUnavailable(f"{key}: {type(exc).__name__}") from exc
+
+    changelog = payload.get("changelog") or {}
+    histories = changelog.get("histories") or []
+    try:
+        total = int(changelog.get("total") or 0)
+    except (TypeError, ValueError):
+        total = 0
+    if total > len(histories):
+        # The inline changelog is capped; a truncated read can miss the exact
+        # transition, so it must be counted instead of looking like "no entry".
+        raise ChangelogUnavailable(
+            f"{key}: changelog truncated ({len(histories)} of {total} entries)"
+        )
 
     status_dates: list[date] = []
     assignment_dates: list[date] = []
-    for entry in (payload.get("changelog") or {}).get("histories") or []:
+    for entry in histories:
         changed_status = changed_assignee = False
         for change in entry.get("items") or []:
             if change.get("field") == "status":

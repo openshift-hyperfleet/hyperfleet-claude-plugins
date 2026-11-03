@@ -11,7 +11,7 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 
 ### For Team Leads
 - **`/sprint-status`** - Comprehensive sprint health overview
-- **`/sprint-pulse-check`** - Twice-weekly nudge queue for large work items (5 and 8 SP)
+- **`/sprint-pulse-check`** - Twice-weekly nudge queue for large work items (5 SP and above)
 - **`/team-weekly-update`** - Weekly team progress report grouped by activity type and epic
 - **`/triage`** - Audit tickets for missing fields and quality issues
 
@@ -127,7 +127,7 @@ Output includes:
 - Progress by status, by story points and by item count
 - Blocked items, highest-priority open items, and stale in-progress work
 - Team workload distribution, including unassigned work
-- Carry-over candidates and a capacity projection from the previous sprint's pace
+- Carry-over totals (items, story points, and reasons) and a capacity projection from the previous sprint's pace
 
 The numbers come from `scripts/sprint_status.py` (`--format json` or the rendered `--format markdown`), not from hand-written JQL: story points need `issue view --raw`, and `issue list` truncates at 100 issues without saying so.
 
