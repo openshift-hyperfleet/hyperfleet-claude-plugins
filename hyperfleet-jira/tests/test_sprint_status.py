@@ -869,6 +869,18 @@ class ProjectArgumentTest(unittest.TestCase):
         with self.assertRaises(jc.argparse.ArgumentTypeError):
             jc.project_key("HF OR project = SECRET")
 
+    def test_a_cli_date_must_be_iso(self):
+        self.assertEqual(jc.iso_date("2026-11-03"), "2026-11-03")
+        for bad in ("03/11/2026", "2026-11-03T00:00:00", "20261103"):
+            with self.assertRaises(jc.argparse.ArgumentTypeError):
+                jc.iso_date(bad)
+
+    def test_a_thread_count_must_be_positive(self):
+        self.assertEqual(jc.positive_int("8"), 8)
+        for bad in ("0", "-1", "x"):
+            with self.assertRaises(jc.argparse.ArgumentTypeError):
+                jc.positive_int(bad)
+
 
 class BaselineTest(unittest.TestCase):
     """The baseline measures the previous sprint at its own end date."""

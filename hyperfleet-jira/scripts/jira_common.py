@@ -846,6 +846,26 @@ def project_key(value: str) -> str:
     return value
 
 
+def iso_date(value: str) -> str:
+    """Validate a CLI date without changing it: `build` re-parses it with `parse_date`."""
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"not a YYYY-MM-DD date: {value!r}") from exc
+    return value
+
+
+def positive_int(value: str) -> int:
+    """A thread count of zero is a crash inside the pool, not a valid argument."""
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"not an integer: {value!r}") from exc
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1: {value!r}")
+    return number
+
+
 # --------------------------------------------------------------------------
 # CLI surface and signals shared by both collectors
 # --------------------------------------------------------------------------
@@ -863,13 +883,13 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--sp-field", default="customfield_10028", help="custom field id holding story points"
     )
-    parser.add_argument("--today", help="YYYY-MM-DD, for reproducible runs")
+    parser.add_argument("--today", type=iso_date, help="YYYY-MM-DD, for reproducible runs")
     parser.add_argument(
         "--no-prs",
         action="store_true",
         help="skip the pull request lookup for items in review",
     )
-    parser.add_argument("--jobs", type=int, default=8)
+    parser.add_argument("--jobs", type=positive_int, default=8)
 
 
 def no_prs_signal() -> dict:

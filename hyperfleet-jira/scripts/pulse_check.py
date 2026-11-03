@@ -150,7 +150,7 @@ def given_names(reviewers: list[str]) -> str:
     return f"{', '.join(firsts[:-1])} and {firsts[-1]}"
 
 
-def suggested_ask(item: dict, ref=None) -> str:
+def suggested_ask(item: dict, ref=None, pr_skipped: bool = False) -> str:
     """One imperative per item: verb first, then who and what artifact.
 
     The verb comes from a fixed set - ask to approve/reject, assign, unblock,
@@ -166,6 +166,9 @@ def suggested_ask(item: dict, ref=None) -> str:
     `ref` renders a key for the destination, so a blocker named in the ask is a
     link like every other key in the report. It defaults to the bare key, which
     keeps the ask readable in a test and in a log.
+
+    `pr_skipped` means `--no-prs`: the panel was never read, so the ask cannot
+    say who reviews the blocker, and naming its owner would name the author.
     """
     ref = ref or (lambda key: key)
     if item["open_blockers"]:
@@ -184,7 +187,13 @@ def suggested_ask(item: dict, ref=None) -> str:
                 # them instead of picking one - the choice of who reviews stays
                 # with them.
                 names = given_names(d.get("reviewers") or [])
-                if names:
+                if pr_skipped:
+                    # The lookup was turned off: no reviewer list and no live
+                    # pull request are known, so name neither.
+                    clauses.append(
+                        f"ask a reviewer to approve or reject {ref(d['key'])} (Review{when})"
+                    )
+                elif names:
                     clauses.append(
                         f"ask {names} to approve or reject {ref(d['key'])} (Review{when})"
                     )
@@ -231,7 +240,7 @@ def suggested_ask(item: dict, ref=None) -> str:
     return "Confirm a start date on the ticket"
 
 
-def decorate_ask(item: dict, style: str) -> str:
+def decorate_ask(item: dict, style: str, pr_skipped: bool = False) -> str:
     """Fold the pull request a reviewer can act on into the ask.
 
     Ownership comes from the title, so a link Jira shows that is titled for another
@@ -254,6 +263,10 @@ def decorate_ask(item: dict, style: str) -> str:
     ticket back.
     """
     ask = item["ask"]
+    if pr_skipped:
+        # `--no-prs` means "not looked up", not "none": telling the owner to
+        # attach a pull request would invent the absence of one.
+        return ask
     owned = list(item.get("pr") or [])
     live = live_pull_requests(item)
     if live:
@@ -331,6 +344,7 @@ def build(args) -> dict:
     }
     pr_targets = [by_key[key] for key in sorted(review_keys) if key in by_key]
     pr_signal = no_prs_signal() if args.no_prs else apply_pull_requests(pr_targets, args.jobs)
+    pr_skipped = bool(pr_signal.get("skipped"))
 
     for item in items:
         item["blocker_detail"] = [
@@ -344,8 +358,8 @@ def build(args) -> dict:
             }
             for k in item["open_blockers"]
         ]
-        item["ask"] = suggested_ask(item, ref)
-        item["ask"] = decorate_ask(item, args.link_style)
+        item["ask"] = suggested_ask(item, ref, pr_skipped)
+        item["ask"] = decorate_ask(item, args.link_style, pr_skipped)
 
     owned = [i for i in items if i["owner"]]
     unowned = [i for i in items if not i["owner"]]
