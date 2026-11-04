@@ -678,6 +678,39 @@ class DevelopmentPanelTest(unittest.TestCase):
         self.assertEqual([pr["number"] for pr in prs], [416])
         self.assertIn("URLError", error)
 
+    def test_one_failing_application_type_keeps_the_other_types_pull_requests(self):
+        other = "GitHub"
+
+        def open_(request):
+            url = request.full_url
+            if "issue/summary" in url:
+                return self.Response(
+                    {
+                        "summary": {
+                            "pullrequest": {
+                                "byInstanceType": {self.app: {"count": 1}, other: {"count": 1}}
+                            }
+                        }
+                    }
+                )
+            if "issue/detail" in url:
+                # The summary names two apps; the second one fails.
+                if f"applicationType={other}" in url:
+                    raise jc.urllib.error.URLError("boom")
+                return self.Response(
+                    {"detail": [{"pullRequests": [self.pr(416, "HYPERFLEET-1669 - fix: claims")]}]}
+                )
+            if "remotelink" in url:
+                return self.Response([])
+            raise AssertionError(f"unexpected url {url}")
+
+        with mock.patch.object(jc, "open_changelog", side_effect=open_):
+            prs, error = jc.read_pull_requests("HYPERFLEET-1669", "7126783", self.api)
+
+        # One app failing is partial, not empty: the other app's pull request stays.
+        self.assertEqual([pr["number"] for pr in prs], [416])
+        self.assertIn("URLError", error)
+
     def test_a_panel_failure_still_returns_the_remote_link_pull_requests(self):
         url = "https://github.com/openshift-hyperfleet/architecture/pull/255"
         links = [{"object": {"url": url, "title": "HYPERFLEET-1669 - docs: contract"}}]

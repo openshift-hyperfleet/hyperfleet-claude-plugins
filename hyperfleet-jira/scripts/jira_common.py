@@ -577,26 +577,38 @@ def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list
         with open_changelog(request) as response:
             return json.load(response)
 
-    try:
-        summary = get(f"{server}/rest/dev-status/1.0/issue/summary?issueId={issue_id}")
-        types = list(
-            ((summary.get("summary") or {}).get("pullrequest") or {}).get("byInstanceType") or {}
-        )
-        found: list[dict] = []
-        for app in types:
-            detail = get(
-                f"{server}/rest/dev-status/latest/issue/detail?issueId={issue_id}"
-                f"&applicationType={urllib.parse.quote(app)}&dataType=pullrequest"
-            )
-            for group in detail.get("detail") or []:
-                found.extend(group.get("pullRequests") or [])
-    except (
+    failures = (
         urllib.error.URLError,
         http.client.HTTPException,
         OSError,
         ValueError,
-    ) as exc:
+    )
+
+    try:
+        summary = get(f"{server}/rest/dev-status/1.0/issue/summary?issueId={issue_id}")
+    except failures as exc:
+        # The summary is the only source of application ids, so this failure really
+        # does mean nothing was read.
         return [], type(exc).__name__
+
+    types = list(
+        ((summary.get("summary") or {}).get("pullrequest") or {}).get("byInstanceType") or {}
+    )
+    found: list[dict] = []
+    error: str | None = None
+    for app in types:
+        try:
+            detail = get(
+                f"{server}/rest/dev-status/latest/issue/detail?issueId={issue_id}"
+                f"&applicationType={urllib.parse.quote(app)}&dataType=pullrequest"
+            )
+        except failures as exc:
+            # One application failing must not discard what the others reported,
+            # and the caller still needs to know the list is partial.
+            error = error or type(exc).__name__
+            continue
+        for group in detail.get("detail") or []:
+            found.extend(group.get("pullRequests") or [])
 
     prs = []
     for pr in found:
@@ -614,7 +626,7 @@ def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list
                 "reviewers": requested_reviewers(pr),
             }
         )
-    return prs, None
+    return prs, error
 
 
 def requested_reviewers(pr: dict) -> list[str]:
@@ -689,8 +701,8 @@ def read_pull_requests(
         panel, error = development_pull_requests(issue_id, api)
         if error:
             # Same rule in the other direction: a panel failure must not drop the
-            # remote-link pull requests already read.
-            panel = []
+            # remote-link pull requests already read. `panel` keeps whatever the
+            # application types that did answer reported.
             panel_error = f"{key}: {error}"
         for pr in panel:
             if key_in_title(key, pr["title"]):
