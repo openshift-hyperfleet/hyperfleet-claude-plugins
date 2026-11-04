@@ -556,6 +556,26 @@ def pull_requests_from(payload: list, key: str) -> list[dict]:
     ]
 
 
+def application_types(summary) -> list[str] | None:
+    """The application ids the `dev-status` summary lists, or None when malformed.
+
+    Each level is checked on its own: a response can be valid JSON and still be a
+    list, a string or an object nested the wrong way, and `summary["summary"]` is
+    not an object just because the body was. A missing branch means "no
+    application reported a pull request", which is an empty list, not an error.
+    """
+    node = summary
+    for part in ("summary", "pullrequest", "byInstanceType"):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(part)
+    if node is None:
+        return []
+    if not isinstance(node, dict):
+        return None
+    return list(node)
+
+
 def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list[dict], str | None]:
     """(pull requests the development panel reports, error).
 
@@ -591,9 +611,11 @@ def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list
         # does mean nothing was read.
         return [], type(exc).__name__
 
-    types = list(
-        ((summary.get("summary") or {}).get("pullrequest") or {}).get("byInstanceType") or {}
-    )
+    types = application_types(summary)
+    if types is None:
+        # A malformed summary is a failed summary read: without the ids there is
+        # nothing to ask for, and the caller reports a partial read.
+        return [], "MalformedResponse"
     found: list[dict] = []
     error: str | None = None
     for app in types:

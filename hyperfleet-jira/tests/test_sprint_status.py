@@ -743,6 +743,31 @@ class DevelopmentPanelTest(unittest.TestCase):
         self.assertEqual([pr["number"] for pr in prs], [255])
         self.assertIn("MalformedResponse", error)
 
+    def test_a_malformed_summary_is_a_partial_read(self):
+        def open_(request):
+            url = request.full_url
+            if "issue/summary" in url:
+                # Valid JSON, wrong shape: `.get` on this would abort the report.
+                return self.Response([{"summary": {}}])
+            if "remotelink" in url:
+                return self.Response(
+                    [
+                        {
+                            "object": {
+                                "url": "https://github.com/openshift-hyperfleet/architecture/pull/255",
+                                "title": "HYPERFLEET-1669 - docs: contract",
+                            }
+                        }
+                    ]
+                )
+            raise AssertionError(f"unexpected url {url}")
+
+        with mock.patch.object(jc, "open_changelog", side_effect=open_):
+            prs, error = jc.read_pull_requests("HYPERFLEET-1669", "7126783", self.api)
+
+        self.assertEqual([pr["number"] for pr in prs], [255])
+        self.assertIn("MalformedResponse", error)
+
     def test_a_panel_failure_still_returns_the_remote_link_pull_requests(self):
         url = "https://github.com/openshift-hyperfleet/architecture/pull/255"
         links = [{"object": {"url": url, "title": "HYPERFLEET-1669 - docs: contract"}}]
