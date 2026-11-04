@@ -388,7 +388,6 @@ class ChangelogTransportTest(unittest.TestCase):
                 {},
                 "https://b.example",
             )
-        caught.exception.close()
 
 
 class RunJiraTest(unittest.TestCase):
