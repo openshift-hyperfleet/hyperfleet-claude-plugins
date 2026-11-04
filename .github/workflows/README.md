@@ -1,5 +1,17 @@
 # CI Workflows
 
+## hyperfleet-jira tests
+
+**File:** `hyperfleet-jira-tests.yml`
+
+Runs the `hyperfleet-jira` unit suite on every pull request that touches the
+plugin, and on `main`. The workflow calls `make -C hyperfleet-jira test`, so the
+same command reproduces CI locally:
+
+```bash
+make -C hyperfleet-jira test
+```
+
 ## Open PRs Digest
 
 **File:** `open-prs-digest.yml`
