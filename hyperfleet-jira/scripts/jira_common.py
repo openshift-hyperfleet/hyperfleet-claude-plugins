@@ -561,11 +561,17 @@ def application_types(summary) -> list[str] | None:
 
     Each level is checked on its own: a response can be valid JSON and still be a
     list, a string or an object nested the wrong way, and `summary["summary"]` is
-    not an object just because the body was. A missing branch means "no
-    application reported a pull request", which is an empty list, not an error.
+    not an object just because the body was.
+
+    A branch that is simply absent means "no application reported a pull request",
+    which is an empty list: Jira answers `{"summary": {}}` for an issue no app has
+    touched, and calling that malformed would turn a knowable "no pull request"
+    into an unknown one.
     """
     node = summary
     for part in ("summary", "pullrequest", "byInstanceType"):
+        if node is None:
+            return []
         if not isinstance(node, dict):
             return None
         node = node.get(part)

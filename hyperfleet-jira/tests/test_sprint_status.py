@@ -555,6 +555,36 @@ class PullRequestTest(unittest.TestCase):
         self.assertEqual(items[1]["pr"][0]["number"], 7)
 
 
+class ApplicationTypesTest(unittest.TestCase):
+    """A missing branch is "no pull request"; a wrong type is a broken answer."""
+
+    def test_a_missing_branch_is_empty(self):
+        for summary in ({}, {"summary": {}}, {"summary": {"pullrequest": {}}}):
+            self.assertEqual(jc.application_types(summary), [], summary)
+
+    def test_a_non_object_branch_is_malformed(self):
+        for summary in (
+            [],
+            "a string",
+            {"summary": "a string"},
+            {"summary": {"pullrequest": []}},
+            {"summary": {"pullrequest": {"byInstanceType": ["GitHub"]}}},
+        ):
+            self.assertIsNone(jc.application_types(summary), summary)
+
+    def test_the_instance_ids_are_returned(self):
+        summary = {
+            "summary": {
+                "pullrequest": {
+                    "byInstanceType": {"GitHub": {"count": 1}, "Bitbucket": {"count": 0}}
+                }
+            }
+        }
+        self.assertEqual(
+            sorted(jc.application_types(summary)), ["Bitbucket", "GitHub"]
+        )
+
+
 class DevelopmentPanelTest(unittest.TestCase):
     """The GitHub app reports through `dev-status`; remote links are the smaller half."""
 
@@ -742,6 +772,33 @@ class DevelopmentPanelTest(unittest.TestCase):
         # The remote link survives, and the bad panel answer is reported, not swallowed.
         self.assertEqual([pr["number"] for pr in prs], [255])
         self.assertIn("MalformedResponse", error)
+
+    def test_a_summary_without_an_application_branch_is_no_pull_request(self):
+        def open_(request):
+            url = request.full_url
+            if "issue/summary" in url:
+                # What Jira answers for an issue no app has touched.
+                return self.Response({"summary": {}})
+            if "remotelink" in url:
+                return self.Response(
+                    [
+                        {
+                            "object": {
+                                "url": "https://github.com/openshift-hyperfleet/architecture/pull/255",
+                                "title": "HYPERFLEET-1669 - docs: contract",
+                            }
+                        }
+                    ]
+                )
+            raise AssertionError(f"unexpected url {url}")
+
+        with mock.patch.object(jc, "open_changelog", side_effect=open_):
+            prs, error = jc.read_pull_requests("HYPERFLEET-1669", "7126783", self.api)
+
+        # "No app reported one" is a fact, not a failed read: the link is kept and
+        # the signal stays complete, so the ask can still say "attach the PR".
+        self.assertEqual([pr["number"] for pr in prs], [255])
+        self.assertIsNone(error)
 
     def test_a_malformed_summary_is_a_partial_read(self):
         def open_(request):
