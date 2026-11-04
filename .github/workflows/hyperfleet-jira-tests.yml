@@ -35,4 +35,4 @@ jobs:
           python-version: "3.11"
 
       - name: Run tests
-        run: make -C hyperfleet-jira test
+        run: make test

@@ -4,4 +4,4 @@ PYTHON ?= python3
 
 # The same command CI runs in .github/workflows/hyperfleet-jira-tests.yml.
 test:
-	$(PYTHON) -m unittest discover -s tests -v
+	$(PYTHON) -m unittest discover -s hyperfleet-jira/tests -v
