@@ -93,7 +93,12 @@ def sprint_of(doc: dict, sprint_id: str) -> dict | None:
 
 
 def resolve_blockers(
-    items: list[dict], docs: dict[str, dict], project: str, binary: str, jobs: int
+    items: list[dict],
+    docs: dict[str, dict],
+    project: str,
+    binary: str,
+    jobs: int,
+    failures: dict[str, str] | None = None,
 ) -> None:
     """Annotate each item with the blockers that are still open.
 
@@ -102,7 +107,9 @@ def resolve_blockers(
     """
     known = set(docs)
     targets = {key for item in items for key in item["blocked_by"]} - known
-    extra = fetch_all(sorted(targets), project, binary, jobs) if targets else {}
+    extra = (
+        fetch_all(sorted(targets), project, binary, jobs, failures) if targets else {}
+    )
 
     status_of = {
         key: {
@@ -297,7 +304,13 @@ def capacity(
 
 
 def baseline_for(
-    sprint: dict | None, project: str, sp_field: str, binary: str, jobs: int, today: date
+    sprint: dict | None,
+    project: str,
+    sp_field: str,
+    binary: str,
+    jobs: int,
+    today: date,
+    failures: dict[str, str] | None = None,
 ) -> dict | None:
     """Previous sprint totals, measured at the baseline sprint's end.
 
@@ -317,7 +330,7 @@ def baseline_for(
     keys = search_keys(jql, project, binary)
     if not keys:
         return None
-    docs = fetch_all(keys, project, binary, jobs)
+    docs = fetch_all(keys, project, binary, jobs, failures)
     items = [describe(doc["key"], doc, sp_field, today) for doc in docs.values()]
     committed = sum(item["sp"] or 0 for item in items)
     end = parse_date(sprint["end"]) if sprint.get("end") else None
@@ -378,7 +391,8 @@ def build(args) -> dict:
 
     jql = f'{jql_project(args.project)} AND sprint = {sprint["id"]}'
     keys = search_keys(jql, args.project, args.jira)
-    docs = fetch_all(keys, args.project, args.jira, args.jobs)
+    fetch_failures: dict[str, str] = {}
+    docs = fetch_all(keys, args.project, args.jira, args.jobs, fetch_failures)
     items = [describe(doc["key"], doc, args.sp_field, today) for doc in docs.values()]
 
     goal = None
@@ -388,7 +402,7 @@ def build(args) -> dict:
             goal = sprint_field["goal"]
             break
 
-    resolve_blockers(items, docs, args.project, args.jira, args.jobs)
+    resolve_blockers(items, docs, args.project, args.jira, args.jobs, fetch_failures)
     signals = apply_changelog_signals(
         [item for item in items if not item["is_done"]], today, args.jobs
     )
@@ -432,6 +446,7 @@ def build(args) -> dict:
         args.jira,
         args.jobs,
         today,
+        fetch_failures,
     )
 
     risk = carry_over(items, args.stale_days)
@@ -491,6 +506,10 @@ def build(args) -> dict:
         "capacity": projection,
         "changelog_signal": signals,
         "pr_signal": pr_signal,
+        "fetch_signal": {
+            "failed": len(fetch_failures),
+            "keys": sorted(fetch_failures),
+        },
         "notes": {
             "progress_basis": "percent_by_sp is closed story points over total story points",
             "movement_basis": (
@@ -703,6 +722,12 @@ def render_text(data: dict) -> str:
         lines.append(
             "- signal: partial - pull request links unavailable ("
             f"{prs.get('reason') or 'no JIRA_API_TOKEN'})"
+        )
+    fetches = data.get("fetch_signal") or {}
+    if fetches.get("failed"):
+        lines.append(
+            f"- signal: partial - {fetches['failed']} issue reads failed, so those items "
+            "are missing and their links stay open"
         )
     return "\n".join(lines)
 

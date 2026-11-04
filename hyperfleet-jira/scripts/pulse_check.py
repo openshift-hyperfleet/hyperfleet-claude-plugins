@@ -48,7 +48,7 @@ from jira_common import (
     open_links,
     parse_date,
     pr_refs,
-    run_jira,
+    search_keys,
     ticket_ref,
     warn_changelog_failure,
 )
@@ -70,15 +70,17 @@ def cell(text: str) -> str:
 def large_item_keys(
     project: str, sprint_id: str, min_sp: int, sp_field_name: str, binary: str
 ) -> list[str]:
+    """Every large item in the sprint, past the 100-issue page cap.
+
+    `jira issue list` truncates a sprint above 100 issues without saying so;
+    `search_keys` moves the JQL window instead, and raises rather than returning a
+    short list that looks complete.
+    """
     jql = (
         f'project = {project} AND sprint = {sprint_id} '
         f'AND "{sp_field_name}" >= {min_sp} AND {OPEN_STATUS_JQL}'
     )
-    out = run_jira(
-        ["issue", "list", "-q", jql, "-p", project, "--plain", "--no-headers", "--columns", "KEY"],
-        binary,
-    )
-    return [line.strip() for line in out.splitlines() if line.strip()]
+    return search_keys(jql, project, binary)
 
 
 def assignment_is_binding(item: dict) -> bool:
@@ -168,8 +170,9 @@ def suggested_ask(item: dict, ref=None) -> str:
     keeps the ask readable in a test and in a log.
 
     A blocker whose pull request read did not answer is `pr_unknown`: the ask
-    cannot say who reviews it, and naming its owner would name the author when the
-    diff exists but was not read.
+    cannot name a reviewer, and naming its owner would name the author when the
+    diff exists but was not read. Reviewers a partial read still found are named
+    first, because they are facts the read did return.
     """
     ref = ref or (lambda key: key)
     if item["open_blockers"]:
@@ -188,20 +191,16 @@ def suggested_ask(item: dict, ref=None) -> str:
                 # them instead of picking one - the choice of who reviews stays
                 # with them.
                 names = given_names(d.get("reviewers") or [])
-                if d.get("pr_unknown"):
-                    # The lookup did not answer for this ticket: no reviewer list
-                    # and no live pull request are known, so name neither. That
-                    # covers `--no-prs`, a missing token and a failed read alike.
-                    clauses.append(
-                        f"ask a reviewer to approve or reject {ref(d['key'])} (Review{when})"
-                    )
-                elif names:
+                if names:
+                    # Reviewers a partial read still found are facts, so they win
+                    # over the unknown flag: the ask names them and stops there.
                     clauses.append(
                         f"ask {names} to approve or reject {ref(d['key'])} (Review{when})"
                     )
-                elif d.get("has_live_pr"):
-                    # A pull request exists but Jira reports no reviewer for it,
-                    # so a name here would be a guess. The owner is the author.
+                elif d.get("pr_unknown") or d.get("has_live_pr"):
+                    # Unread (`--no-prs`, missing token, failed read) or a live
+                    # pull request Jira lists no reviewer for: a name here would
+                    # be the author.
                     clauses.append(
                         f"ask a reviewer to approve or reject {ref(d['key'])} (Review{when})"
                     )
@@ -304,7 +303,8 @@ def build(args) -> dict:
     keys = large_item_keys(
         args.project, sprint["id"], args.min_sp, args.sp_field_name, args.jira
     )
-    docs = fetch_all(keys, args.project, args.jira, args.jobs)
+    fetch_failures: dict[str, str] = {}
+    docs = fetch_all(keys, args.project, args.jira, args.jobs, fetch_failures)
 
     items = []
     for key, doc in docs.items():
@@ -316,7 +316,11 @@ def build(args) -> dict:
 
     # Resolve the status of every link target so "blocked" and "blocks" mean open work only.
     targets = {k for item in items for k in item["blocked_by"] + item["blocks"]} - set(docs)
-    extra = fetch_all(sorted(targets), args.project, args.jira, args.jobs) if targets else {}
+    extra = (
+        fetch_all(sorted(targets), args.project, args.jira, args.jobs, fetch_failures)
+        if targets
+        else {}
+    )
 
     # Descriptors for the targets as well, so a blocker's ask can carry its own age.
     target_items = [describe(k, d, args.sp_field, today) for k, d in extra.items()]
@@ -413,6 +417,10 @@ def build(args) -> dict:
         ),
         "changelog_signal": signals,
         "pr_signal": pr_signal,
+        "fetch_signal": {
+            "failed": len(fetch_failures),
+            "keys": sorted(fetch_failures),
+        },
         "totals": {
             "items": len(items),
             "sp": sum(i["sp"] for i in items),
@@ -549,6 +557,12 @@ def render_text(data: dict) -> str:
         lines.append(
             "Signal: partial - pull request links unavailable "
             f"({prs.get('reason') or 'no JIRA_API_TOKEN'})"
+        )
+    fetches = data.get("fetch_signal") or {}
+    if fetches.get("failed"):
+        lines.append(
+            f"Signal: partial - {fetches['failed']} issue reads failed, so those items "
+            "are missing from the queue and their links stay open"
         )
     lines.append(data["definition"])
     lines.append(f"Next pulse: {data['next_pulse'] or 'to be scheduled'}")

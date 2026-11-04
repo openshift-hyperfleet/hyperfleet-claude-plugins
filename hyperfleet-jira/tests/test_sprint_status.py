@@ -110,6 +110,45 @@ class PaginationTest(unittest.TestCase):
         self.assertEqual(fake.call_count, 1)
 
 
+class FetchAllTest(unittest.TestCase):
+    """One unreadable key must not abort a report about the rest."""
+
+    def test_an_unreadable_key_does_not_abort_the_others(self):
+        failures = {}
+
+        def fake_issue(key, project, binary):
+            if key == "HYPERFLEET-2":
+                raise jc.JiraError("no permission")
+            return {"key": key}
+
+        with mock.patch.object(jc, "fetch_issue", side_effect=fake_issue):
+            docs = jc.fetch_all(
+                ["HYPERFLEET-1", "HYPERFLEET-2", "HYPERFLEET-3"],
+                "HYPERFLEET",
+                "jira",
+                2,
+                failures,
+            )
+
+        self.assertEqual(sorted(docs), ["HYPERFLEET-1", "HYPERFLEET-3"])
+        self.assertEqual(sorted(failures), ["HYPERFLEET-2"])
+
+    def test_an_unreadable_blocker_stays_open_with_an_unknown_status(self):
+        items = [{"key": "HYPERFLEET-1", "blocked_by": ["HYPERFLEET-2"]}]
+
+        def fake_issue(key, project, binary):
+            raise jc.JiraError("no permission")
+
+        with mock.patch.object(jc, "fetch_issue", side_effect=fake_issue):
+            ss.resolve_blockers(
+                items, {"HYPERFLEET-1": doc("HYPERFLEET-1")}, "HYPERFLEET", "jira", 1, {}
+            )
+
+        # Unknown is not Done: the blocker stays visible, with no status to trust.
+        self.assertEqual(items[0]["open_blockers"], ["HYPERFLEET-2"])
+        self.assertEqual(items[0]["blocker_detail"][0]["status"], "?")
+
+
 class DescribeTest(unittest.TestCase):
     def test_status_category_is_read_not_status_name(self):
         described = ss.describe("HYPERFLEET-100", doc(status="Closed", category="Done"), "customfield_10028", TODAY)
@@ -364,6 +403,30 @@ class PullRequestTest(unittest.TestCase):
     def test_only_pull_request_urls_count_and_a_duplicate_is_listed_once(self):
         owned = jc.pull_requests_from(self.payload(), "HYPERFLEET-104")
         self.assertEqual([pr["number"] for pr in owned], [104, 99])
+
+    def test_the_same_number_in_two_repositories_is_two_pull_requests(self):
+        payload = [
+            {
+                "object": {
+                    "url": "https://github.com/o/hyperfleet-api/pull/120",
+                    "title": "HYPERFLEET-104 - fix: api",
+                }
+            },
+            {
+                "object": {
+                    "url": "https://github.com/o/hyperfleet-infra/pull/120",
+                    "title": "HYPERFLEET-104 - fix: infra",
+                }
+            },
+        ]
+        owned = jc.pull_requests_from(payload, "HYPERFLEET-104")
+        self.assertEqual(
+            sorted(pr["url"] for pr in owned),
+            [
+                "https://github.com/o/hyperfleet-api/pull/120",
+                "https://github.com/o/hyperfleet-infra/pull/120",
+            ],
+        )
 
     def test_a_pull_request_titled_for_another_ticket_is_not_this_tickets(self):
         payload = [
@@ -749,6 +812,11 @@ class RenderSignalTest(unittest.TestCase):
         data = self.data()
         data["changelog_signal"] = {"available": False, "failed": 0, "checked": 7}
         self.assertIn("signal: partial - no JIRA_API_TOKEN", ss.render_text(data))
+
+    def test_a_failed_issue_read_is_named(self):
+        data = self.data()
+        data["fetch_signal"] = {"failed": 2, "keys": ["HYPERFLEET-1", "HYPERFLEET-2"]}
+        self.assertIn("signal: partial - 2 issue reads failed", ss.render_text(data))
 
     def test_a_complete_signal_prints_no_partial_line(self):
         self.assertNotIn("signal: partial", ss.render_text(self.data()))

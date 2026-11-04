@@ -197,11 +197,40 @@ def fetch_issue(key: str, project: str, binary: str) -> dict:
         raise JiraError(f"could not read {key}: {exc}") from exc
 
 
-def fetch_all(keys: list[str], project: str, binary: str, jobs: int) -> dict[str, dict]:
+def fetch_all(
+    keys: list[str],
+    project: str,
+    binary: str,
+    jobs: int,
+    failures: dict[str, str] | None = None,
+) -> dict[str, dict]:
+    """Read every key, keeping the ones that answer.
+
+    A key the caller cannot see - a link target outside their permission, a
+    deleted issue, a repository the token lost access to - must not abort a report
+    about the rest. The failed keys go to `failures` when the caller passes a dict,
+    so the report can say it is partial; a caller that passes none gets a warning
+    on stderr instead of a traceback.
+
+    Callers must read a missing key as unknown, never as closed: `open_links`
+    already counts an unread link as open, which keeps a blocker visible with a
+    status of `?` instead of silently clearing it.
+    """
     unique = sorted(set(keys), key=key_number)
+
+    def fetch(key: str) -> dict | None:
+        try:
+            return fetch_issue(key, project, binary)
+        except JiraError as exc:
+            if failures is not None:
+                failures[key] = str(exc)
+            else:
+                print(f"warning: {exc}", file=sys.stderr)
+            return None
+
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        docs = list(pool.map(lambda key: fetch_issue(key, project, binary), unique))
-    return {doc["key"]: doc for doc in docs}
+        docs = list(pool.map(fetch, unique))
+    return {doc["key"]: doc for doc in docs if doc is not None}
 
 
 # --------------------------------------------------------------------------
@@ -502,8 +531,12 @@ def pull_requests_from(payload: list, key: str) -> list[dict]:
     Remote links are the smaller half of the panel: the GitHub app reports through
     `dev-status`, which `development_pull_requests` reads. Both are merged, because
     some links exist only here.
+
+    A pull request is identified by its URL, because numbers restart in every
+    repository: `hyperfleet-api#120` and `hyperfleet-infra#120` can both belong to
+    one ticket, and keeping only one of them would hide the other's reviewers.
     """
-    owned: dict[int, str] = {}
+    owned: dict[str, int] = {}
     for link in payload or []:
         if not isinstance(link, dict):
             continue
@@ -513,8 +546,14 @@ def pull_requests_from(payload: list, key: str) -> list[dict]:
         if not match or not url.startswith("https://"):
             continue
         if key_in_title(key, obj.get("title") or ""):
-            owned.setdefault(int(match.group(1)), url)
-    return [{"number": number, "url": owned[number]} for number in sorted(owned, reverse=True)]
+            # Keyed by URL, not by number: numbers restart in every repository,
+            # so `hyperfleet-api#120` and `hyperfleet-infra#120` are two pull
+            # requests and keeping one of them would hide the other's reviewers.
+            owned.setdefault(url, int(match.group(1)))
+    return [
+        {"number": number, "url": url}
+        for url, number in sorted(owned.items(), key=lambda pair: (-pair[1], pair[0]))
+    ]
 
 
 def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list[dict], str | None]:

@@ -399,14 +399,14 @@ class RunJiraTest(unittest.TestCase):
             side_effect=jc.subprocess.TimeoutExpired("jira", 120),
         ):
             with self.assertRaises(pc.PulseError):
-                pc.run_jira(["issue", "list"], "jira")
+                jc.run_jira(["issue", "list"], "jira")
 
     def test_a_missing_binary_is_a_pulse_error(self):
         with mock.patch.object(
             jc.subprocess, "run", side_effect=FileNotFoundError("jira")
         ):
             with self.assertRaises(pc.PulseError):
-                pc.run_jira(["issue", "list"], "jira")
+                jc.run_jira(["issue", "list"], "jira")
 
 
 class JiraApiTest(unittest.TestCase):
@@ -570,6 +570,28 @@ class AskTest(unittest.TestCase):
         ask = pc.suggested_ask(item)
         self.assertIn("a reviewer to approve or reject", ask.lower())
         self.assertNotIn("Martin", ask)
+
+    def test_a_partial_read_still_names_the_reviewers_it_found(self):
+        item = {
+            "summary": "x",
+            "status": "Backlog",
+            "days_without_movement": 70,
+            "open_blockers": ["HYPERFLEET-1709"],
+            "blocker_detail": [
+                {
+                    "key": "HYPERFLEET-1709",
+                    "status": "Review",
+                    "owner": "Phuongnhat Nguyen",
+                    "days_in_status": 5,
+                    "reviewers": ["Tirth Chetan Thakkar", "Rafael Benevides"],
+                    "has_live_pr": True,
+                    "pr_unknown": True,
+                }
+            ],
+        }
+        ask = pc.suggested_ask(item)
+        self.assertIn("Tirth and Rafael to approve or reject", ask)
+        self.assertNotIn("Phuongnhat", ask)
 
     def test_review_blocker_leads_and_carries_its_age(self):
         item = {
@@ -946,6 +968,11 @@ class RenderTest(unittest.TestCase):
         row = [line for line in pc.render_text(data).splitlines() if "HYPERFLEET-1)" in line][0]
         self.assertEqual(row.count("|") - row.count("\\|"), 7)
 
+    def test_a_failed_issue_read_is_reported(self):
+        data = self.data()
+        data["fetch_signal"] = {"failed": 2, "keys": ["HYPERFLEET-1", "HYPERFLEET-2"]}
+        self.assertIn("2 issue reads failed", pc.render_text(data))
+
     def test_prose_keys_are_links(self):
         data = self.data()
         data["escalation_20d"] = ["HYPERFLEET-2"]
@@ -1038,21 +1065,27 @@ class TicketRefTest(unittest.TestCase):
 
 class LargeItemQueryTest(unittest.TestCase):
     def test_done_is_filtered_by_category_not_by_status_name(self):
-        with mock.patch.object(pc, "run_jira", return_value="HYPERFLEET-1\n") as fake:
+        with mock.patch.object(pc, "search_keys", return_value=["HYPERFLEET-1"]) as fake:
             keys = pc.large_item_keys(
                 "HYPERFLEET", "66537", 5, "Story Points", "jira"
             )
-        jql = fake.call_args.args[0][fake.call_args.args[0].index("-q") + 1]
+        jql = fake.call_args.args[0]
         self.assertEqual(keys, ["HYPERFLEET-1"])
         self.assertIn("statusCategory != Done", jql)
         self.assertNotIn("status != Closed", jql)
 
     def test_the_query_is_scoped_to_the_reported_sprint(self):
-        with mock.patch.object(pc, "run_jira", return_value="") as fake:
+        with mock.patch.object(pc, "search_keys", return_value=[]) as fake:
             pc.large_item_keys("HYPERFLEET", "66537", 5, "Story Points", "jira")
-        jql = fake.call_args.args[0][fake.call_args.args[0].index("-q") + 1]
+        jql = fake.call_args.args[0]
         self.assertIn("sprint = 66537", jql)
         self.assertNotIn("openSprints()", jql)
+
+    def test_the_lookup_pages_instead_of_truncating_at_100(self):
+        # `jira issue list` caps at 100; search_keys moves the JQL window.
+        with mock.patch.object(pc, "search_keys", return_value=[]) as fake:
+            pc.large_item_keys("HYPERFLEET", "66537", 5, "Story Points", "jira")
+        self.assertEqual(fake.call_args.args[1:], ("HYPERFLEET", "jira"))
 
 
 class OpenLinksTest(unittest.TestCase):

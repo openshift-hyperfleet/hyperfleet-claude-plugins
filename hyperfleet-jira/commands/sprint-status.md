@@ -42,11 +42,12 @@ Comprehensive sprint health report for team leads and scrum masters.
 
 4. **Reproduce the script's output.** Present its sections as given: Sprint Overview, Progress by status, Risk assessment, Carry-over, Capacity, Team workload. Keep the numbers verbatim, including the ones that look wrong; if a number is wrong, fix the script, not the text.
 
-   Four definitions matter when you read it:
+   Five definitions matter when you read it:
    - **Progress** is shown twice, by story points and by item count. The bar and the headline percentage use story points. Say which one you are quoting.
    - **Movement** is the most recent of the exact last status change, the last human comment and the assignment to the current owner. The status and assignment parts need `JIRA_API_TOKEN`; without it the report falls back to `statusCategoryChangedDate` and comments only, so an item can look older than it is. A failed or unavailable changelog read adds a `signal: partial` line to the Method section; keep that line in the report.
    - **Capacity** is a projection from the previous sprint's pace, not a commitment. At the start of a sprint it is mostly noise; from mid-sprint on it is the number to argue with.
-   - **Pull requests** appear only on items in `Review`, read from Jira's development panel. Only a pull request whose title names the ticket counts: Jira links the same pull request to every ticket it mentions, so the link alone is not ownership, and a "stale in review" item can point at someone else's diff. The panel reports a state when it has one - `(merged)`, `(declined)` - and a link attached by hand carries none. A failed read adds its own `signal: partial` line; keep it.
+   - **Pull requests** appear only on items in `Review`, read from Jira's development panel. Only a pull request whose title names the ticket counts: Jira links the same pull request to every ticket it mentions, so the link alone is not ownership, and a "stale in review" item can point at someone else's diff. Two repositories can both have a pull request with the same number, so the URL, not the number, identifies one. The panel reports a state when it has one - `(merged)`, `(declined)` - and a link attached by hand carries none. A failed read adds its own `signal: partial` line; keep it.
+   - **An unreadable issue is not a closed one.** A sprint item, blocker or link target the token cannot see is left out of the counts and its links stay open with an unknown status, and a `signal: partial` line says how many reads failed. Keep that line too.
 
 5. **Add Recommendations.** The script cannot write these: they need a decision.
    - Each recommendation names who decides. A follow-up with no name is not a follow-up.
