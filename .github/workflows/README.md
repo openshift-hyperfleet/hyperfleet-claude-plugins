@@ -1,16 +1,19 @@
 # CI Workflows
 
-## hyperfleet-jira tests
+## Plugin tests
 
-**File:** `hyperfleet-jira-tests.yml`
+**File:** `plugin-tests.yml`
 
-Runs the `hyperfleet-jira` unit suite on every pull request that touches the
-plugin, and on `main`. The workflow calls `make test`, so the
-same command reproduces CI locally:
+Runs both plugin test suites - `hyperfleet-jira` (Python) and the
+`hyperfleet-work-triage` open-PRs scripts (bash + `jq`) - on every pull request
+that touches either plugin or the `Makefile`, and on `main`. The workflow calls
+`make test`, so the same command reproduces CI locally:
 
 ```bash
 make test
 ```
+
+`make test-jira` and `make test-triage` run one suite each.
 
 ## Open PRs Digest
 
