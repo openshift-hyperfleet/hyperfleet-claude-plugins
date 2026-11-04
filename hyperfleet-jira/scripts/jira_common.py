@@ -607,8 +607,18 @@ def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list
             # and the caller still needs to know the list is partial.
             error = error or type(exc).__name__
             continue
+        if not isinstance(detail, dict):
+            # Valid JSON, wrong shape: a list or a string where the panel's object
+            # belongs. That is a failed application read like any other, and
+            # calling `.get` on it would abort the whole collector.
+            error = error or "MalformedResponse"
+            continue
         for group in detail.get("detail") or []:
-            found.extend(group.get("pullRequests") or [])
+            if not isinstance(group, dict):
+                continue
+            reported = group.get("pullRequests")
+            if isinstance(reported, list):
+                found.extend(pr for pr in reported if isinstance(pr, dict))
 
     prs = []
     for pr in found:

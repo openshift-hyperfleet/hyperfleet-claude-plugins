@@ -502,6 +502,21 @@ class AskTest(unittest.TestCase):
         }
         self.assertTrue(pc.suggested_ask(item).lower().startswith("assign"))
 
+    def test_an_unread_blocker_asks_for_its_status_not_an_owner(self):
+        item = {
+            "summary": "x",
+            "status": "Backlog",
+            "days_without_movement": 70,
+            "open_blockers": ["HYPERFLEET-1825"],
+            "blocker_detail": [
+                {"key": "HYPERFLEET-1825", "status": "?", "owner": None, "unread": True}
+            ],
+        }
+        ask = pc.suggested_ask(item).lower()
+        # No `assign`: the ticket may already have an owner, the read just failed.
+        self.assertIn("confirm hyperfleet-1825's status and owner", ask)
+        self.assertNotIn("assign", ask)
+
     def test_long_blocker_list_is_truncated(self):
         ask = self.ask("Backlog", 70, ["HYPERFLEET-1", "HYPERFLEET-2", "HYPERFLEET-3"])
         self.assertIn("+1 more", ask)

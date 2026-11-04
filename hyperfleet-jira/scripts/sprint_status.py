@@ -303,6 +303,25 @@ def capacity(
     }
 
 
+def sprint_closed_at(sprint: dict, docs: dict[str, dict]) -> str | None:
+    """The instant Jira recorded the sprint closing, not its planned end.
+
+    `jira sprint list` prints the planned end, and the two are not the same: Sprint
+    18 was planned to 2026-11-01 and closed on 2026-11-02, so HYPERFLEET-1731's
+    point, closed the morning after the plan ran out, fell outside the baseline.
+    `completeDate` is the recorded close, and every issue carries it in its sprint
+    field, so reading it costs no extra request.
+
+    The planned end is the fallback for a sprint whose issues are gone or whose
+    records predate `completeDate`.
+    """
+    for doc in docs.values():
+        record = sprint_of(doc, sprint["id"])
+        if record and record.get("completeDate"):
+            return record["completeDate"][:10]
+    return sprint.get("end")
+
+
 def baseline_for(
     sprint: dict | None,
     project: str,
@@ -323,6 +342,10 @@ def baseline_for(
     ended. Measuring at `today` credits points closed during the current sprint to
     a sprint that was already over, which inflates the baseline and every
     projection built on it.
+
+    "Ended" is the close Jira recorded (`completeDate`), not the planned end - see
+    `sprint_closed_at`. A sprint that ran past its plan still counts the work that
+    landed before it was closed.
     """
     if not sprint:
         return None
@@ -333,20 +356,21 @@ def baseline_for(
     docs = fetch_all(keys, project, binary, jobs, failures)
     items = [describe(doc["key"], doc, sp_field, today) for doc in docs.values()]
     committed = sum(item["sp"] or 0 for item in items)
-    end = parse_date(sprint["end"]) if sprint.get("end") else None
+    closed = sprint_closed_at(sprint, docs)
+    end = parse_date(closed) if closed else None
     delivered = sum(
         item["sp"] or 0
         for item in items
         if item["is_done"] and _closed_by(item["status_changed"], end)
     )
     try:
-        days = (parse_date(sprint["end"]) - parse_date(sprint["start"])).days + 1
-    except (KeyError, ValueError):
+        days = (parse_date(closed) - parse_date(sprint["start"])).days + 1
+    except (KeyError, TypeError, ValueError):
         days = None
     return {
         "sprint": sprint["name"],
         "id": sprint["id"],
-        "end": sprint.get("end"),
+        "end": closed,
         "items": len(items),
         "committed_sp": committed,
         "delivered_sp": delivered,

@@ -40,6 +40,7 @@ def doc(
     comments=(),
     links=(),
     summary="An item",
+    sprints=(),
 ):
     return {
         "key": key,
@@ -55,6 +56,7 @@ def doc(
             "statuscategorychangedate": f"{changed}T10:00:00.000+0000",
             "comment": {"comments": list(comments)},
             "issuelinks": list(links),
+            "customfield_10020": list(sprints) or None,
         },
     }
 
@@ -711,6 +713,36 @@ class DevelopmentPanelTest(unittest.TestCase):
         self.assertEqual([pr["number"] for pr in prs], [416])
         self.assertIn("URLError", error)
 
+    def test_a_malformed_detail_response_is_a_partial_read(self):
+        def open_(request):
+            url = request.full_url
+            if "issue/summary" in url:
+                return self.Response(
+                    {"summary": {"pullrequest": {"byInstanceType": {self.app: {"count": 1}}}}}
+                )
+            if "issue/detail" in url:
+                # Valid JSON, wrong shape: `.get` on this would abort the report.
+                return self.Response([{"pullRequests": []}])
+            if "remotelink" in url:
+                return self.Response(
+                    [
+                        {
+                            "object": {
+                                "url": "https://github.com/openshift-hyperfleet/architecture/pull/255",
+                                "title": "HYPERFLEET-1669 - docs: contract",
+                            }
+                        }
+                    ]
+                )
+            raise AssertionError(f"unexpected url {url}")
+
+        with mock.patch.object(jc, "open_changelog", side_effect=open_):
+            prs, error = jc.read_pull_requests("HYPERFLEET-1669", "7126783", self.api)
+
+        # The remote link survives, and the bad panel answer is reported, not swallowed.
+        self.assertEqual([pr["number"] for pr in prs], [255])
+        self.assertIn("MalformedResponse", error)
+
     def test_a_panel_failure_still_returns_the_remote_link_pull_requests(self):
         url = "https://github.com/openshift-hyperfleet/architecture/pull/255"
         links = [{"object": {"url": url, "title": "HYPERFLEET-1669 - docs: contract"}}]
@@ -1043,6 +1075,40 @@ class BaselineTest(unittest.TestCase):
         self.assertEqual(baseline["delivered_sp"], 3)
         self.assertEqual(baseline["percent"], 30.0)
         self.assertEqual(baseline["end"], "2026-10-25")
+
+    def test_work_closed_before_the_recorded_close_counts_even_past_the_plan(self):
+        # Sprint 18 was planned to 2026-11-01 and closed on 2026-11-02: a point
+        # closed in between belongs to that sprint, not to the next one.
+        record = {
+            "id": 66536,
+            "name": "Hyperfleet Sprint 18",
+            "state": "closed",
+            "startDate": "2026-10-12T08:27:25.346Z",
+            "endDate": "2026-11-01T23:00:00.000Z",
+            "completeDate": "2026-11-02T08:49:07.513Z",
+        }
+        baseline = self.run_baseline(
+            [
+                doc(
+                    "HYPERFLEET-1",
+                    sp=5,
+                    status="Closed",
+                    category="Done",
+                    changed="2026-11-02",
+                    sprints=[record],
+                )
+            ]
+        )
+        self.assertEqual(baseline["delivered_sp"], 5)
+        self.assertEqual(baseline["end"], "2026-11-02")
+        self.assertEqual(baseline["days"], 22)
+
+    def test_the_planned_end_is_the_fallback_when_no_issue_reports_a_close(self):
+        baseline = self.run_baseline(
+            [doc("HYPERFLEET-1", sp=5, status="Closed", category="Done", changed="2026-10-25")]
+        )
+        self.assertEqual(baseline["end"], "2026-10-25")
+        self.assertEqual(baseline["days"], 14)
 
     def test_work_closed_on_the_last_day_still_counts(self):
         baseline = self.run_baseline(

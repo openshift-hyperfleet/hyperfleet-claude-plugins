@@ -156,7 +156,8 @@ def suggested_ask(item: dict, ref=None) -> str:
     """One imperative per item: verb first, then who and what artifact.
 
     The verb comes from a fixed set - ask to approve/reject, assign, unblock,
-    post, start, propose a split - so the column can be scanned and counted.
+    post, start, propose a split, confirm - so the column can be scanned and
+    counted.
     The item's own age lives in the `Status . age` cell, so the text never
     repeats it; a blocker"s age does appear, because that clock is not in the
     table and it is what makes the blocker urgent or not.
@@ -185,6 +186,12 @@ def suggested_ask(item: dict, ref=None) -> str:
         for d in detail:
             days = d.get("days_in_status")
             when = f" {days}d" if days is not None else ""
+            if d.get("unread"):
+                # The target could not be read, so "assign it" would order work that
+                # may already have an owner and a status. Ask for the read instead:
+                # the status is what the next pulse needs before it can ask anything.
+                clauses.append(f"confirm {ref(d['key'])}'s status and owner")
+                continue
             if d["status"] == "Review":
                 # The reviewer moves this ticket; the owner is usually the author.
                 # Jira reports every requested reviewer, so the ask names all of
@@ -374,6 +381,9 @@ def build(args) -> dict:
                 "reviewers": reviewers_of(by_key[k]) if k in by_key else [],
                 "has_live_pr": bool(live_pull_requests(by_key[k])) if k in by_key else False,
                 "pr_unknown": bool(by_key[k].get("pr_unknown")) if k in by_key else True,
+                # An unread target has no owner to name and no status to trust:
+                # `assign` here could order work that someone already owns.
+                "unread": k not in by_key,
             }
             for k in item["open_blockers"]
         ]
