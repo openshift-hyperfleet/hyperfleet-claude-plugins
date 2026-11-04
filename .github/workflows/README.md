@@ -1,19 +1,15 @@
 # CI Workflows
 
-## Plugin tests
-
-**File:** `plugin-tests.yml`
-
-Runs both plugin test suites - `hyperfleet-jira` (Python) and the
-`hyperfleet-work-triage` open-PRs scripts (bash + `jq`) - on every pull request
-that touches either plugin or the `Makefile`, and on `main`. The workflow calls
-`make test`, so the same command reproduces CI locally:
+Plugin tests run in Prow as `ci/prow/unit`, configured in the `openshift/release`
+repository under `ci-operator/config/openshift-hyperfleet/hyperfleet-claude-plugins`.
+It runs `make test`, so the same command reproduces CI locally:
 
 ```bash
 make test
 ```
 
-`make test-jira` and `make test-triage` run one suite each.
+`make test-jira` and `make test-triage` run one suite each. The workflows in this
+directory cover only the scheduled work.
 
 ## Open PRs Digest
 
