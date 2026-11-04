@@ -53,7 +53,9 @@ def doc(
             "priority": {"name": priority},
             "parent": {"key": "HYPERFLEET-1"},
             "created": "2026-09-01T10:00:00.000+0000",
-            "statuscategorychangedate": f"{changed}T10:00:00.000+0000",
+            "statuscategorychangedate": (
+                changed if "T" in changed else f"{changed}T10:00:00.000+0000"
+            ),
             "comment": {"comments": list(comments)},
             "issuelinks": list(links),
             "customfield_10020": list(sprints) or None,
@@ -1175,7 +1177,7 @@ class BaselineTest(unittest.TestCase):
                     sp=5,
                     status="Closed",
                     category="Done",
-                    changed="2026-11-02",
+                    changed="2026-11-02T07:00:00.000+0000",
                     sprints=[record],
                 )
             ]
@@ -1183,6 +1185,32 @@ class BaselineTest(unittest.TestCase):
         self.assertEqual(baseline["delivered_sp"], 5)
         self.assertEqual(baseline["end"], "2026-11-02")
         self.assertEqual(baseline["days"], 22)
+
+    def test_work_closed_after_the_close_on_the_close_day_is_not_delivered(self):
+        # Sprint 18 closed at 08:49; HYPERFLEET-1731 went Done at 14:11 that day,
+        # which is next sprint's delivery, not this one's.
+        record = {
+            "id": 66536,
+            "name": "Hyperfleet Sprint 18",
+            "state": "closed",
+            "startDate": "2026-10-12T08:27:25.346Z",
+            "endDate": "2026-11-01T23:00:00.000Z",
+            "completeDate": "2026-11-02T08:49:07.513Z",
+        }
+        baseline = self.run_baseline(
+            [
+                doc(
+                    "HYPERFLEET-1",
+                    sp=5,
+                    status="Closed",
+                    category="Done",
+                    changed="2026-11-02T14:11:19.869+0000",
+                    sprints=[record],
+                )
+            ]
+        )
+        self.assertEqual(baseline["delivered_sp"], 0)
+        self.assertEqual(baseline["committed_sp"], 5)
 
     def test_the_planned_end_is_the_fallback_when_no_issue_reports_a_close(self):
         baseline = self.run_baseline(

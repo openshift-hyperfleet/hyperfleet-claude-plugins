@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import date, datetime, timezone
 
@@ -318,8 +319,35 @@ def sprint_closed_at(sprint: dict, docs: dict[str, dict]) -> str | None:
     for doc in docs.values():
         record = sprint_of(doc, sprint["id"])
         if record and record.get("completeDate"):
-            return record["completeDate"][:10]
+            return record["completeDate"]
     return sprint.get("end")
+
+
+def close_instant(value: str | None) -> datetime | None:
+    """The baseline cutoff as an instant, in UTC.
+
+    Jira timestamps carry an offset (`+0000`), and the close is a moment, not a
+    day: a point closed at 14:11 on the day the sprint closed at 08:49 belongs to
+    the next sprint. `jira sprint list` keeps no time in its `END` column, so a
+    bare date there means the end of that day - a sprint is not over at midnight on
+    the day it ends.
+    """
+    if not value:
+        return None
+    text = value.strip()
+    if len(text) <= 10:
+        try:
+            day = parse_date(text)
+        except ValueError:
+            return None
+        return datetime(day.year, day.month, day.day, 23, 59, 59, tzinfo=timezone.utc)
+    # `fromisoformat` reads `+0000` only in newer Pythons; the colon is free.
+    normalized = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", text.replace("Z", "+00:00"))
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def baseline_for(
@@ -357,11 +385,11 @@ def baseline_for(
     items = [describe(doc["key"], doc, sp_field, today) for doc in docs.values()]
     committed = sum(item["sp"] or 0 for item in items)
     closed = sprint_closed_at(sprint, docs)
-    end = parse_date(closed) if closed else None
+    cutoff = close_instant(closed)
     delivered = sum(
         item["sp"] or 0
         for item in items
-        if item["is_done"] and _closed_by(item["status_changed"], end)
+        if item["is_done"] and _closed_by(item["status_changed_at"], cutoff)
     )
     try:
         days = (parse_date(closed) - parse_date(sprint["start"])).days + 1
@@ -370,7 +398,7 @@ def baseline_for(
     return {
         "sprint": sprint["name"],
         "id": sprint["id"],
-        "end": closed,
+        "end": closed[:10] if closed else None,
         "items": len(items),
         "committed_sp": committed,
         "delivered_sp": delivered,
@@ -379,20 +407,23 @@ def baseline_for(
     }
 
 
-def _closed_by(status_changed: str | None, end: date | None) -> bool:
-    """True when the item entered Done on or before `end`.
+def _closed_by(status_changed_at: str | None, cutoff: datetime | None) -> bool:
+    """True when the item entered Done on or before `cutoff`.
 
-    Without a readable sprint end there is nothing to compare against, so the item
-    counts: an unparsed date must not silently report zero delivery.
+    Compared as instants, not days: a point closed at 14:11 on the day the sprint
+    closed at 08:49 is next sprint's delivery.
+
+    Without a readable cutoff there is nothing to compare against, so the item
+    counts: an unparsed value must not silently report zero delivery.
     """
-    if end is None:
+    if cutoff is None:
         return True
-    if not status_changed:
+    if not status_changed_at:
         return False
-    try:
-        return parse_date(status_changed) <= end
-    except ValueError:
+    instant = close_instant(status_changed_at)
+    if instant is None:
         return False
+    return instant <= cutoff
 
 
 # --------------------------------------------------------------------------

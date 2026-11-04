@@ -289,6 +289,8 @@ def describe(key: str, doc: dict, sp_field: str, today: date) -> dict:
     only moves between To Do / In Progress / Done. It is also the close date of a
     Done item, so the baseline uses it to tell work finished inside the previous
     sprint from work finished later while the sprint sat in the backlog.
+    `status_changed_at` keeps the time of that same change: a sprint closes at a
+    given instant, and a point closed hours later on the same day is not delivered.
 
     `sp` stays None when the field is empty: "no estimate" and "zero points" are
     different facts, and only the caller knows which one it can treat as zero.
@@ -320,6 +322,7 @@ def describe(key: str, doc: dict, sp_field: str, today: date) -> dict:
         "priority": (fields.get("priority") or {}).get("name", ""),
         "created": (fields.get("created") or "")[:10],
         "status_changed": status_changed.isoformat(),
+        "status_changed_at": fields.get("statuscategorychangedate") or None,
         "days_in_status": days_in_status,
         "days_since_comment": days_since_comment,
         "days_without_movement": min(signals),
