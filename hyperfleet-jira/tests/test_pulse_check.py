@@ -607,6 +607,71 @@ class AskTest(unittest.TestCase):
         self.assertIn("Tirth and Rafael to approve or reject", ask)
         self.assertNotIn("Phuongnhat", ask)
 
+    def test_a_review_blocker_with_closed_pull_requests_asks_to_move_it(self):
+        item = {
+            "summary": "x",
+            "status": "Backlog",
+            "days_without_movement": 70,
+            "open_blockers": ["HYPERFLEET-1636"],
+            "blocker_detail": [
+                {
+                    "key": "HYPERFLEET-1636",
+                    "status": "Review",
+                    "owner": "Martin Liptak",
+                    "days_in_status": 7,
+                    "reviewers": [],
+                    "pr": [
+                        {
+                            "number": 181,
+                            "url": "https://github.com/o/r/pull/181",
+                            "status": "MERGED",
+                        }
+                    ],
+                    "has_live_pr": False,
+                }
+            ],
+        }
+        ask = pc.suggested_ask(item, style="markdown")
+        # The diff is finished, so no reviewer can act: the blocker needs a status.
+        self.assertTrue(ask.startswith("Move HYPERFLEET-1636 out of Review"), ask)
+        self.assertIn("[#181](https://github.com/o/r/pull/181) (merged)", ask)
+        self.assertNotIn("approve or reject", ask.lower())
+        self.assertNotIn("Martin", ask)
+
+    def test_a_review_blocker_still_asks_for_review_when_a_pull_request_is_live(self):
+        item = {
+            "summary": "x",
+            "status": "Backlog",
+            "days_without_movement": 70,
+            "open_blockers": ["HYPERFLEET-1636"],
+            "blocker_detail": [
+                {
+                    "key": "HYPERFLEET-1636",
+                    "status": "Review",
+                    "owner": "Martin Liptak",
+                    "days_in_status": 7,
+                    "reviewers": ["Tirth Chetan Thakkar"],
+                    "pr": [
+                        {
+                            "number": 255,
+                            "url": "https://github.com/o/r/pull/255",
+                            "status": "OPEN",
+                            "reviewers": ["Tirth Chetan Thakkar"],
+                        },
+                        {
+                            "number": 181,
+                            "url": "https://github.com/o/r/pull/181",
+                            "status": "MERGED",
+                        },
+                    ],
+                    "has_live_pr": True,
+                }
+            ],
+        }
+        ask = pc.suggested_ask(item)
+        self.assertIn("Tirth to approve or reject", ask)
+        self.assertNotIn("out of Review", ask)
+
     def test_review_blocker_leads_and_carries_its_age(self):
         item = {
             "status": "Backlog",

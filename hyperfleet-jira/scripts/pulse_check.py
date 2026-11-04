@@ -152,11 +152,11 @@ def given_names(reviewers: list[str]) -> str:
     return f"{', '.join(firsts[:-1])} and {firsts[-1]}"
 
 
-def suggested_ask(item: dict, ref=None) -> str:
+def suggested_ask(item: dict, ref=None, style: str = "bare") -> str:
     """One imperative per item: verb first, then who and what artifact.
 
-    The verb comes from a fixed set - ask to approve/reject, assign, unblock,
-    post, start, propose a split, confirm - so the column can be scanned and
+    The verb comes from a fixed set - ask to approve/reject, assign, move out of
+    Review, post, start, propose a split, confirm - so the column can be scanned and
     counted.
     The item's own age lives in the `Status . age` cell, so the text never
     repeats it; a blocker"s age does appear, because that clock is not in the
@@ -174,6 +174,10 @@ def suggested_ask(item: dict, ref=None) -> str:
     cannot name a reviewer, and naming its owner would name the author when the
     diff exists but was not read. Reviewers a partial read still found are named
     first, because they are facts the read did return.
+
+    A blocker in Review whose pull requests are all closed is the queue's case
+    again: nobody can review a merged or declined diff, so the ask moves the
+    ticket out of Review instead of asking its owner to approve it.
     """
     ref = ref or (lambda key: key)
     if item["open_blockers"]:
@@ -211,6 +215,13 @@ def suggested_ask(item: dict, ref=None) -> str:
                     clauses.append(
                         f"ask a reviewer to approve or reject {ref(d['key'])} (Review{when})"
                     )
+                elif d.get("pr"):
+                    # Every pull request this blocker owns is closed, so the ticket
+                    # needs a status, not a reviewer - the same move the queue path
+                    # in `decorate_ask` makes. Asking its owner to approve a merged
+                    # diff would send them to finished work.
+                    prs = pr_refs({"pr": d["pr"]}, style)
+                    clauses.append(f"move {ref(d['key'])} out of Review: {prs}")
                 elif d.get("owner"):
                     clauses.append(
                         f"ask {d['owner'].split()[0]} to approve or reject {ref(d['key'])} "
@@ -379,6 +390,7 @@ def build(args) -> dict:
                 "owner": (by_key[k]["owner"] or None) if k in by_key else None,
                 "days_in_status": by_key[k]["days_in_status"] if k in by_key else None,
                 "reviewers": reviewers_of(by_key[k]) if k in by_key else [],
+                "pr": list(by_key[k].get("pr") or []) if k in by_key else [],
                 "has_live_pr": bool(live_pull_requests(by_key[k])) if k in by_key else False,
                 "pr_unknown": bool(by_key[k].get("pr_unknown")) if k in by_key else True,
                 # An unread target has no owner to name and no status to trust:
@@ -387,7 +399,7 @@ def build(args) -> dict:
             }
             for k in item["open_blockers"]
         ]
-        item["ask"] = suggested_ask(item, ref)
+        item["ask"] = suggested_ask(item, ref, args.link_style)
         item["ask"] = decorate_ask(item, args.link_style)
 
     owned = [i for i in items if i["owner"]]
