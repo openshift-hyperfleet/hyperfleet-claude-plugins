@@ -3,7 +3,7 @@ export PYTHON
 
 .PHONY: test test-jira test-triage
 
-# The same command CI runs in .github/workflows/plugin-tests.yml.
+# Shared entry point for local runs and the Prow unit job.
 test: test-jira test-triage
 
 test-jira:

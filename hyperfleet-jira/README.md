@@ -137,6 +137,11 @@ The numbers come from `scripts/sprint_status.py` (`--format json` or the rendere
 
 Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` for another sprint, `--stale-days`, `--blocker-priority`, `--link-style markdown|slack|bare`, `--no-baseline`, `--no-prs`.
 
+Both collectors invoke only `jira` from your trusted `PATH`. The `--jira` option
+accepts only `jira`, not arbitrary commands or executable paths. CLI failures
+report a fixed command identifier and failure reason or exit status, never raw
+stdout/stderr, which may contain private issue data or authentication details.
+
 These rules decide what the output is worth:
 
 - **A pull request belongs to the ticket its title names**, and only to it. Jira attaches a pull request to every ticket its title mentions, so `architecture#255`, titled `HYPERFLEET-1636`, is `HYPERFLEET-1636`'s pull request and never `HYPERFLEET-1669`'s, even when the panel shows it on both. A link titled for another ticket, or for no ticket at all, is not printed on the ticket's line: the reviewer named there would open someone else's diff, and two stalls would read as one shared blocker.

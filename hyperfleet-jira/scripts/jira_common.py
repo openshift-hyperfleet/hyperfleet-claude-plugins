@@ -63,6 +63,7 @@ def status_category(doc: dict) -> str:
 
 
 def status_name(doc: dict) -> str:
+    """Read the project-specific workflow status name."""
     return ((doc["fields"].get("status") or {}).get("name") or "").strip()
 
 
@@ -88,30 +89,40 @@ def status_change_counts(change: dict) -> bool:
 
 
 def run_jira(args: list[str], binary: str) -> str:
+    """Run the fixed Jira CLI without exposing its output in failure messages."""
+    if binary != "jira":
+        raise JiraError("only the jira executable is supported")
+    command = {
+        ("issue", "list"): "jira issue list",
+        ("issue", "view"): "jira issue view",
+        ("sprint", "list"): "jira sprint list",
+    }.get(tuple(args[:2]), "jira command")
     try:
         proc = subprocess.run(
             [binary, *args], capture_output=True, text=True, timeout=120
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        raise JiraError(f"jira {' '.join(args[:2])} could not run: {exc}") from exc
+    except subprocess.TimeoutExpired:
+        raise JiraError(f"{command} timed out after 120 seconds") from None
+    except OSError:
+        raise JiraError(f"{command} could not be started") from None
     if proc.returncode != 0:
-        raise JiraError(
-            f"jira {' '.join(args)} failed ({proc.returncode}): "
-            f"{(proc.stderr or proc.stdout).strip()[:300]}"
-        )
+        raise JiraError(f"{command} failed (exit status {proc.returncode})")
     return proc.stdout
 
 
 def parse_date(value: str) -> date:
+    """Read the calendar date from an ISO date or Jira timestamp."""
     return datetime.strptime(value[:10], "%Y-%m-%d").date()
 
 
 def key_number(key: str) -> int:
+    """Extract an issue's numeric suffix for key-range pagination."""
     _, _, number = key.rpartition("-")
     return int(number)
 
 
 def jql_project(project: str) -> str:
+    """Build the project clause using a validated project key."""
     return f"project = {project}"
 
 
@@ -155,6 +166,7 @@ def search_keys(jql: str, project: str, binary: str, limit: int = 100) -> list[s
 
 
 def sprint_rows(project: str, state: str, binary: str) -> list[dict]:
+    """Read sprint metadata from the Jira CLI's tab-separated output."""
     out = run_jira(
         [
             "sprint", "list", "-p", project, "--state", state,
@@ -180,6 +192,7 @@ def sprint_rows(project: str, state: str, binary: str) -> list[dict]:
 
 
 def active_sprint(project: str, binary: str) -> dict:
+    """Select an active sprint, warning when the project has several."""
     rows = sprint_rows(project, "active", binary)
     if not rows:
         raise JiraError(f"no active sprint found for project {project}")
@@ -189,12 +202,15 @@ def active_sprint(project: str, binary: str) -> dict:
 
 
 def fetch_issue(key: str, project: str, binary: str) -> dict:
+    """Read one issue as JSON, reporting failures without response contents."""
     try:
         return json.loads(
             run_jira(["issue", "view", key, "-p", project, "--raw"], binary)
         )
-    except (JiraError, json.JSONDecodeError) as exc:
-        raise JiraError(f"could not read {key}: {exc}") from exc
+    except JiraError as exc:
+        raise JiraError(f"could not read {key}: {exc}") from None
+    except json.JSONDecodeError:
+        raise JiraError(f"could not read {key}: invalid JSON response") from None
 
 
 def fetch_all(
@@ -219,6 +235,7 @@ def fetch_all(
     unique = sorted(set(keys), key=key_number)
 
     def fetch(key: str) -> dict | None:
+        """Read one issue or record its sanitized failure and continue."""
         try:
             return fetch_issue(key, project, binary)
         except JiraError as exc:
@@ -414,6 +431,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     """Refuse redirects: urllib copies the Authorization header to the target."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """Reject a redirect before credentials can reach another host."""
         raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
 
 
@@ -602,6 +620,7 @@ def development_pull_requests(issue_id: str, api: tuple[str, str]) -> tuple[list
     headers = {"Authorization": f"Basic {auth}", "Accept": "application/json"}
 
     def get(url: str):
+        """Read authenticated development-panel JSON without redirects."""
         request = urllib.request.Request(url, headers=headers)
         with open_changelog(request) as response:
             return json.load(response)
@@ -980,7 +999,10 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     live here; the ones that only one command has stay in its `main`.
     """
     parser.add_argument("--project", default="HYPERFLEET", type=project_key)
-    parser.add_argument("--jira", default="jira", help="jira-cli binary")
+    parser.add_argument(
+        "--jira", default="jira", choices=["jira"],
+        help="only the jira executable from PATH is supported",
+    )
     parser.add_argument(
         "--sp-field", default="customfield_10028", help="custom field id holding story points"
     )

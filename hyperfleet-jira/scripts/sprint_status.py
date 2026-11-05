@@ -87,6 +87,7 @@ def previous_sprint(
 
 
 def sprint_of(doc: dict, sprint_id: str) -> dict | None:
+    """Find a sprint's metadata in an issue's sprint field."""
     for sprint in doc["fields"].get("customfield_10020") or []:
         if str(sprint.get("id")) == str(sprint_id):
             return sprint
@@ -137,6 +138,7 @@ def resolve_blockers(
 
 
 def summarise(items: list[dict]) -> dict:
+    """Aggregate item and point totals by status and status category."""
     sp_total = sum(item["sp"] or 0 for item in items)
     done = [item for item in items if item["is_done"]]
 
@@ -181,6 +183,7 @@ def summarise(items: list[dict]) -> dict:
 
 
 def workload(items: list[dict], statuses: list[str]) -> list[dict]:
+    """Group workload by owner, with unassigned work listed last."""
     people: dict[str, dict] = {}
     for item in items:
         owner = item["owner"] or "Unassigned"
@@ -432,6 +435,7 @@ def _closed_by(status_changed_at: str | None, cutoff: datetime | None) -> bool:
 
 
 def build(args) -> dict:
+    """Collect sprint data and derive progress, risks and baseline capacity."""
     today = parse_date(args.today) if args.today else datetime.now(timezone.utc).date()
 
     if args.sprint:
@@ -591,15 +595,18 @@ def bar(percent: float, width: int = 14) -> str:
 
 
 def render_text(data: dict) -> str:
+    """Render collected sprint data without additional Jira reads."""
     sprint = data["sprint"]
     totals = data["totals"]
     base_url = data.get("jira_base_url")
     style = data.get("link_style", "markdown")
 
     def ref(key: str) -> str:
+        """Render a ticket link using the report's URL and link style."""
         return ticket_ref(key, base_url, style)
 
     def pr_tail(item: dict) -> str:
+        """Append the item's pull request references when present."""
         rendered = pr_refs(item, style)
         return f" - {rendered}" if rendered else ""
 
@@ -788,6 +795,7 @@ def render_text(data: dict) -> str:
 
 
 def main() -> int:
+    """Validate arguments and emit sprint status or a sanitized error."""
     parser = argparse.ArgumentParser(description="Collect the sprint status data.")
     add_common_arguments(parser)
     parser.add_argument("--sprint", help="sprint id; defaults to the active sprint")

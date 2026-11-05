@@ -1,8 +1,9 @@
 # CI Workflows
 
-Plugin tests run in Prow as `ci/prow/unit`, configured in the `openshift/release`
-repository under `ci-operator/config/openshift-hyperfleet/hyperfleet-claude-plugins`.
-It runs `make test`, so the same command reproduces CI locally:
+Plugin tests will run in Prow as `ci/prow/unit` once
+[openshift/release#88331](https://github.com/openshift/release/pull/88331) merges
+and the presubmit is active. The proposed job runs `make test`; until then,
+run the tests locally with the same command:
 
 ```bash
 make test

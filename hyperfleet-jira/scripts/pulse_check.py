@@ -59,6 +59,7 @@ PulseError = JiraError
 
 
 def prose(text: str) -> str:
+    """Collapse whitespace so a value fits on one report line."""
     return " ".join(str(text or "").split())
 
 
@@ -155,9 +156,9 @@ def given_names(reviewers: list[str]) -> str:
 def suggested_ask(item: dict, ref=None, style: str = "bare") -> str:
     """One imperative per item: verb first, then who and what artifact.
 
-    The verb comes from a fixed set - ask to approve/reject, assign, move out of
-    Review, post, start, propose a split, confirm - so the column can be scanned and
-    counted.
+    The verb comes from a fixed set - ask to approve/reject, assign, attach a pull
+    request, move out of Review, post, start, propose a split, confirm - so the
+    column can be scanned and counted.
     The item's own age lives in the `Status . age` cell, so the text never
     repeats it; a blocker"s age does appear, because that clock is not in the
     table and it is what makes the blocker urgent or not.
@@ -316,6 +317,7 @@ def decorate_ask(item: dict, style: str) -> str:
 
 
 def build(args) -> dict:
+    """Collect sprint signals and derive the nudge queue and allocation gaps."""
     today = parse_date(args.today) if args.today else datetime.now(timezone.utc).date()
     sprint = active_sprint(args.project, args.jira)
     keys = large_item_keys(
@@ -353,6 +355,7 @@ def build(args) -> dict:
     base_url = jira_base_url()
 
     def ref(key: str) -> str:
+        """Render an ask's ticket link in the requested destination style."""
         return ticket_ref(key, base_url, args.link_style)
 
     for item in items:
@@ -482,6 +485,7 @@ def build(args) -> dict:
 
 
 def render_text(data: dict) -> str:
+    """Render collected pulse data without additional Jira reads."""
     sprint = data["sprint"]
     totals = data["totals"]
     lines = [f"Pulse check - {sprint['name']}, {data['generated_for']}"]
@@ -494,6 +498,7 @@ def render_text(data: dict) -> str:
     style = data.get("link_style", "markdown")
 
     def ref(key: str) -> str:
+        """Render a ticket link using the report's URL and link style."""
         return ticket_ref(key, base_url, style)
 
     lines.append(
@@ -599,6 +604,7 @@ def field_name(value: str) -> str:
 
 
 def main() -> int:
+    """Validate arguments and emit the pulse report or a sanitized error."""
     parser = argparse.ArgumentParser(description="Collect the sprint pulse check data.")
     add_common_arguments(parser)
     parser.add_argument("--min-sp", type=int, default=5)
