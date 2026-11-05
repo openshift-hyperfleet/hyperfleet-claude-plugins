@@ -1,7 +1,7 @@
 # Each suite exposes run-tests.sh, regardless of its implementation language.
 TEST_SCRIPTS := $(sort $(wildcard */tests/run-tests.sh */skills/*/scripts/tests/run-tests.sh))
 
-.PHONY: test test-triage
+.PHONY: test
 
 # Shared entry point for local runs and the Prow unit job.
 test:
@@ -13,6 +13,3 @@ test:
 		echo "Running $$script..."; \
 		bash "$$script" || exit 1; \
 	done
-
-test-triage:
-	bash hyperfleet-work-triage/skills/open-prs/scripts/tests/run-tests.sh

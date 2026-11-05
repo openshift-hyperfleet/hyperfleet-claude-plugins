@@ -100,7 +100,9 @@ the CI build root provides them.
 
 `make test` logs every runner, stops on the first failure, and fails if no suites
 are discovered. Check the log to confirm your suite actually ran. The existing
-work-triage runner requires Bash, `jq`, and `bc`; `make test-triage` runs it alone.
+work-triage runner requires Bash, `jq`, and `bc`. Keep only the aggregate `test`
+target in the Makefile; do not add per-suite targets. To run one suite alone,
+invoke its runner directly with `bash <path>/run-tests.sh`.
 The Prow unit job will use `make test` once onboarding is active.
 
 ## Boundaries

@@ -68,8 +68,10 @@ Runners must resolve test paths relative to their own location and return a
 nonzero exit status if their tests fail. Python unittest runners should use
 `${PYTHON:-python3}` so callers can select an interpreter with `PYTHON`.
 
-The existing work-triage suite requires Bash, `jq`, and `bc` and can also be run
-on its own with `make test-triage`. The proposed Prow `ci/prow/unit` job runs
+To run one suite in isolation, invoke its runner directly with `bash <path>/run-tests.sh`.
+The existing work-triage suite requires Bash, `jq`, and `bc`.
+The Makefile exposes only the aggregate `test` target, with no per-suite targets.
+The proposed Prow `ci/prow/unit` job runs
 `make test` once [openshift/release#88331](https://github.com/openshift/release/pull/88331)
 is merged and active; local test execution does not depend on that onboarding.
 
