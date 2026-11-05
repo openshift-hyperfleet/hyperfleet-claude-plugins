@@ -6,6 +6,7 @@ Thank you for contributing to the HyperFleet Claude Plugins marketplace! This gu
 
 - [Adding a Plugin](#adding-a-plugin)
 - [Local Development and Debugging](#local-development-and-debugging)
+- [Testing](#testing)
 - [Versioning](#versioning)
 - [Pull Request Workflow](#pull-request-workflow)
 - [Security Guidelines](#security-guidelines)
@@ -75,12 +76,52 @@ This bypasses the marketplace installation and loads your local working copy, ma
 2. Bump the `version` in `.claude-plugin/plugin.json`
 3. Restart Claude Code with `--plugin-dir` pointing to your plugin directory
 4. Test your changes by invoking the skill/command
+5. Run `make test` and confirm your suite appears in the log (see [Testing](#testing))
 
 ### Debugging Tips
 
 - Add a debug indicator at the start of your skill/command output to confirm the local version is running (e.g., "🔧 LOCAL VERSION ACTIVE")
 - Changes require a restart of Claude Code to take effect
 - The `--plugin-dir` flag overrides any marketplace-installed version of the same plugin
+
+## Testing
+
+This section is the authoritative contract for repository test runners.
+Run all discovered suites from the repository root before opening a PR:
+
+```bash
+make test
+```
+
+Every new test suite MUST provide a Bash `run-tests.sh` at one of these paths:
+
+- `<plugin>/tests/run-tests.sh` for plugin-level suites.
+- `<plugin>/skills/<skill>/scripts/tests/run-tests.sh` for skill-level suites.
+
+New tests within an existing suite reuse its runner; do not create a runner per
+test. The Makefile discovers runners automatically, logs each path, runs
+plugin-level suites before skill-level suites, stops on the first failure, and
+fails if no suites are found. Confirm your suite appears in the log.
+
+Each runner must resolve test paths relative to its own location and return a
+nonzero exit status if tests fail. Keep language and framework selection inside
+the runner, not the Makefile. Python unittest runners should honor
+`${PYTHON:-python3}`. Document suite dependencies in the plugin README and ensure
+the CI build root provides them. The existing work-triage suite requires Bash,
+`jq`, and `bc`.
+
+Keep only the aggregate `test` target in the root Makefile; do not add per-suite
+targets or a hand-maintained suite list. To run one suite in isolation, invoke
+its runner directly:
+
+```bash
+bash <plugin>/tests/run-tests.sh
+```
+
+The proposed Prow `ci/prow/unit` job runs `make test` once
+[openshift/release#88331](https://github.com/openshift/release/pull/88331) is merged
+and active. Until then, run tests locally; local execution does not depend on
+Prow activation.
 
 ## Versioning
 

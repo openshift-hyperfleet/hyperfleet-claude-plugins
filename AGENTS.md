@@ -83,27 +83,10 @@ See `CONTRIBUTING.md` for adding/modifying plugins, local development, versionin
 
 ## Testing
 
-Run `make test` from the repository root before opening a PR. It discovers
-`run-tests.sh` at either of these conventional paths:
-
-- `<plugin>/tests/run-tests.sh`
-- `<plugin>/skills/<skill>/scripts/tests/run-tests.sh`
-
-Every new test suite MUST provide a Bash `run-tests.sh` at one of those paths;
-do not add the suite to a list in the Makefile. New tests within an existing
-suite use its existing runner, not a separate script per test.
-The runner must resolve test paths relative
-to its own location, run the suite, and return nonzero on failure. Keep language
-and framework selection inside the runner; Python unittest runners should honor
-`${PYTHON:-python3}`. Document new dependencies in the plugin README and ensure
-the CI build root provides them.
-
-`make test` logs every runner, stops on the first failure, and fails if no suites
-are discovered. Check the log to confirm your suite actually ran. The existing
-work-triage runner requires Bash, `jq`, and `bc`. Keep only the aggregate `test`
-target in the Makefile; do not add per-suite targets. To run one suite alone,
-invoke its runner directly with `bash <path>/run-tests.sh`.
-The Prow unit job will use `make test` once onboarding is active.
+Follow [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing), the authoritative
+runner contract. Every new suite MUST provide the documented `run-tests.sh`;
+new tests in an existing suite reuse its runner. Run `make test` before opening
+a PR and confirm your suite appears in the log.
 
 ## Boundaries
 
