@@ -9,8 +9,14 @@ run the tests locally with the same command:
 make test
 ```
 
-`make test-jira` and `make test-triage` run one suite each. The workflows in this
-directory cover only the scheduled work.
+The Makefile exposes only `test` and discovers each suite's `run-tests.sh`.
+To run one suite in isolation, invoke its runner directly, for example:
+
+```bash
+bash hyperfleet-jira/tests/run-tests.sh
+```
+
+The workflows in this directory cover only the scheduled work.
 
 ## Open PRs Digest
 
