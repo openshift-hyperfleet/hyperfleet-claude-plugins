@@ -137,6 +137,17 @@ The numbers come from `scripts/sprint_status.py` (`--format json` or the rendere
 
 Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` for another sprint, `--stale-days`, `--blocker-priority`, `--link-style markdown|slack|bare`, `--no-baseline`, `--no-prs`.
 
+The collector tests use the plugin-level runner convention:
+
+```bash
+bash hyperfleet-jira/tests/run-tests.sh
+```
+
+The root `make test` discovers this runner automatically. It runs Python unittest
+discovery relative to the runner's directory and returns the test process's exit
+status. Set `PYTHON` to select an interpreter (default: `python3`); neither a live
+Jira connection nor credentials are required for these tests.
+
 Both collectors invoke only `jira` from your trusted `PATH`. The `--jira` option
 accepts only `jira`, not arbitrary commands or executable paths. CLI failures
 report a fixed command identifier and failure reason or exit status, never raw
