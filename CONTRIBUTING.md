@@ -118,11 +118,6 @@ its runner directly:
 bash <plugin>/tests/run-tests.sh
 ```
 
-The proposed Prow `ci/prow/unit` job runs `make test` once
-[openshift/release#88331](https://github.com/openshift/release/pull/88331) is merged
-and active. Until then, run tests locally; local execution does not depend on
-Prow activation.
-
 ## Versioning
 
 Plugins follow [semantic versioning](https://semver.org/) (MAJOR.MINOR.PATCH):

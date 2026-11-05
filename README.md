@@ -54,7 +54,7 @@ make test
 ```
 
 See [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing) for the authoritative
-runner convention, dependencies, isolated suite execution, and CI status.
+runner convention, dependencies, and isolated suite execution.
 
 ## Available Plugins
 
