@@ -28,7 +28,7 @@ Install a plugin:
 
 All plugins connected to this marketplace (commands, agents, skills, etc) must be updated manually within the Claude interface.
 
-```
+```text
 /plugin marketplace update hyperfleet-claude-plugins
 ```
 
@@ -44,6 +44,34 @@ Want to contribute a plugin or improve existing ones? See [CONTRIBUTING.md](./CO
 - Pull request process
 
 Questions or feedback? Open an issue in this repository.
+
+## Testing
+
+Run all discovered test suites from the repository root:
+
+```bash
+make test
+```
+
+The Makefile automatically discovers Bash runners at these paths:
+
+- `<plugin>/tests/run-tests.sh` for plugin-level suites.
+- `<plugin>/skills/<skill>/scripts/tests/run-tests.sh` for skill-level suites.
+
+Each runner owns its suite's implementation and dependencies; the Makefile does
+not need to know whether the tests use Python, jq, or another language. Adding a
+runner at either path includes it in `make test` without editing the Makefile.
+Each suite's path is logged, execution stops at the first failure, and discovering
+no suites is an error rather than a passing test run.
+
+Runners must resolve test paths relative to their own location and return a
+nonzero exit status if their tests fail. Python unittest runners should use
+`${PYTHON:-python3}` so callers can select an interpreter with `PYTHON`.
+
+The existing work-triage suite requires Bash, `jq`, and `bc` and can also be run
+on its own with `make test-triage`. The proposed Prow `ci/prow/unit` job runs
+`make test` once [openshift/release#88331](https://github.com/openshift/release/pull/88331)
+is merged and active; local test execution does not depend on that onboarding.
 
 ## Available Plugins
 
