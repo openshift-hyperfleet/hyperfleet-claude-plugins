@@ -30,9 +30,9 @@ Before making any changes:
 | Plugin | Skills | Commands | Agents | Hooks | Version |
 |--------|:------:|:--------:|:------:|:-----:|---------|
 | `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | - | 0.8.1 |
-| `hyperfleet-jira` | 4 | 7 | - | - | 0.8.0 |
+| `hyperfleet-jira` | 4 | 7 | - | - | 0.8.1 |
 | `hyperfleet-architecture` | 1 | - | - | - | 0.2.0 |
-| `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
+| `hyperfleet-standards` | 1 | - | - | - | 1.2.0 |
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.8.3 |
 | `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.4.1 |
@@ -86,7 +86,9 @@ See `CONTRIBUTING.md` for adding/modifying plugins, local development, versionin
 Follow [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing), the authoritative
 runner contract. Every new suite MUST provide the documented `run-tests.sh`;
 new tests in an existing suite reuse its runner. Run `make test` before opening
-a PR and confirm your suite appears in the log.
+a PR and confirm your suite appears in the log. Also run `make lint` and follow
+[Linting in CONTRIBUTING.md](./CONTRIBUTING.md#linting). Never regenerate the
+Markdown baseline to hide a new violation; baseline changes require review.
 
 Rules for a change to a plugin that has a suite:
 

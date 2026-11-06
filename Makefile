@@ -1,7 +1,14 @@
-.PHONY: test
+.PHONY: help test lint
+
+help: ## Show available targets without running them
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+lint: ## Lint Markdown and YAML
+	@bash hack/markdownlint.sh
+	@bash hack/yamllint.sh
 
 # Shared entry point for local runs and the Prow unit job.
-test:
+test: ## Run all discovered test suites
 	@found=0; \
 	for script in */tests/run-tests.sh */skills/*/scripts/tests/run-tests.sh; do \
 		[ -f "$$script" ] || continue; \

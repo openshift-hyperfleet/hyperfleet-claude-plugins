@@ -10,6 +10,12 @@ Use the standard document content provided by the orchestrator (fetched via `gh 
 
 Determine the component type to apply the correct checks:
 
+Read explicit `repository.types` before applying heuristics and retain every
+declared type. When the supplied standard defines `plugin-marketplace`, use its
+target set rather than the service default. Do not classify executable plugin
+helpers as documentation-only. If the fetched standard does not yet recognize
+the declared type, report the mapping as partial; do not invent requirements.
+
 ```bash
 # Check .hyperfleet.yaml for repo type
 cat .hyperfleet.yaml 2>/dev/null
@@ -108,6 +114,27 @@ For each check, verify the Makefile against the requirements defined in the stan
 **What to verify:** Verify that container build targets depend on prerequisite targets (e.g., `build`, `test`) as required by the standard, ensuring that a container image cannot be built without passing compilation and tests first.
 **How to find:** `grep -A3 "^container\|^image\|^docker-build\|^podman-build" Makefile 2>/dev/null`
 
+#### Check 12: Plugin Marketplace Behavior
+
+When the supplied standard defines `plugin-marketplace`, verify its required
+`help`, `test`, and `lint` targets and any additional targets required by other
+declared types. Do not flag absent `build` or `clean` unless another applicable
+requirement demands them.
+
+Inspect recipes and contributor documentation, not only target names:
+
+- `help` lists existing targets and descriptions without running their recipes.
+- `test` discovers the documented suite runners, logs them, propagates failure,
+  and fails if none are found. Paths must remain data, not injected shell source.
+- `lint` validates Markdown and other applicable formats and returns nonzero
+  when any configured check reports a validation failure. Inspect baseline
+  exceptions and confirm that new violations are not silently accepted.
+- Language-specific test commands belong in runners, not per-suite targets.
+
+Only execute checks or failure fixtures in an isolated, disposable workspace
+after inspecting their code. Do not edit audited repository files to test failure
+propagation. If behavior cannot be safely verified, report it as unverified.
+
 ## Output Format
 
 ```markdown
@@ -134,6 +161,7 @@ For each check, verify the Makefile against the requirements defined in the stan
 | Repo Type Detection | PASS/PARTIAL/FAIL | 0/N |
 | Helm-Chart Variations | PASS/PARTIAL/FAIL/N/A | 0/N |
 | Container Target Guard | PASS/PARTIAL/FAIL/N/A | 0/N |
+| Plugin Marketplace Behavior | PASS/PARTIAL/FAIL/N/A | 0/N |
 
 **Overall:** X/Y checks passing
 

@@ -1,0 +1,5 @@
+version: v1
+repository:
+  types: [plugin-marketplace]
+  name: hyperfleet-claude-plugins
+  description: Developer-assistant plugin marketplace for HyperFleet

@@ -17,7 +17,7 @@ The **HyperFleet Standards Audit** skill automatically activates when you ask ab
 ### Key Capabilities
 
 - **Dynamic Standards Discovery** - Delegates to the `hyperfleet-architecture` plugin to fetch standards, ensuring the skill stays current as standards evolve
-- **Repository Type Detection** - Automatically identifies if the repo is an API, Sentinel, Adapter, Infrastructure, or Tooling project
+- **Repository Type Detection** - Reads explicit repository metadata before heuristics, including plugin marketplaces, and retains multiple declared types
 - **Parallel Deep-Dive** - Runs thorough checks per standard in parallel using dedicated agents
 - **Interactive Output** - Paginated results with AskUserQuestion — never dumps the full report at once
 - **Fix Gaps** - Can fix compliance gaps directly when the user chooses to
@@ -25,7 +25,7 @@ The **HyperFleet Standards Audit** skill automatically activates when you ask ab
 ## Standards Checked
 
 The skill dynamically fetches and audits against all standards in:
-```
+```text
 https://github.com/openshift-hyperfleet/architecture/tree/main/hyperfleet/standards/
 ```
 
@@ -49,13 +49,15 @@ Current standards include:
 ## Installation
 
 1. **Add the HyperFleet marketplace (if not already added):**
-   ```
-   /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
+
+    ```text
+    /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
 2. **Install the standards plugin:**
-   ```
-   /plugin install hyperfleet-standards@openshift-hyperfleet/hyperfleet-claude-plugins
+
+    ```text
+    /plugin install hyperfleet-standards@openshift-hyperfleet/hyperfleet-claude-plugins
    ```
 
 3. **Restart Claude Code** to load the plugin.
@@ -66,7 +68,7 @@ Current standards include:
 
 Navigate to any HyperFleet repository and ask:
 
-```
+```text
 audit this repo against standards
 ```
 
@@ -91,11 +93,30 @@ The skill automatically detects repo type based on:
 
 | Repository Type | Indicators |
 |-----------------|------------|
+| Plugin marketplace | Explicit `.hyperfleet.yaml` declares `repository.types: [plugin-marketplace]` |
 | API Service | `pkg/api/`, OpenAPI spec, database code |
 | Sentinel | Directory name contains "sentinel", reconciliation loops |
 | Adapter | Directory starts with "adapter-", CloudEvents usage |
 | Infrastructure | Helm charts, Terraform files |
 | Tooling | Go CLI without service patterns |
+
+Explicit metadata takes precedence over heuristics, and requirements for multiple
+types are additive. Plugin marketplaces use their own Makefile target set only
+when the fetched architecture standard defines it; an unsupported type is
+reported as partial instead of treated as a service. Go-only lint checks do not
+apply to a marketplace without Go code.
+
+## Testing
+
+The repository lint regression suite requires Node.js 22 or newer, Python 3.9 or
+newer, Bash, and the pinned npm/yamllint dependencies (see
+[lint setup](../CONTRIBUTING.md#linting)). It is discovered by `make test`:
+
+```bash
+npm ci --ignore-scripts --no-fund --no-audit
+python3 -m pip install -r requirements-lint.txt
+bash hyperfleet-standards/tests/run-tests.sh
+```
 
 ## Applicability Matrix
 
@@ -122,6 +143,7 @@ Not all standards apply to all repository types:
 ## Offline Mode
 
 If GitHub is unavailable, the skill falls back to the local architecture repository:
+
 ```text
 [auto-detected local architecture repo path]
 ```

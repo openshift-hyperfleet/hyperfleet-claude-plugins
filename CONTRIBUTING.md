@@ -7,6 +7,7 @@ Thank you for contributing to the HyperFleet Claude Plugins marketplace! This gu
 - [Adding a Plugin](#adding-a-plugin)
 - [Local Development and Debugging](#local-development-and-debugging)
 - [Testing](#testing)
+- [Linting](#linting)
 - [Versioning](#versioning)
 - [Pull Request Workflow](#pull-request-workflow)
 - [Security Guidelines](#security-guidelines)
@@ -76,7 +77,7 @@ This bypasses the marketplace installation and loads your local working copy, ma
 2. Bump the `version` in `.claude-plugin/plugin.json`
 3. Restart Claude Code with `--plugin-dir` pointing to your plugin directory
 4. Test your changes by invoking the skill/command
-5. Run `make test` and confirm your suite appears in the log (see [Testing](#testing))
+5. Run `make lint` and `make test` and confirm your suite appears in the log (see [Linting](#linting) and [Testing](#testing))
 
 ### Debugging Tips
 
@@ -110,13 +111,66 @@ the runner, not the Makefile. Python unittest runners should honor
 the CI build root provides them. The existing work-triage suite requires Bash,
 `jq`, and `bc`.
 
-Keep only the aggregate `test` target in the root Makefile; do not add per-suite
-targets or a hand-maintained suite list. To run one suite in isolation, invoke
+The root Makefile provides `help`, `test`, and `lint`, matching the proposed
+`plugin-marketplace` type in the
+[Makefile standard](https://github.com/openshift-hyperfleet/architecture/blob/main/hyperfleet/standards/makefile-conventions.md).
+The type is proposed in [architecture#261](https://github.com/openshift-hyperfleet/architecture/pull/261);
+until accepted, this declaration is not a claim of compliance with the published standard.
+Do not add per-suite targets or a hand-maintained suite list. To run one suite in isolation, invoke
 its runner directly:
 
 ```bash
 bash <plugin>/tests/run-tests.sh
 ```
+
+## Linting
+
+Use Node.js 22 or newer, npm, Python 3.9 or newer, and Bash. Like the architecture
+repository, `make lint` invokes `markdownlint-cli2` and `yamllint` through `hack/`
+scripts. Install the pinned dependencies (a virtual environment is recommended):
+
+```bash
+npm ci --ignore-scripts --no-fund --no-audit
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements-lint.txt
+make help
+make lint
+```
+
+`help` only lists existing targets and descriptions. `lint` checks Markdown and
+YAML (`*.yaml` and `*.yml`), including new files. Dependency directories are
+excluded. It does not introduce a custom JSON or script-syntax lint framework.
+Any new Markdown violation, yamllint warning/error, or missing lint dependency
+makes `make lint` fail. Tests remain a separate required check.
+
+The Markdown rules and YAML configuration follow the architecture repository:
+line length (MD013) and table-column style (MD060) are disabled, duplicate
+headings are restricted to siblings, and specific HTML elements are allowed.
+The one-line `CLAUDE.md` import pointer is excluded, as in architecture. Existing
+Markdown violations are explicitly recorded in `.markdownlint-baseline.json`,
+not hidden by excluding their files. Exceptions are scoped to the file, rule,
+source line, diagnostic details, and occurrence count, so moving an unchanged
+line does not fail lint, but adding or changing a violation does. New files have
+no exceptions. The official CLI and JSON formatter produce the findings; a small
+Python filter applies the baseline and reports accepted legacy debt separately.
+Missing/malformed CLI output, invalid baseline data, and tool failures are not
+baseline exemptions. Temporary results are isolated per invocation.
+
+Do not regenerate the baseline during ordinary lint or CI runs. Only after
+reviewing an intentional baseline change, use:
+
+```bash
+npm run lint:baseline
+git diff -- .markdownlint-baseline.json
+```
+
+Prefer removing debt over adding exceptions. The baseline only applies to
+Markdown, never YAML. Node dependencies are pinned in `package-lock.json`, and
+yamllint with its runtime dependencies in `requirements-lint.txt`. The KaTeX
+and RE2JS overrides select patched releases for
+[GHSA-238p-pmpm-9mq7](https://github.com/advisories/GHSA-238p-pmpm-9mq7) and
+[GHSA-gg6h-894w-4m9c](https://github.com/advisories/GHSA-gg6h-894w-4m9c).
 
 ## Versioning
 
