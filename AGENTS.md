@@ -81,6 +81,13 @@ Primarily Markdown and JSON, but also includes:
 
 See `CONTRIBUTING.md` for adding/modifying plugins, local development, versioning, PR workflow, and security guidelines.
 
+## Testing
+
+Follow [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing), the authoritative
+runner contract. Every new suite MUST provide the documented `run-tests.sh`;
+new tests in an existing suite reuse its runner. Run `make test` before opening
+a PR and confirm your suite appears in the log.
+
 ## Boundaries
 
 **DO:**

@@ -13,12 +13,12 @@ A collection of Claude plugins for the HyperFleet team, exposed as a Claude plug
 Optionally, use the `/plugin` slash command without any options for a simplified interactive experience.
 
 To install the marketplace:
-```bash
+```text
 /plugin marketplace add openshift-hyperfleet/hyperfleet-claude-plugins
 ```
 
 Install a plugin:
-```bash
+```text
 /plugin install <plugin-name>@openshift-hyperfleet/hyperfleet-claude-plugins
 ```
 
@@ -28,7 +28,7 @@ Install a plugin:
 
 All plugins connected to this marketplace (commands, agents, skills, etc) must be updated manually within the Claude interface.
 
-```
+```text
 /plugin marketplace update hyperfleet-claude-plugins
 ```
 
@@ -44,6 +44,17 @@ Want to contribute a plugin or improve existing ones? See [CONTRIBUTING.md](./CO
 - Pull request process
 
 Questions or feedback? Open an issue in this repository.
+
+## Testing
+
+Run all discovered test suites from the repository root:
+
+```bash
+make test
+```
+
+See [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing) for the authoritative
+runner convention, dependencies, and isolated suite execution.
 
 ## Available Plugins
 
