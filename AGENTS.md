@@ -83,12 +83,10 @@ See `CONTRIBUTING.md` for adding/modifying plugins, local development, versionin
 
 ## Testing
 
-Two suites, both run from the repository root. Neither has CI: nothing runs them unless you do.
-
-| Plugin | Command |
-|--------|---------|
-| `hyperfleet-jira` | `cd hyperfleet-jira && python3 -m unittest discover -s tests` |
-| `hyperfleet-work-triage` | `bash hyperfleet-work-triage/skills/open-prs/scripts/tests/run-tests.sh` (details below) |
+Follow [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing), the authoritative
+runner contract. Every new suite MUST provide the documented `run-tests.sh`;
+new tests in an existing suite reuse its runner. Run `make test` before opening
+a PR and confirm your suite appears in the log.
 
 Rules for a change to a plugin that has a suite:
 
