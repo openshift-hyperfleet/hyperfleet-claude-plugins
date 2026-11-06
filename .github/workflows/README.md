@@ -1,17 +1,14 @@
 # CI Workflows
 
-Run the repository checks locally before opening a PR:
+Run all discovered plugin test suites locally before opening a PR:
 
 ```bash
-npm ci --ignore-scripts --no-fund --no-audit
-python3 -m pip install -r requirements-lint.txt
-make lint
 make test
 ```
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md#linting) for dependencies and the
-reviewed legacy Markdown baseline. The Makefile exposes `help`, `lint`, and
-`test`; the aggregate test target discovers each suite's `run-tests.sh`.
+The Makefile exposes `help` and `test`; the aggregate test target discovers each
+suite's `run-tests.sh`. See [CONTRIBUTING.md](../../CONTRIBUTING.md#testing) for
+the authoritative runner contract and dependencies.
 To run one suite in isolation, invoke its runner directly, for example:
 
 ```bash
@@ -21,9 +18,8 @@ bash hyperfleet-jira/tests/run-tests.sh
 The workflows in this directory cover only the scheduled work.
 
 The Prow unit job is configured separately in `openshift/release` under
-`ci-operator/config/openshift-hyperfleet/hyperfleet-claude-plugins`. Until that
-presubmit is active, validation must be run locally. Its bootstrap configuration
-runs lint for branches with the npm lockfile and then runs the aggregate tests.
+`ci-operator/config/openshift-hyperfleet/hyperfleet-claude-plugins` and runs
+`make test`. Until the presubmit is active, validation must be run locally.
 
 ## Open PRs Digest
 

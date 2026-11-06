@@ -47,18 +47,15 @@ Questions or feedback? Open an issue in this repository.
 
 ## Testing
 
-List available targets, validate repository files, and run all discovered test
-suites from the repository root (see [setup](./CONTRIBUTING.md#linting)):
+List available targets and run all discovered test suites from the repository root:
 
 ```bash
 make help
-make lint
 make test
 ```
 
 See [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing) for the authoritative
-runner convention, dependencies, and isolated suite execution, and
-[Linting](./CONTRIBUTING.md#linting) for lint setup and the legacy Markdown baseline.
+runner convention, dependencies, and isolated suite execution.
 
 ## Available Plugins
 

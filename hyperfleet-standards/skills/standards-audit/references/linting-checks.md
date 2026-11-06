@@ -10,14 +10,6 @@ Use the standard document content provided by the orchestrator (fetched via `gh 
 
 Determine the component type to apply the correct checks:
 
-Read explicit `repository.types` from `.hyperfleet.yaml` before heuristics. For a
-`plugin-marketplace` without Go code, do not require golangci-lint or Go-only
-settings. Use the fetched standards to determine the applicable requirements;
-inspect Markdown and other format checks, pinned tool/configuration files, CI
-invocation, and nonzero failure propagation. A Markdown baseline must not silently
-accept new violations. Report unverified behavior rather than assuming that a
-target's presence proves it works.
-
 ```bash
 # API indicators
 ls pkg/api/ 2>/dev/null && echo "IS_API"

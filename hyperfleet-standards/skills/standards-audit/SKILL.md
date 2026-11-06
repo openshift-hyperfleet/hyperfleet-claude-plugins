@@ -111,20 +111,9 @@ For detailed check methodology per standard, use the corresponding reference fil
 
 Before running applicable checks, detect the repository type.
 
-Read `.hyperfleet.yaml` first. Explicit `repository.types` values take precedence
-over name-based heuristics; preserve all declared types and apply their
-requirements additively. Recognize `plugin-marketplace` as developer-assistant
-plugins with executable helpers and tests, not as a documentation-only or Go
-service repository. Only enforce its target set when defined by the fetched
-standard; if that version does not recognize the type, report the unsupported
-mapping as partial rather than silently falling back to service requirements.
-
 ### Detection Commands
 
 ```bash
-# Explicit repository types
-cat .hyperfleet.yaml 2>/dev/null
-
 # Check for API indicators
 ls pkg/api/ 2>/dev/null && echo "HAS_API_PKG"
 ls openapi.yaml 2>/dev/null || ls openapi/openapi.yaml 2>/dev/null && echo "HAS_OPENAPI"
@@ -150,7 +139,6 @@ ls cmd/*.go 2>/dev/null || find pkg -name '*.go' -print -quit 2>/dev/null | grep
 
 | Indicators | Repository Type |
 |------------|-----------------|
-| Explicit `repository.types` includes `plugin-marketplace` | Plugin marketplace (retain other declared types) |
 | HAS_API_PKG + HAS_OPENAPI + HAS_DATABASE | API Service |
 | IS_SENTINEL or HAS_RECONCILE | Sentinel |
 | IS_ADAPTER or HAS_CLOUDEVENTS (without API) | Adapter |
@@ -211,7 +199,7 @@ Show only the summary with repo info and the results table:
 ```markdown
 # HyperFleet Standards Audit
 
-**Repository:** [repo name] | **Type:** [API/Sentinel/Adapter/Infrastructure/Tooling/Plugin marketplace; include all declared types] | **Source:** [GitHub/Local]
+**Repository:** [repo name] | **Type:** [API/Sentinel/Adapter/Infrastructure/Tooling] | **Source:** [GitHub/Local]
 
 | Standard | Status | Gaps |
 |----------|--------|------|

@@ -63,7 +63,7 @@ jobs:
           echo "=== test JIRA query ==="
           jira issue view HYPERFLEET-1030 --raw 2>&1 | head -5 || echo "JIRA QUERY FAILED with exit code $?"
         env:
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
