@@ -110,8 +110,9 @@ the runner, not the Makefile. Python unittest runners should honor
 the CI build root provides them. The existing work-triage suite requires Bash,
 `jq`, and `bc`.
 
-Keep only the aggregate `test` target in the root Makefile; do not add per-suite
-targets or a hand-maintained suite list. To run one suite in isolation, invoke
+The root Makefile provides `help`, which only lists available targets and their
+descriptions, and the aggregate `test` target. Do not add per-suite targets or a
+hand-maintained suite list. To run one suite in isolation, invoke
 its runner directly:
 
 ```bash

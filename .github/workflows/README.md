@@ -1,5 +1,26 @@
 # CI Workflows
 
+Run all discovered plugin test suites locally before opening a PR:
+
+```bash
+make test
+```
+
+The Makefile exposes `help` and `test`; the aggregate test target discovers each
+suite's `run-tests.sh`. See [CONTRIBUTING.md](../../CONTRIBUTING.md#testing) for
+the authoritative runner contract and dependencies.
+To run one suite in isolation, invoke its runner directly, for example:
+
+```bash
+bash hyperfleet-jira/tests/run-tests.sh
+```
+
+The workflows in this directory cover only the scheduled work.
+
+The Prow unit job is configured separately in `openshift/release` under
+`ci-operator/config/openshift-hyperfleet/hyperfleet-claude-plugins` and runs
+`make test`. Until the presubmit is active, validation must be run locally.
+
 ## Open PRs Digest
 
 **File:** `open-prs-digest.yml`

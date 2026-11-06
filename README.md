@@ -47,9 +47,10 @@ Questions or feedback? Open an issue in this repository.
 
 ## Testing
 
-Run all discovered test suites from the repository root:
+List available targets and run all discovered test suites from the repository root:
 
 ```bash
+make help
 make test
 ```
 

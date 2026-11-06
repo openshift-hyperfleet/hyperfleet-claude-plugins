@@ -1,0 +1,644 @@
+#!/usr/bin/env python3
+"""Pulse check data collector for the HyperFleet sprint pulse check.
+
+Reads the open large work items (>= --min-sp story points) of the active sprint,
+computes how long each has been without movement, resolves open blockers, and
+prints the nudge queue as JSON (default) or as a ready-to-paste text block.
+
+Movement is the most recent of:
+  - the exact last status change, from the Jira changelog; a New -> Backlog
+    reclassification is ignored, while In Progress -> Review counts
+  - the last human comment (authors whose accountType is not "app")
+  - the assignment to the current owner, from the same changelog
+
+The status and assignment signals need `JIRA_API_TOKEN`; without it the script
+falls back to `statusCategoryChangedDate` plus comments and says the signal is
+partial. The `updated` field is deliberately ignored: bulk edits make untouched
+tickets look active (on Sprint 19, 18 tickets shared one `updated` timestamp).
+
+Read-only. The script never writes to Jira.
+
+Usage:
+    python3 pulse_check.py                          # JSON, current sprint, today
+    python3 pulse_check.py --format markdown         # ready-to-paste block
+    python3 pulse_check.py --today 2026-11-03       # reproducible run
+    python3 pulse_check.py --project HYPERFLEET --min-sp 5 --max-rows 7
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from datetime import datetime, timezone
+
+# The Jira layer is shared with sprint_status.py: one definition of "work is Done
+# by category", one pager, one changelog reader. See jira_common.py.
+from jira_common import (
+    OPEN_STATUS_JQL,
+    JiraError,
+    active_sprint,
+    add_common_arguments,
+    apply_changelog_signals,
+    apply_pull_requests,
+    describe,
+    fetch_all,
+    jira_base_url,
+    no_prs_signal,
+    open_links,
+    parse_date,
+    pr_refs,
+    search_keys,
+    ticket_ref,
+    warn_changelog_failure,
+)
+
+# One error type, two names: the caller sees the script it invoked, not the module
+# that raised. The alias also keeps existing tests reading naturally.
+PulseError = JiraError
+
+
+def prose(text: str) -> str:
+    """Collapse whitespace so a value fits on one report line."""
+    return " ".join(str(text or "").split())
+
+
+def cell(text: str) -> str:
+    """One table cell: no pipes, no newlines, whatever the text contains."""
+    return prose(text).replace("|", "\\|")
+
+
+def large_item_keys(
+    project: str, sprint_id: str, min_sp: int, sp_field_name: str, binary: str
+) -> list[str]:
+    """Every large item in the sprint, past the 100-issue page cap.
+
+    `jira issue list` truncates a sprint above 100 issues without saying so;
+    `search_keys` moves the JQL window instead, and raises rather than returning a
+    short list that looks complete.
+    """
+    jql = (
+        f'project = {project} AND sprint = {sprint_id} '
+        f'AND "{sp_field_name}" >= {min_sp} AND {OPEN_STATUS_JQL}'
+    )
+    return search_keys(jql, project, binary)
+
+
+def assignment_is_binding(item: dict) -> bool:
+    """True when the assignment date is what keeps the clock short.
+
+    A tie with the status change is not a reason to mention the assignment: the
+    status already explains it.
+    """
+    days = item.get("days_since_assignment")
+    if days is None:
+        return False
+    others = [item["days_in_status"]]
+    if item.get("days_since_comment") is not None:
+        others.append(item["days_since_comment"])
+    return days < min(others)
+
+
+def is_spike(item: dict) -> bool:
+    """A spike reads its evidence into a document, not into a PR."""
+    return item.get("summary", "").lstrip().upper().startswith(("SPIKE", "[SPIKE]"))
+
+
+# A merged or declined diff is nobody's next decision: the ticket needs a status,
+# not a reviewer. Jira reports "OPEN" and the two closed states for the GitHub app,
+# and nothing at all for a link attached by hand.
+CLOSED_STATES = ("MERGED", "DECLINED")
+
+
+def live_pull_requests(item: dict) -> list[dict]:
+    """The pull requests of `item` that a reviewer can still act on."""
+    return [
+        pr
+        for pr in item.get("pr") or []
+        if (pr.get("status") or "").upper() not in CLOSED_STATES
+    ]
+
+
+def reviewers_of(item: dict) -> list[str]:
+    """Everyone the ticket's live pull requests are waiting on, without repeats.
+
+    An item can own several open pull requests in different repositories, each with
+    its own reviewers; the ask speaks for the ticket, so the union is what it names.
+    """
+    names: list[str] = []
+    for pr in live_pull_requests(item):
+        for name in pr.get("reviewers") or []:
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def given_names(reviewers: list[str]) -> str:
+    """`Tirth`, `Tirth and Rafael`, `Tirth, Rafael and Martin`.
+
+    First names keep the table cell readable, which is the same reason the Owner
+    column shows one. The pull request is linked beside the ask, so a reader who
+    needs the full identity has it one click away.
+    """
+    firsts: list[str] = []
+    for full in reviewers:
+        parts = (full or "").split()
+        if not parts:
+            continue
+        first = parts[0]
+        if first not in firsts:
+            firsts.append(first)
+    if len(firsts) <= 1:
+        return "".join(firsts)
+    return f"{', '.join(firsts[:-1])} and {firsts[-1]}"
+
+
+def suggested_ask(item: dict, ref=None, style: str = "bare") -> str:
+    """One imperative per item: verb first, then who and what artifact.
+
+    The verb comes from a fixed set - ask to approve/reject, assign, attach a pull
+    request, move out of Review, post, start, propose a split, confirm - so the
+    column can be scanned and counted.
+    The item's own age lives in the `Status . age` cell, so the text never
+    repeats it; a blocker"s age does appear, because that clock is not in the
+    table and it is what makes the blocker urgent or not.
+
+    Who the ask names follows the state: a blocker in `Review` names every
+    requested reviewer Jira reports, because the owner of that ticket wrote the
+    diff; the owner is named only when Jira reports no pull request at all.
+
+    `ref` renders a key for the destination, so a blocker named in the ask is a
+    link like every other key in the report. It defaults to the bare key, which
+    keeps the ask readable in a test and in a log.
+
+    A blocker whose pull request read did not answer is `pr_unknown`: the ask
+    cannot name a reviewer, and naming its owner would name the author when the
+    diff exists but was not read. Reviewers a partial read still found are named
+    first, because they are facts the read did return.
+
+    A blocker in Review whose pull requests are all closed is the queue's case
+    again: nobody can review a merged or declined diff, so the ask moves the
+    ticket out of Review instead of asking its owner to approve it.
+    """
+    ref = ref or (lambda key: key)
+    if item["open_blockers"]:
+        # A blocker in Review is the one an ask can move today, so it leads.
+        detail = sorted(
+            item["blocker_detail"],
+            key=lambda d: (d["status"] != "Review", d["key"]),
+        )
+        clauses = []
+        for d in detail:
+            days = d.get("days_in_status")
+            when = f" {days}d" if days is not None else ""
+            if d.get("unread"):
+                # The target could not be read, so "assign it" would order work that
+                # may already have an owner and a status. Ask for the read instead:
+                # the status is what the next pulse needs before it can ask anything.
+                clauses.append(f"confirm {ref(d['key'])}'s status and owner")
+                continue
+            if d["status"] == "Review":
+                # The reviewer moves this ticket; the owner is usually the author.
+                # Jira reports every requested reviewer, so the ask names all of
+                # them instead of picking one - the choice of who reviews stays
+                # with them.
+                names = given_names(d.get("reviewers") or [])
+                if names:
+                    # Reviewers a partial read still found are facts, so they win
+                    # over the unknown flag: the ask names them and stops there.
+                    clauses.append(
+                        f"ask {names} to approve or reject {ref(d['key'])} (Review{when})"
+                    )
+                elif d.get("pr_unknown") or d.get("has_live_pr"):
+                    # Unread (`--no-prs`, missing token, failed read) or a live
+                    # pull request Jira lists no reviewer for: a name here would
+                    # be the author.
+                    clauses.append(
+                        f"ask a reviewer to approve or reject {ref(d['key'])} (Review{when})"
+                    )
+                elif d.get("pr"):
+                    # Every pull request this blocker owns is closed, so the ticket
+                    # needs a status, not a reviewer - the same move the queue path
+                    # in `decorate_ask` makes. Asking its owner to approve a merged
+                    # diff would send them to finished work.
+                    prs = pr_refs({"pr": d["pr"]}, style)
+                    clauses.append(f"move {ref(d['key'])} out of Review: {prs}")
+                elif d.get("owner"):
+                    clauses.append(
+                        f"ask {d['owner'].split()[0]} to approve or reject {ref(d['key'])} "
+                        f"(Review{when})"
+                    )
+                else:
+                    clauses.append(f"assign {ref(d['key'])}")
+            elif not d.get("owner"):
+                clauses.append(f"assign {ref(d['key'])}")
+            elif d["status"] == "In Progress":
+                clauses.append(
+                    f"ask {d['owner'].split()[0]} for the status of {ref(d['key'])}"
+                )
+            else:
+                clauses.append(
+                    f"ask {d['owner'].split()[0]} to start or drop {ref(d['key'])}"
+                )
+        shown = "; ".join(clauses[:2])
+        more = f" (+{len(clauses) - 2} more)" if len(clauses) > 2 else ""
+        return shown[0].upper() + shown[1:] + more
+    if item["status"] == "Review":
+        return "Ask a reviewer to approve or reject"
+    if item["status"] == "In Progress":
+        if item["days_without_movement"] >= 20:
+            return "Propose a split with dates, or re-scope"
+        if item["days_without_movement"] >= 10:
+            return "Post the blocker or the PR link on the ticket"
+        return "Post the open questions on the ticket"
+    if item["days_without_movement"] >= 20:
+        if is_spike(item):
+            return "Post the decision note this week or drop from the sprint"
+        return "Start this week or drop from the sprint"
+    if item["days_without_movement"] >= 10:
+        return "Post a start date and the first step on the ticket"
+    return "Confirm a start date on the ticket"
+
+
+def decorate_ask(item: dict, style: str) -> str:
+    """Fold the pull request a reviewer can act on into the ask.
+
+    Ownership comes from the title, so a link Jira shows that is titled for another
+    ticket is not this ticket's pull request and never appears here: the reviewer
+    it named would open someone else's diff.
+
+    The ask carries the pull requests a reviewer can act on, which is not the same
+    as every pull request the ticket owns. A ticket that merged `infra#122` and
+    then opened `e2e#177` owns both, but "approve or reject #122 (merged)" sends
+    the reader to a closed diff. Closed ones stay in the report line; only the live
+    ones become the ask. When every one of them is closed, the ticket needs a
+    status, not a reviewer.
+
+    With a live pull request the ask names the reviewers waiting on it, all of
+    them: choosing one would decide who reviews.
+
+    With no pull request at all, the ask says "Jira links none", not "there is
+    none": the panel is the only source this script reads, and the two moves an
+    owner can make are the same either way - attach the pull request, or move the
+    ticket back.
+
+    A read that did not answer is not "no pull request": `pr_unknown` keeps the
+    ask neutral instead of asking the owner to attach a diff that may already
+    exist.
+    """
+    ask = item["ask"]
+    owned = list(item.get("pr") or [])
+    live = live_pull_requests(item)
+    if live:
+        # The pull request is where a reviewer acts, so it rides in the ask
+        # rather than in a seventh column. The generic review ask names no
+        # ticket, so the PR becomes its object instead of a suffix.
+        prs = pr_refs({"pr": live}, style)
+        names = given_names(reviewers_of(item))
+        if names and ask.startswith("Ask a reviewer"):
+            # Same rule as a blocker in Review: name every requested reviewer,
+            # never the owner, who is the author of the diff being reviewed.
+            return f"Ask {names} to approve or reject {prs}"
+        if ask.startswith("Ask a reviewer"):
+            return f"{ask} {prs}"
+        return f"{ask} - {prs}"
+    if item.get("pr_unknown"):
+        # A partial read still decorates what it found (the branch above); an
+        # empty one is unknown, not empty, so neither "attach" nor "move back"
+        # can be inferred.
+        return ask
+    if owned:
+        # Asking for review of a closed diff sends the reader to finished work.
+        # What the ticket needs is a status, not a reviewer.
+        return f"Move this ticket out of Review: {pr_refs(item, style)}"
+    if item.get("status") == "Review" and ask.startswith("Ask a reviewer"):
+        return "Attach this ticket's pull request, or move it back to In Progress"
+    return ask
+
+
+def build(args) -> dict:
+    """Collect sprint signals and derive the nudge queue and allocation gaps."""
+    today = parse_date(args.today) if args.today else datetime.now(timezone.utc).date()
+    sprint = active_sprint(args.project, args.jira)
+    keys = large_item_keys(
+        args.project, sprint["id"], args.min_sp, args.sp_field_name, args.jira
+    )
+    fetch_failures: dict[str, str] = {}
+    docs = fetch_all(keys, args.project, args.jira, args.jobs, fetch_failures)
+
+    items = []
+    for key, doc in docs.items():
+        item = describe(key, doc, args.sp_field, today)
+        # The report sums points, so "no estimate" is zero here; describe keeps
+        # None so the sprint report can tell the two apart.
+        item["sp"] = item["sp"] or 0
+        items.append(item)
+
+    # Resolve the status of every link target so "blocked" and "blocks" mean open work only.
+    targets = {k for item in items for k in item["blocked_by"] + item["blocks"]} - set(docs)
+    extra = (
+        fetch_all(sorted(targets), args.project, args.jira, args.jobs, fetch_failures)
+        if targets
+        else {}
+    )
+
+    # Descriptors for the targets as well, so a blocker's ask can carry its own age.
+    target_items = [describe(k, d, args.sp_field, today) for k, d in extra.items()]
+    by_key = {entry["key"]: entry for entry in items + target_items}
+    category_of = {key: entry["category"] for key, entry in by_key.items()}
+
+    # Exact status transitions and owner changes reset the movement clock. Must run
+    # before the asks are derived.
+    signals = apply_changelog_signals(items + target_items, today, args.jobs)
+    warn_changelog_failure(signals)
+
+    base_url = jira_base_url()
+
+    def ref(key: str) -> str:
+        """Render an ask's ticket link in the requested destination style."""
+        return ticket_ref(key, base_url, args.link_style)
+
+    for item in items:
+        item["open_blockers"] = open_links(item["blocked_by"], category_of)
+        item["blocked"] = bool(item["open_blockers"])
+        item["blocks_open"] = open_links(item["blocks"], category_of)
+
+    # A blocker in Review is a pull request someone else has to decide on, so the
+    # ask has to name that ticket's reviewers. The panel is already read for the
+    # queue, and reading the blockers' takes the same call - without it the ask
+    # falls back to the blocker's owner, who is usually the author of the diff.
+    review_keys = {item["key"] for item in items if item["status"] == "Review"}
+    review_keys |= {
+        key
+        for item in items
+        for key in item["blocked_by"]
+        if by_key.get(key, {}).get("status") == "Review"
+    }
+    pr_targets = [by_key[key] for key in sorted(review_keys) if key in by_key]
+    if args.no_prs:
+        pr_signal = no_prs_signal()
+        for target in pr_targets:
+            # The lookup was turned off, which is one more way of not knowing:
+            # the ask must not read the empty list as "no pull request".
+            target["pr"] = []
+            target["pr_unknown"] = True
+    else:
+        pr_signal = apply_pull_requests(pr_targets, args.jobs)
+
+    for item in items:
+        item["blocker_detail"] = [
+            {
+                "key": k,
+                "status": by_key[k]["status"] if k in by_key else "?",
+                "owner": (by_key[k]["owner"] or None) if k in by_key else None,
+                "days_in_status": by_key[k]["days_in_status"] if k in by_key else None,
+                "reviewers": reviewers_of(by_key[k]) if k in by_key else [],
+                "pr": list(by_key[k].get("pr") or []) if k in by_key else [],
+                "has_live_pr": bool(live_pull_requests(by_key[k])) if k in by_key else False,
+                "pr_unknown": bool(by_key[k].get("pr_unknown")) if k in by_key else True,
+                # An unread target has no owner to name and no status to trust:
+                # `assign` here could order work that someone already owns.
+                "unread": k not in by_key,
+            }
+            for k in item["open_blockers"]
+        ]
+        item["ask"] = suggested_ask(item, ref, args.link_style)
+        item["ask"] = decorate_ask(item, args.link_style)
+
+    owned = [i for i in items if i["owner"]]
+    unowned = [i for i in items if not i["owner"]]
+    for item in owned:
+        item["needs_action"] = item["days_without_movement"] >= args.action_after
+
+    needing = sorted(
+        [i for i in owned if i["needs_action"]], key=lambda i: -i["days_without_movement"]
+    )
+    queue = needing[: args.max_rows]
+
+    escalation = [i["key"] for i in needing if i["days_without_movement"] >= 20 and not i["blocked"]]
+    excluded = [i["key"] for i in needing if i["days_without_movement"] >= 20 and i["blocked"]]
+
+    gating = sorted(
+        [i for i in unowned if i["blocks_open"]], key=lambda i: -len(i["blocks_open"])
+    )
+
+    owners: dict[str, dict] = {}
+    for item in owned:
+        bucket = owners.setdefault(item["owner"], {"owner": item["owner"], "items": 0, "sp": 0})
+        bucket["items"] += 1
+        bucket["sp"] += item["sp"]
+
+    return {
+        "generated_for": today.isoformat(),
+        "project": args.project,
+        "jira_base_url": base_url,
+        "link_style": args.link_style,
+        "sprint": sprint,
+        "definition": (
+            "Movement = the most recent of the exact last status change, the last human "
+            "comment and the assignment to the current owner; a New to Backlog "
+            "reclassification is not movement, and the `updated` field is ignored "
+            "because bulk edits inflate it"
+        ),
+        "changelog_signal": signals,
+        "pr_signal": pr_signal,
+        "fetch_signal": {
+            "failed": len(fetch_failures),
+            "keys": sorted(fetch_failures),
+        },
+        "totals": {
+            "items": len(items),
+            "sp": sum(i["sp"] for i in items),
+            "owned": {"items": len(owned), "sp": sum(i["sp"] for i in owned)},
+            "unowned": {"items": len(unowned), "sp": sum(i["sp"] for i in unowned)},
+        },
+        "queue": queue,
+        "queue_needing_action": len(needing),
+        "queue_overflow": max(0, len(needing) - len(queue)),
+        "no_action": [
+            {
+                "key": i["key"],
+                "owner": i["owner"],
+                "days_without_movement": i["days_without_movement"],
+                "days_in_status": i["days_in_status"],
+                "days_since_comment": i.get("days_since_comment"),
+                "days_since_assignment": i.get("days_since_assignment"),
+                "assigned": i.get("assigned"),
+            }
+            for i in sorted(owned, key=lambda i: i["days_without_movement"])
+            if not i["needs_action"]
+        ],
+        "escalation_20d": escalation,
+        "escalation_excluded_blocked": excluded,
+        "assignment_gap": {
+            "items": len(unowned),
+            "sp": sum(i["sp"] for i in unowned),
+            "sizes": sorted({i["sp"] for i in unowned}),
+            "blocking_other_work": [
+                {"key": i["key"], "sp": i["sp"], "blocks_open": len(i["blocks_open"])} for i in gating
+            ],
+            "keys": [i["key"] for i in sorted(unowned, key=lambda i: -i["days_without_movement"])],
+        },
+        "concentration": sorted(owners.values(), key=lambda o: (-o["sp"], -o["items"])),
+        "next_pulse": args.next_pulse,
+    }
+
+
+def render_text(data: dict) -> str:
+    """Render collected pulse data without additional Jira reads."""
+    sprint = data["sprint"]
+    totals = data["totals"]
+    lines = [f"Pulse check - {sprint['name']}, {data['generated_for']}"]
+    if data.get("jira_base_url"):
+        lines.append(f"Jira: {data['jira_base_url']}")
+    lines.append("")
+
+    queue = data["queue"]
+    base_url = data.get("jira_base_url")
+    style = data.get("link_style", "markdown")
+
+    def ref(key: str) -> str:
+        """Render a ticket link using the report's URL and link style."""
+        return ticket_ref(key, base_url, style)
+
+    lines.append(
+        f"Nudge queue ({len(queue)} of {totals['owned']['items']} owned large items need action):"
+    )
+    if queue:
+        lines.append("")
+        lines.append("| Ticket | Title | Owner | SP | Status · age | Ask |")
+        lines.append("|--------|-------|-------|----|--------------|-----|")
+        for item in queue:
+            when = f"{item['days_without_movement']}d"
+            if assignment_is_binding(item):
+                when += f" (assigned {item['assigned'][5:]})"
+            elif item["status"] == "Backlog":
+                when += f" (since {item['created'][5:]})"
+            lines.append(
+                f"| {ticket_ref(item['key'], base_url, style)} | {cell(item['summary'])} | "
+                f"{item['owner'].split()[0]} | {int(item['sp'])} | "
+                f"{item['status']} · {when} | {cell(item['ask'])} |"
+            )
+    else:
+        lines.append("nothing needs action this pulse")
+    if data["queue_overflow"]:
+        lines.append(f"+{data['queue_overflow']} more items need action")
+
+    if data["no_action"]:
+        entries = []
+        for i in data["no_action"]:
+            entry = f"{ref(i['key'])} ({i['days_without_movement']}d"
+            if assignment_is_binding(i) and i.get("assigned"):
+                entry += f", assigned {i['assigned'][5:]}"
+            entries.append(f"{entry})")
+        lines.append(f"\nNo action: {', '.join(entries)}")
+
+    if data["escalation_20d"]:
+        keys = ", ".join(ref(key) for key in data["escalation_20d"])
+        lines.append(f"\nEscalation 20+ days: {keys}"
+                     " — lead decides: start, split, re-scope or drop")
+    if data["escalation_excluded_blocked"]:
+        keys = ", ".join(ref(key) for key in data["escalation_excluded_blocked"])
+        lines.append(f"(excluded as blocked: {keys})")
+
+    gap = data["assignment_gap"]
+    if gap["items"]:
+        sizes = ", ".join(f"{int(s)} SP" for s in gap["sizes"]) or "n/a"
+        lines.append(f"\nAssignment gap: {gap['items']} items / {int(gap['sp'])} SP have no owner")
+        lines.append(f"- sizes present: {sizes}")
+        if gap["blocking_other_work"]:
+            top = ", ".join(
+                f"{ref(o['key'])} (blocks {o['blocks_open']})"
+                for o in gap["blocking_other_work"][:4]
+            )
+            lines.append(f"- assign these first: {top}")
+
+    if data["concentration"]:
+        top = data["concentration"][0]
+        if top["items"] > 1:
+            lines.append(
+                f"\nConcentration: {top['owner']} holds {top['items']} of "
+                f"{totals['owned']['items']} owned items ({int(top['sp'])} of "
+                f"{int(totals['owned']['sp'])} SP)"
+            )
+
+    lines.append("")
+    signal = data.get("changelog_signal") or {}
+    if signal.get("failed"):
+        lines.append(
+            f"Signal: partial - {signal['failed']} of {signal['checked']} changelog "
+            "reads failed, so those items use the status category date"
+        )
+    elif signal.get("available") is False:
+        lines.append(
+            "Signal: partial - no JIRA_API_TOKEN, so movement ignores exact status "
+            "changes and assignments"
+        )
+    prs = data.get("pr_signal") or {}
+    if prs.get("failed"):
+        lines.append(
+            f"Signal: partial - {prs['failed']} of {prs['checked']} pull request reads "
+            "failed, so those items carry no pull request link"
+        )
+    elif prs.get("available") is False and not prs.get("skipped"):
+        lines.append(
+            "Signal: partial - pull request links unavailable "
+            f"({prs.get('reason') or 'no JIRA_API_TOKEN'})"
+        )
+    fetches = data.get("fetch_signal") or {}
+    if fetches.get("failed"):
+        lines.append(
+            f"Signal: partial - {fetches['failed']} issue reads failed, so those items "
+            "are missing from the queue and their links stay open"
+        )
+    lines.append(data["definition"])
+    lines.append(f"Next pulse: {data['next_pulse'] or 'to be scheduled'}")
+    return "\n".join(lines)
+
+
+def field_name(value: str) -> str:
+    """A field name sits inside quotes in JQL; keep quotes and escapes out."""
+    if '"' in value or "\\" in value:
+        raise argparse.ArgumentTypeError(f"not a Jira field name: {value!r}")
+    return value
+
+
+def main() -> int:
+    """Validate arguments and emit the pulse report or a sanitized error."""
+    parser = argparse.ArgumentParser(description="Collect the sprint pulse check data.")
+    add_common_arguments(parser)
+    parser.add_argument("--min-sp", type=int, default=5)
+    parser.add_argument("--max-rows", type=int, default=7)
+    parser.add_argument("--action-after", type=int, default=5, help="days without movement that trigger an ask")
+    parser.add_argument("--sp-field-name", default="Story Points", type=field_name, help="JQL name of the story points field")
+    parser.add_argument("--next-pulse", help="YYYY-MM-DD printed in the text output")
+    parser.add_argument(
+        "--link-style",
+        choices=["markdown", "slack", "bare"],
+        default="markdown",
+        help="how ticket keys are rendered in the table",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="json",
+        help="markdown and text are the same ready-to-paste block",
+    )
+    args = parser.parse_args()
+
+    try:
+        data = build(args)
+    except PulseError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    print(
+        json.dumps(data, indent=2, ensure_ascii=False)
+        if args.format == "json"
+        else render_text(data)
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
