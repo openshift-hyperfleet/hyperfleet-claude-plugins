@@ -475,8 +475,14 @@ def changelog_dates(
         # ValueErrors: every transport or decode failure is one counted failure.
         raise ChangelogUnavailable(f"{key}: {type(exc).__name__}") from exc
 
+    if not isinstance(payload, dict):
+        raise ChangelogUnavailable(f"{key}: MalformedResponse")
     changelog = payload.get("changelog") or {}
+    if not isinstance(changelog, dict):
+        raise ChangelogUnavailable(f"{key}: MalformedResponse")
     histories = changelog.get("histories") or []
+    if not isinstance(histories, list):
+        raise ChangelogUnavailable(f"{key}: MalformedResponse")
     try:
         total = int(changelog.get("total") or 0)
     except (TypeError, ValueError):
@@ -491,9 +497,20 @@ def changelog_dates(
     status_dates: list[date] = []
     assignment_dates: list[date] = []
     for entry in histories:
+        if not isinstance(entry, dict):
+            raise ChangelogUnavailable(f"{key}: MalformedResponse")
         changed_status = changed_assignee = False
-        for change in entry.get("items") or []:
+        changes = entry.get("items") or []
+        if not isinstance(changes, list):
+            raise ChangelogUnavailable(f"{key}: MalformedResponse")
+        for change in changes:
+            if not isinstance(change, dict):
+                raise ChangelogUnavailable(f"{key}: MalformedResponse")
             if change.get("field") == "status":
+                for field in ("fromString", "toString"):
+                    value = change.get(field)
+                    if value is not None and not isinstance(value, str):
+                        raise ChangelogUnavailable(f"{key}: MalformedResponse")
                 if status_change_counts(change):
                     changed_status = True
             elif (
@@ -502,10 +519,18 @@ def changelog_dates(
                 and change.get("to") == account_id
             ):
                 changed_assignee = True
-        if changed_status:
-            status_dates.append(parse_date(entry["created"]))
-        if changed_assignee:
-            assignment_dates.append(parse_date(entry["created"]))
+        if changed_status or changed_assignee:
+            # A movement entry without a readable date must be counted, not
+            # skipped: skipping it would report the item as "no entry" and let
+            # the caller fall back to a different clock.
+            try:
+                changed_date = parse_date(entry["created"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ChangelogUnavailable(f"{key}: MalformedResponse") from exc
+            if changed_status:
+                status_dates.append(changed_date)
+            if changed_assignee:
+                assignment_dates.append(changed_date)
 
     status_entered = max(status_dates) if status_dates else None
     assigned = max(assignment_dates) if assignment_dates else None

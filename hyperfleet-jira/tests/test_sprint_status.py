@@ -1070,6 +1070,77 @@ class ChangelogTransportTest(unittest.TestCase):
         with self.assertRaises(jc.ChangelogUnavailable):
             self.call(payload={"changelog": {"total": 150, "histories": []}})
 
+    def test_a_non_object_response_is_counted(self):
+        with self.assertRaises(jc.ChangelogUnavailable):
+            self.call(payload=["not", "a", "dict"])
+
+    def test_a_non_object_changelog_is_counted(self):
+        with self.assertRaises(jc.ChangelogUnavailable):
+            self.call(payload={"changelog": ["not", "a", "dict"]})
+
+    def test_histories_that_are_not_a_list_are_counted(self):
+        with self.assertRaises(jc.ChangelogUnavailable):
+            self.call(payload={"changelog": {"histories": {"created": "2026-10-30"}}})
+
+    def test_an_entry_that_is_not_an_object_is_counted(self):
+        with self.assertRaises(jc.ChangelogUnavailable):
+            self.call(payload={"changelog": {"histories": ["not an entry"]}})
+
+    def test_movement_without_a_date_is_counted(self):
+        payload = {
+            "changelog": {
+                "histories": [
+                    {
+                        "items": [
+                            {
+                                "field": "status",
+                                "fromString": "In Progress",
+                                "toString": "Review",
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+        with self.assertRaises(jc.ChangelogUnavailable):
+            self.call(payload=payload)
+
+    def test_movement_with_an_unreadable_date_is_counted(self):
+        payload = {
+            "changelog": {
+                "histories": [
+                    {
+                        "created": "yesterday",
+                        "items": [
+                            {
+                                "field": "status",
+                                "fromString": "In Progress",
+                                "toString": "Review",
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+        with self.assertRaises(jc.ChangelogUnavailable):
+            self.call(payload=payload)
+
+    def test_a_status_value_that_is_not_text_is_counted(self):
+        payload = {
+            "changelog": {
+                "histories": [
+                    {
+                        "created": "2026-10-30T10:00:00.000+0000",
+                        "items": [
+                            {"field": "status", "fromString": 1, "toString": "Review"}
+                        ],
+                    }
+                ]
+            }
+        }
+        with self.assertRaises(jc.ChangelogUnavailable):
+            self.call(payload=payload)
+
     def test_a_complete_changelog_is_read(self):
         payload = {
             "changelog": {
