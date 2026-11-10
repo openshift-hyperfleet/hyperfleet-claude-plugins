@@ -240,13 +240,28 @@ gh pr comment <number> --repo <full_repo> --body "/lgtm"
 
 A rebase pushes a commit, and the lgtm plugin drops `lgtm` on every new commit. Always rebase **before** any lgtm: a `reviewed` or `auto-approved` PR becomes `approved` after the rebase, so its lgtm has to be re-applied afterwards (by a human — this skill does not re-lgtm a labeled PR).
 
-Fetch the current PR body, replace the rebase checkbox, and pipe via stdin to avoid shell injection from untrusted PR body content:
+Fetch the current PR body, verify the read and the substitution, and only then edit. Keep the body out of the shell command line: it is untrusted content.
 
 ```bash
-gh pr view <number> --repo <full_repo> --json body \
-  --jq '.body as $b | ($b | sub("- \\[ \\] <!-- rebase-check -->"; "- [x] <!-- rebase-check -->")) as $u | if $u == $b then error("rebase-check marker not found") else $u end' \
-  | gh pr edit <number> --repo <full_repo> --body-file -
+# A failed read must never reach gh pr edit: an empty --body-file would replace
+# the PR body with nothing. The pipeline used to hide that, because the exit
+# status came from gh pr edit, not from gh pr view.
+body=$(gh pr view <number> --repo <full_repo> --json body --jq '.body') || {
+  echo "ERROR: could not read the body of #<number>; nothing changed" >&2
+  exit 1
+}
+
+updated=$(jq -rn --arg body "$body" '$body as $b
+  | ($b | sub("- \\[ \\] <!-- rebase-check -->"; "- [x] <!-- rebase-check -->")) as $u
+  | if $u == $b then error("rebase-check marker not found") else $u end') || {
+  echo "ERROR: rebase-check marker not found in #<number>; nothing changed" >&2
+  exit 1
+}
+
+gh pr edit <number> --repo <full_repo> --body-file - <<<"$updated"
 ```
+
+The snippet stops on the first error so a bad body is never written. Inside a per-PR loop, use `continue` instead of `exit 1` to skip that PR and keep going.
 
 #### Major and security PRs
 
