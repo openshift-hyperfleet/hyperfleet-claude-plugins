@@ -5,14 +5,15 @@ A Claude Code plugin that integrates JIRA with your development workflow using [
 ## Features
 
 ### For Engineers
-- **`/my-sprint`** - View current sprint and your assigned tickets
-- **`/my-tasks`** - List all your assigned tasks across projects
-- **`/new-comments`** - Find tickets with comments you may have missed
+- **`/hyperfleet-jira:my-sprint`** - View current sprint and your assigned tickets
+- **`/hyperfleet-jira:my-tasks`** - List all your assigned tasks across projects
+- **`/hyperfleet-jira:new-comments`** - Find tickets with comments you may have missed
 
 ### For Team Leads
-- **`/sprint-status`** - Comprehensive sprint health overview
-- **`/team-weekly-update`** - Weekly team progress report grouped by activity type and epic
-- **`/triage`** - Audit tickets for missing fields and quality issues
+- **`/hyperfleet-jira:sprint-status`** - Comprehensive sprint health overview
+- **`/hyperfleet-jira:sprint-pulse-check`** - Twice-weekly nudge queue for large work items (5 SP and above)
+- **`/hyperfleet-jira:team-weekly-update`** - Weekly team progress report grouped by activity type and epic
+- **`/hyperfleet-jira:triage`** - Audit tickets for missing fields and quality issues
 
 ### Skills (Auto-Activated)
 - **jira-ticket-creator** - Creates well-structured tickets with What/Why/Acceptance Criteria, duplicate check, story points, activity type, component, parent epic, and validation gate
@@ -57,6 +58,7 @@ rm -rf "jira_${VERSION#v}_linux_x86_64" "jira_${VERSION#v}_linux_x86_64.tar.gz"
    ```bash
    export JIRA_API_TOKEN="your-api-token"
    ```
+   The collector scripts also use this token for the Jira REST API, because jira-cli does not expose the changelog. The changelog carries the exact status transition and the assignee change. Without it, movement falls back to the status category date and comments only, so an item can look older than it is.
 
 3. **Initialize jira-cli for HyperFleet:**
    ```bash
@@ -92,10 +94,12 @@ rm -rf "jira_${VERSION#v}_linux_x86_64" "jira_${VERSION#v}_linux_x86_64.tar.gz"
 
 ### Commands
 
-#### `/my-sprint`
+Commands are namespaced by plugin: invoke them as `/hyperfleet-jira:<command>`. The examples below spell the namespace out, because a command such as `/sprint-status` is common enough to collide with another installed plugin.
+
+#### `/hyperfleet-jira:my-sprint`
 Shows your current sprint at a glance:
-```
-/my-sprint
+```text
+/hyperfleet-jira:my-sprint
 ```
 Output includes:
 - Sprint name and days remaining
@@ -103,37 +107,81 @@ Output includes:
 - Story points summary
 - Blockers or high-priority items
 
-#### `/my-tasks`
+#### `/hyperfleet-jira:my-tasks`
 Lists all your assigned tickets:
-```
-/my-tasks
+```text
+/hyperfleet-jira:my-tasks
 ```
 
-#### `/new-comments`
+#### `/hyperfleet-jira:new-comments`
 Find tickets with recent comments:
-```
-/new-comments
+```text
+/hyperfleet-jira:new-comments
 ```
 
-#### `/sprint-status` (Team Leads)
+#### `/hyperfleet-jira:sprint-status` (Team Leads)
 Comprehensive sprint health report:
-```
-/sprint-status
-/sprint-status HF    # Specific project
+```text
+/hyperfleet-jira:sprint-status
+/hyperfleet-jira:sprint-status HF    # Specific project
 ```
 Output includes:
-- Progress by status and story points
-- Blockers and at-risk items
-- Team workload distribution
-- Carry-over risk assessment
+- Progress by status, by story points and by item count
+- Blocked items, highest-priority open items, and stale in-progress work
+- Team workload distribution, including unassigned work
+- Carry-over totals (items, story points, and reasons) and a capacity projection from the previous sprint's pace
+- Every ticket key as a link, in every section, including the blocker keys inside a line
+- The pull requests of the items in `Review`, read from Jira's development panel: the GitHub app's `dev-status` record for every repository, plus any link attached by hand
 
-#### `/team-weekly-update` (Team Leads)
-Weekly progress report for team updates:
+The numbers come from `scripts/sprint_status.py` (`--format json` or the rendered `--format markdown`), not from hand-written JQL: story points need `issue view --raw`, and `issue list` truncates at 100 issues without saying so.
+
+Options: `--today YYYY-MM-DD` for a reproducible run, `--sprint <id>` for another sprint, `--stale-days`, `--blocker-priority`, `--link-style markdown|slack|bare`, `--no-baseline`, `--no-prs`.
+
+The collector tests use the plugin-level runner convention:
+
+```bash
+bash hyperfleet-jira/tests/run-tests.sh
 ```
-/team-weekly-update                    # All teams in HYPERFLEET
-/team-weekly-update HYPERFLEET         # Specific project
-/team-weekly-update HYPERFLEET 6278    # Specific team
-/team-weekly-update "" 6278            # Default project with team filter
+
+The root `make test` discovers this runner automatically. It runs Python unittest
+discovery relative to the runner's directory and returns the test process's exit
+status. Set `PYTHON` to select an interpreter (default: `python3`); neither a live
+Jira connection nor credentials are required for these tests.
+
+Both collectors invoke only `jira` from your trusted `PATH`. The `--jira` option
+accepts only `jira`, not arbitrary commands or executable paths. CLI failures
+report a fixed command identifier and failure reason or exit status, never raw
+stdout/stderr, which may contain private issue data or authentication details.
+
+These rules decide what the output is worth:
+
+- **A pull request belongs to the ticket its title names**, and only to it. Jira attaches a pull request to every ticket its title mentions, so `architecture#255`, titled `HYPERFLEET-1636`, is `HYPERFLEET-1636`'s pull request and never `HYPERFLEET-1669`'s, even when the panel shows it on both. A link titled for another ticket, or for no ticket at all, is not printed on the ticket's line: the reviewer named there would open someone else's diff, and two stalls would read as one shared blocker.
+- **Ownership is per pull request, by its own title.** A ticket can own several - the same work opened in two repositories, or a follow-up after a merge - and each is listed as its own. Numbers restart in every repository, so the URL identifies the pull request: `hyperfleet-api#120` and `hyperfleet-infra#120` are two. The `+N` on a long list is a width limit, not a ranking, and the report never asks anyone which one is the real work.
+- **"No link" is not "no pull request".** The report reads Jira, not GitHub: an empty segment means no record in Jira, and the recommendation is about the link - attach the pull request, or move the ticket back. A lookup that was skipped, unavailable or failed leaves the ask neutral: an empty list from a read that did not answer is unknown, not none.
+- **An unreadable issue stays unknown.** A sprint item, blocker or link target the token cannot see is skipped instead of aborting the report, a blocker whose target cannot be read stays open with status `?`, and the Method section says how many reads failed.
+- **The state rides along when Jira reports one.** The panel has two kinds of record: the GitHub app's `dev-status` (every repository, with a state) and hand-attached remote links (no state). Both are read and deduplicated, so `PR [#181](url) (merged)` and `PR [#177](url)` stay distinguishable - one is a ticket waiting for its status, the other one waiting for a reviewer. `--no-prs` skips the lookup; a failed read is reported as a partial signal instead of a silent gap.
+
+#### `/hyperfleet-jira:sprint-pulse-check` (Team Leads)
+Nudge queue for the large items, run a couple of times per week:
+```text
+/hyperfleet-jira:sprint-pulse-check
+/hyperfleet-jira:sprint-pulse-check HF    # Specific project
+```
+Output includes:
+- Items >= 5 SP ranked by days without movement (last status change, last human comment, or assignment to the current owner)
+- The specific ask per item, pointing at the blocker or the reviewer when the delay is not the owner's
+- Assignment gap: large items with no owner, and which of them block other work
+- Concentration: owners holding more than one large item
+- The pull request of an item in `Review`, inside the ask, under the same ownership rule as `/sprint-status`
+- The reviewers the ask names, never the author: `dev-status` reports every requested reviewer, and the ask names all of them: `Ask Tirth and Rafael to approve or reject PR [#257](url)`. Naming one would decide who reviews, and naming the assignee would point at the person who wrote the diff. The author, a reviewer who already approved and Jira's `User ` placeholder are dropped; a hand-attached link with no reviewer list falls back to `Ask a reviewer` instead of guessing.
+
+#### `/hyperfleet-jira:team-weekly-update` (Team Leads)
+Weekly progress report for team updates:
+```text
+/hyperfleet-jira:team-weekly-update                    # All teams in HYPERFLEET
+/hyperfleet-jira:team-weekly-update HYPERFLEET         # Specific project
+/hyperfleet-jira:team-weekly-update HYPERFLEET 6278    # Specific team
+/hyperfleet-jira:team-weekly-update "" 6278            # Default project with team filter
 ```
 Output includes:
 - Closed issues from the last 7 days (Story, Task, Bug)
@@ -142,11 +190,11 @@ Output includes:
 - Epic status tracking
 - Issues without parent epics highlighted
 
-#### `/triage` (Team Leads)
+#### `/hyperfleet-jira:triage` (Team Leads)
 Audit tickets for quality:
-```
-/triage
-/triage backlog    # Check backlog instead of sprint
+```text
+/hyperfleet-jira:triage
+/hyperfleet-jira:triage backlog    # Check backlog instead of sprint
 ```
 Checks for:
 - Missing story points
@@ -191,12 +239,11 @@ The estimator analyzes:
 - Team velocity patterns
 
 #### Ticket Implementation Validation
-Check if a ticket's requirements are implemented:
+A skill, so it is triggered by asking rather than by a slash command:
+```text
+Is HYPERFLEET-123 implemented?
+Is HYPERFLEET-123 implemented in the remote repo?   # infers the repo from the ticket
 ```
-/is-ticket-implemented HYPERFLEET-123          # local codebase
-/is-ticket-implemented HYPERFLEET-123 github   # remote (infers repo from ticket)
-```
-Or ask naturally: "Is HYPERFLEET-123 implemented?" / "Check if this ticket is done"
 
 Generates an acceptance report with:
 - Completion percentage

@@ -30,7 +30,7 @@ Before making any changes:
 | Plugin | Skills | Commands | Agents | Hooks | Version |
 |--------|:------:|:--------:|:------:|:-----:|---------|
 | `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | - | 0.8.1 |
-| `hyperfleet-jira` | 4 | 6 | - | - | 0.7.0 |
+| `hyperfleet-jira` | 4 | 7 | - | - | 0.8.1 |
 | `hyperfleet-architecture` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
@@ -87,6 +87,13 @@ Follow [Testing in CONTRIBUTING.md](./CONTRIBUTING.md#testing), the authoritativ
 runner contract. Every new suite MUST provide the documented `run-tests.sh`;
 new tests in an existing suite reuse its runner. Run `make test` before opening
 a PR and confirm your suite appears in the log.
+
+Rules for a change to a plugin that has a suite:
+
+- **Run the suite before opening the PR.** A red test is a review comment you wrote yourself.
+- **A script change needs one live run.** The tests stub Jira, so they prove the branches, not the report: run the collector against a real sprint and check that two runs in a row agree.
+- **A command file is a contract about script output.** A sentence in `commands/*.md` that describes what a script emits is executable prose. Change the script and the sentence in the same PR; change the sentence and read the branch it describes. This divergence has reached review twice in this repository.
+- **A docs-only change still has to be true.** Confirm the command you document exists in `commands/` (a skill is not a command) and that every flag matches the script's `argparse`.
 
 ## Boundaries
 
