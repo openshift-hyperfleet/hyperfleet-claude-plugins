@@ -99,6 +99,10 @@ classify_bump() {
 # it together with lgtm and approved, which means the human review already
 # happened and only Tide is left. That is "reviewed", not "manual": reporting
 # it as pending work sends the reader looking for something to do.
+#
+# The lgtm plugin drops lgtm whenever a new commit lands, while approved stays.
+# A PR in that window is "approved", not "manual" and not "lgtm-only": someone
+# already approved it and only the lgtm needs re-applying.
 review_policy() {
   local labels="$1"
   local has_lgtm="false" has_approved="false" has_manual="false"
@@ -115,6 +119,8 @@ review_policy() {
   elif [ "$has_lgtm" = "true" ]; then
     # Tide needs both labels, so an lgtm without approved is not done yet.
     echo "lgtm-only"
+  elif [ "$has_approved" = "true" ]; then
+    echo "approved"
   elif [ "$has_manual" = "true" ]; then
     echo "manual"
   else

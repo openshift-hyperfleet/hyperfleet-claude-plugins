@@ -57,15 +57,20 @@ Dependency updates arrive from two mutually exclusive automation platforms. `col
 
 The shared preset (`openshift-hyperfleet/renovate-config`) labels every bot PR it opens. Those labels are authoritative — they encode the policy the team agreed on, so this skill must never upgrade a `manual-review-required` PR to an automatic `/lgtm`.
 
+Evaluated top to bottom; the first row that matches wins.
+
 | Labels | Policy | Meaning |
 |--------|--------|---------|
-| `lgtm` + `approved` + `ok-to-test` | auto-approved | The preset approved the update; Tide merges once CI is green |
 | `lgtm` + `approved` + `manual-review-required` | reviewed | A human reviewed it; only Tide is left |
-| `manual-review-required` + `ok-to-test` | manual | A human must review it first |
-| `lgtm` without `approved` | lgtm-only | Tide needs both labels, so approval is still outstanding |
+| `lgtm` + `approved` | auto-approved | The preset approved the update; Tide merges once CI is green |
+| `approved` without `lgtm` | approved | The lgtm plugin drops lgtm on every new commit; approval survives, the lgtm does not |
+| `lgtm` without `approved` | lgtm-only | Review already happened; approval is the only thing missing |
+| `manual-review-required` | manual | A human must review it first |
 | `ok-to-test` only | unlabeled | The preset has no rule for this update (for example a `[SECURITY]` bump); fall back to the bump type |
 
-`ok-to-test` is Prow's gate for running CI on a bot PR. A bot PR without it will not get a `tide` result.
+A PR carrying `manual-review-required` and `lgtm` but not `approved` reports as `lgtm-only`, not `manual`: the review the label asks for already happened, and what is missing is approval, which this skill never grants. `approved` covers the same window after a push dropped the lgtm.
+
+`ok-to-test` is Prow's gate for running CI on a bot PR. A bot PR without it will not get a `tide` result, so a `reviewed` or `auto-approved` PR that is missing it will never merge on its own.
 
 `manual-review-required` is not removed when a human approves, so it can sit next to `lgtm` and `approved`. That combination means the review already happened: report it as `reviewed`, never as pending work, and never act on it.
 
@@ -94,11 +99,12 @@ Rules are evaluated top to bottom; the first match wins.
 
 | Condition | Action |
 |-----------|--------|
+| Missing `ok-to-test` | Report as a CI blocker, no action — Prow will not run CI, so `tide` never reports, not even for a `reviewed` or `auto-approved` PR |
 | Policy is `reviewed` (`manual-review-required` with `lgtm` and `approved`) | Skip — a human reviewed it, only Tide is left |
 | Policy is `auto-approved` (`lgtm` and `approved`) | Skip — the preset approved it; Tide merges when CI is green |
 | Policy is `lgtm-only` | Report — `lgtm` is present but `approved` is still missing; this skill cannot approve |
+| Policy is `approved` (`approved` without `lgtm`) | Report — the lgtm was dropped on the last commit; it must be re-applied before Tide merges, and this skill does not re-apply it |
 | Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm` |
-| Missing `ok-to-test` | Report, no action (Prow will not run CI, so `tide` will never report) |
 | Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, or `unknown` | Human review — do not rebase either |
 | Conflicting | Mark rebase checkbox |
 | CI failed, CI pending, or CI unknown | Report, no action |
@@ -158,11 +164,13 @@ Display a header per repo group, then a table with all PRs:
 
 The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. **Action** is the proposed action from the rules above. If `schedule` is `unknown`, omit the new PRs part; if it is `preset-unreadable`, show `New PRs: schedule unavailable (shared preset could not be read)` so the gap is visible. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
 
+When `has_ok_to_test` is `false`, the Action must lead with the CI blocker (`Prow will not run CI — ok-to-test missing`), even for a `reviewed` or `auto-approved` PR: without the label Prow never runs the tests, so Tide never reports and the PR cannot merge on its own.
+
 Use colored circle emoji in status columns for visual scanning:
 
 | Column | Values |
 |--------|--------|
-| Policy | 🟢 auto-approved, ✅ reviewed, 🔍 manual, 🟡 lgtm-only, ❔ unlabeled |
+| Policy | 🟢 auto-approved, ✅ reviewed, 🔵 approved, 🔍 manual, 🟡 lgtm-only, ❔ unlabeled |
 | CI | 🟢 green, 🔴 failed, 🟡 pending, ⚪ none, 🟡 unknown |
 | Mergeable | 🟢 mergeable, 🔴 conflicting, 🟡 unknown |
 | LGTM | 🟢 yes, ⚪ no |
@@ -214,6 +222,7 @@ After executing, show a summary:
 - Z PRs flagged manual-review-required by the preset
 - Y PRs with lgtm but no approved
 - R PRs reviewed by a human, awaiting Tide
+- A PRs approved but missing lgtm after a new commit
 - W major bump PRs need human review
 - V security PRs need human review
 - U PRs with CI failures

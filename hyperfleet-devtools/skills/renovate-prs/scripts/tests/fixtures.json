@@ -137,8 +137,18 @@
       "expected": "lgtm-only"
     },
     {
-      "name": "manual-review-required alone",
+      "name": "approved manual PR whose lgtm was dropped by a push",
       "labels": "manual-review-required,ok-to-test,approved",
+      "expected": "approved"
+    },
+    {
+      "name": "approved auto PR whose lgtm was dropped by a push",
+      "labels": "approved,ok-to-test,area/api",
+      "expected": "approved"
+    },
+    {
+      "name": "manual-review-required alone",
+      "labels": "manual-review-required,ok-to-test",
       "expected": "manual"
     }
   ],
