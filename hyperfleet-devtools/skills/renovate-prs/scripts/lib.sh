@@ -12,8 +12,6 @@
 # MintMaker only scans repositories that have a Konflux Component, so the
 # repositories without one are onboarded to the hosted Renovate app instead.
 # The two are mutually exclusive per repository; see the architecture ADR.
-# shellcheck disable=SC2034  # consumed by collect-data.sh
-MINTMAKER_AUTHOR_PREFIX="app/red-hat-konflux"
 RENOVATE_AUTHOR_PREFIX="app/renovate"
 BOT_AUTHOR_REGEX='^app/(red-hat-konflux|renovate)'
 
@@ -21,6 +19,7 @@ BOT_AUTHOR_REGEX='^app/(red-hat-konflux|renovate)'
 PRESET_NAME="github>openshift-hyperfleet/renovate-config"
 # shellcheck disable=SC2034  # consumed by collect-data.sh
 PRESET_REPO="openshift-hyperfleet/renovate-config"
+# shellcheck disable=SC2034  # consumed by collect-data.sh
 PRESET_FILE="default.json"
 
 # True when the login belongs to a dependency bot, so the collector ignores
@@ -67,15 +66,16 @@ classify_bump() {
     echo "references"
   elif [[ "$branch" == *"major-"* ]] || echo "$title" | grep -qiE 'to v[0-9]+$'; then
     echo "major"
+  elif echo "$title" | grep -qiE 'to v?0\.[0-9]'; then
+    # The preset sends every 0.x update to a human, whatever the update type
+    # and whatever the ecosystem: gomod, and the trusted Docker images too.
+    # Keep those out of the classes the fallback may auto-lgtm, in case the
+    # preset label never arrived.
+    echo "0.x"
   elif [[ "$branch" == *"-digest"* ]] || echo "$title" | grep -qi "digest"; then
     echo "digest"
   elif [[ "$branch" == *"docker-image"* ]] || echo "$title" | grep -qiE "docker (image|tag)"; then
     echo "docker"
-  elif echo "$title" | grep -qiE 'to v?0\.[0-9]'; then
-    # The preset sends every 0.x Go update to a human, whatever the update
-    # type. Keep those out of the classes the fallback may auto-lgtm, in case
-    # the preset label never arrived.
-    echo "0.x"
   elif [[ "$branch" == *"minorpatch"* ]] \
     || [[ "$branch" == *"minor-patch"* ]] \
     || [[ "$branch" == *"non-major"* ]] \
@@ -83,10 +83,9 @@ classify_bump() {
     || echo "$title" | grep -qiE "minor/patch|non-major|monorepo"; then
     echo "minor/patch"
   else
-    # Renovate names grouped branches after the target series (for example
-    # renovate/golang.org-x-oauth2-0.x) and the new major version cannot be
-    # derived from that name. The policy labels, not this value, decide the
-    # action for those PRs.
+    # Renovate names grouped branches after the target series and the title
+    # carries no target version, so nothing above can classify the update.
+    # The policy labels, not this value, decide the action for those PRs.
     echo "unknown"
   fi
 }

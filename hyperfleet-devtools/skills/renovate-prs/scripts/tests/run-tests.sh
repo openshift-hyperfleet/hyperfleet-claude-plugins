@@ -9,6 +9,15 @@ FIXTURES="$SCRIPT_DIR/fixtures.json"
 # shellcheck disable=SC1091  # resolved at runtime
 source "$SCRIPTS_DIR/lib.sh"
 
+# A jq failure inside a process substitution never reaches set -e, so a
+# missing array would silently skip its section and leave the suite green.
+# Fail loudly on a fixture file that no longer has the expected shape.
+if ! jq -e '.bump_cases and .policy_cases and .author_cases and .schedule_cases and .preset' \
+  "$FIXTURES" >/dev/null 2>&1; then
+  echo "ERROR: $FIXTURES is missing one of the expected keys (bump_cases, policy_cases, author_cases, schedule_cases, preset)" >&2
+  exit 1
+fi
+
 PASS=0
 FAIL=0
 

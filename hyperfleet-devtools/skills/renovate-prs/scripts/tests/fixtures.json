@@ -100,16 +100,22 @@
       "expected": "0.x"
     },
     {
-      "name": "docker image at 0.x stays docker",
+      "name": "trusted docker image at 0.x needs human review",
       "branch": "renovate/leaktk-leaktk-docker-image-0.x",
       "title": "Update docker image leaktk/leaktk to v0.4.1",
-      "expected": "docker"
+      "expected": "0.x"
     },
     {
       "name": "0.x gomod minor update is not a safe bump",
       "branch": "renovate/google-golang-org-api-0.x",
       "title": "Update module google.golang.org/api to v0.311.0",
       "expected": "0.x"
+    },
+    {
+      "name": "docker image at 1.x stays docker",
+      "branch": "renovate/leaktk-leaktk-docker-image-1.x",
+      "title": "Update docker image leaktk/leaktk to v1.2.0",
+      "expected": "docker"
     }
   ],
   "policy_cases": [

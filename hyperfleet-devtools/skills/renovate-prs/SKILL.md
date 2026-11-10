@@ -86,13 +86,13 @@ Classification is derived from branch name and PR title. It is used for display 
 | Title contains `konflux references major` | `major` |
 | Branch contains `references/` or title contains `konflux references` | `references` |
 | Branch contains `major-` or title matches `to vN` | `major` |
+| Title targets a 0.x version (`to v0.x`) | `0.x` |
 | Branch contains `-digest` or title contains `digest` | `digest` |
 | Branch contains `docker-image` or title contains `docker image`/`Docker tag` | `docker` |
-| Title targets a 0.x version (`to v0.x`) | `0.x` |
-| Branch or title contains `minorpatch`, `minor-patch`, `non-major`, or `monorepo`, or title contains `minor/patch` | `minor/patch` |
+| Branch contains `minorpatch`, `minor-patch`, `non-major`, or `monorepo`; title contains `minor/patch`, `non-major`, or `monorepo` | `minor/patch` |
 | None of the above | `unknown` |
 
-`0.x` marks an update inside a 0.x series, such as `Update module google.golang.org/api to v0.311.0` or `Update kubernetes monorepo to v0.37.2`. The shared preset requires human review for every 0.x Go update, so this class never reaches the auto-lgtm fallback even when the preset label never arrived. A docker image or digest at 0.x keeps its own class, because the preset rule only covers Go modules.
+`0.x` marks an update inside a 0.x series, such as `Update module google.golang.org/api to v0.311.0`, `Update kubernetes monorepo to v0.37.2`, or a trusted Docker image moving from `v0.3.1` to `v0.4.0`. The shared preset requires human review for every 0.x update — the gomod rules and the trusted Docker image rules both — so this class is checked before `digest` and `docker` and never reaches the auto-lgtm fallback, even when the preset label never arrived.
 
 `unknown` is expected for series branches whose title carries no target version, for example a grouped branch that Renovate names after the target series. Let the policy labels decide instead of guessing.
 
@@ -118,7 +118,7 @@ Rules are evaluated top to bottom; the first match wins.
 
 `Conflicting` is evaluated above the approval policies on purpose. Every PR the preset labels carries one of `reviewed`, `auto-approved`, `lgtm-only`, `approved`, or `manual`, so a policy row placed first would swallow a conflicting PR and leave its `<!-- rebase-check -->` box unmarked — while re-applying the lgtm it recommends changes nothing, because a conflicting PR cannot merge.
 
-Two cases stay above `Conflicting` and never get a rebase from this skill: an unlabeled `major`, `security`, `pre-commit`, or `unknown` bump, and any `manual` PR. Those are the PRs a human owns; the report names the conflict, and the reviewer decides whether to rebase.
+Three cases stay above `Conflicting` and never get a rebase from this skill: an unlabeled `major`, `security`, `pre-commit`, `0.x`, or `unknown` bump, and any `manual` PR. Those are the PRs a human owns; the report names the conflict, and the reviewer decides whether to rebase.
 
 Order the work **rebase first, lgtm second**. Marking the checkbox pushes a commit to the PR branch, and the lgtm plugin drops `lgtm` on every new commit while `approved` survives. So:
 
@@ -263,9 +263,9 @@ gh pr edit <number> --repo <full_repo> --body-file - <<<"$updated"
 
 The snippet stops on the first error so a bad body is never written. Inside a per-PR loop, use `continue` instead of `exit 1` to skip that PR and keep going.
 
-#### Major and security PRs
+#### Unlabeled major, security, 0.x, and pre-commit PRs
 
-Do NOT take any action. Just list them in the summary as "Requires human review".
+Do NOT take any action on a PR in one of these classes that has no policy label. Just list it in the summary as "Requires human review". A labeled PR is governed by its policy row: a `reviewed` or `approved` major PR that conflicts is rebased like any other, because the human review the label asks for already happened.
 
 ### Step 6 — Summary report
 
