@@ -51,7 +51,7 @@ collect_repo() {
   IFS=$'\t' read -r schedule schedule_timezone <<<"$(schedule_of "$config" "$preset")"
 
   local prs
-  if ! prs=$(gh pr list --repo "$repo" --state open --limit 100 --json number,title,headRefName,mergeable,labels,statusCheckRollup,author,url \
+  if ! prs=$(gh pr list --repo "$repo" --state open --limit 100 --json number,title,headRefName,headRefOid,mergeable,labels,statusCheckRollup,author,url \
     --jq "[.[] | select(.author.login | test(\"$BOT_AUTHOR_REGEX\"))]" 2>"$errfile"); then
     echo "ERROR: gh pr list failed for $repo: $(cat "$errfile")" >&2
     rm -f "$errfile"
@@ -67,7 +67,7 @@ collect_repo() {
   fi
 
   echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
-    local number title branch mergeable url author
+    local number title branch mergeable url author head_sha
     number=$(echo "$pr" | jq -r '.number')
     title=$(echo "$pr" | jq -r '.title')
     branch=$(echo "$pr" | jq -r '.headRefName')
@@ -77,6 +77,7 @@ collect_repo() {
       mergeable=$(gh pr view "$number" --repo "$repo" --json mergeable --jq '.mergeable' 2>/dev/null) || mergeable="UNKNOWN"
     fi
     url=$(echo "$pr" | jq -r '.url')
+    head_sha=$(echo "$pr" | jq -r '.headRefOid')
 
     local labels
     labels=$(echo "$pr" | jq -r '[.labels[].name] | join(",")')
@@ -129,7 +130,8 @@ collect_repo() {
       --arg schedule "$schedule" \
       --arg schedule_timezone "$schedule_timezone" \
       --arg last_bot_commit "$last_bot_commit" \
-      '{repo: $repo, full_repo: $full_repo, number: $number, title: $title, branch: $branch, url: $url, author: $author, platform: $platform, bump_type: $bump_type, policy: $policy, ci_state: $ci_state, mergeable: $mergeable, has_lgtm: $has_lgtm, has_approved: $has_approved, has_ok_to_test: $has_ok_to_test, needs_rebase: $needs_rebase, conflicting: $conflicting, schedule: $schedule, schedule_timezone: $schedule_timezone, last_bot_commit: $last_bot_commit}'
+      --arg head_sha "$head_sha" \
+      '{repo: $repo, full_repo: $full_repo, number: $number, title: $title, branch: $branch, url: $url, author: $author, platform: $platform, bump_type: $bump_type, policy: $policy, ci_state: $ci_state, mergeable: $mergeable, has_lgtm: $has_lgtm, has_approved: $has_approved, has_ok_to_test: $has_ok_to_test, needs_rebase: $needs_rebase, conflicting: $conflicting, schedule: $schedule, schedule_timezone: $schedule_timezone, last_bot_commit: $last_bot_commit, head_sha: $head_sha}'
   done
 }
 

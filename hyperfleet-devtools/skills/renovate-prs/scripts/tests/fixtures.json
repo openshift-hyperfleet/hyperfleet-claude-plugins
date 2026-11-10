@@ -91,13 +91,25 @@
       "name": "MintMaker kubernetes monorepo group",
       "branch": "konflux/mintmaker/main/kubernetes-monorepo",
       "title": "Update kubernetes monorepo to v0.37.2",
-      "expected": "minor/patch"
+      "expected": "0.x"
     },
     {
       "name": "series branch without update type",
       "branch": "renovate/golang.org-x-oauth2-0.x",
       "title": "Update module golang.org/x/oauth2 to v0.38.0",
-      "expected": "unknown"
+      "expected": "0.x"
+    },
+    {
+      "name": "docker image at 0.x stays docker",
+      "branch": "renovate/leaktk-leaktk-docker-image-0.x",
+      "title": "Update docker image leaktk/leaktk to v0.4.1",
+      "expected": "docker"
+    },
+    {
+      "name": "0.x gomod minor update is not a safe bump",
+      "branch": "renovate/google-golang-org-api-0.x",
+      "title": "Update module google.golang.org/api to v0.311.0",
+      "expected": "0.x"
     }
   ],
   "policy_cases": [

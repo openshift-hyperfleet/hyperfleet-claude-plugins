@@ -223,8 +223,8 @@ Manages open Renovate/MintMaker dependency update PRs across HyperFleet repos.
 - Covers both automation platforms: MintMaker (`app/red-hat-konflux-*`, repositories with a Konflux Component) and the hosted Renovate app (`app/renovate`, the rest)
 - Resolves the effective schedule from the repo's `renovate.json` or, when it only extends the shared preset, from `openshift-hyperfleet/renovate-config`
 - Honors the preset review labels: `manual-review-required` is never auto-lgtm'd, `lgtm`+`approved` means the update is already approved, and a manual PR that a human already approved is reported as `reviewed` instead of pending
-- Classifies bump type (major/minor-patch/digest/docker/references/security/pre-commit)
-- Auto-applies `/lgtm` only for unlabeled safe bumps (minor/patch/digest/docker/references) when CI is green and the PR has `ok-to-test`
+- Classifies bump type (major/minor-patch/0.x/digest/docker/references/security/pre-commit)
+- Auto-applies `/lgtm` only for unlabeled safe bumps (minor/patch/digest/docker/references) when CI is green and the PR has `ok-to-test`, after re-reading the PR so a label or a new commit cannot be missed
 - Flags major and security bumps for human review
 - Marks rebase checkbox on PRs with merge conflicts, before any lgtm, because a rebase drops the lgtm
 - Shows summary of all actions taken

@@ -88,10 +88,13 @@ Classification is derived from branch name and PR title. It is used for display 
 | Branch contains `major-` or title matches `to vN` | `major` |
 | Branch contains `-digest` or title contains `digest` | `digest` |
 | Branch contains `docker-image` or title contains `docker image`/`Docker tag` | `docker` |
+| Title targets a 0.x version (`to v0.x`) | `0.x` |
 | Branch or title contains `minorpatch`, `minor-patch`, `non-major`, or `monorepo`, or title contains `minor/patch` | `minor/patch` |
 | None of the above | `unknown` |
 
-`unknown` is expected for series branches such as `renovate/golang.org-x-oauth2-0.x`: the target series names the new major version, not the update type. Let the policy labels decide instead of guessing.
+`0.x` marks an update inside a 0.x series, such as `Update module google.golang.org/api to v0.311.0` or `Update kubernetes monorepo to v0.37.2`. The shared preset requires human review for every 0.x Go update, so this class never reaches the auto-lgtm fallback even when the preset label never arrived. A docker image or digest at 0.x keeps its own class, because the preset rule only covers Go modules.
+
+`unknown` is expected for series branches whose title carries no target version, for example a grouped branch that Renovate names after the target series. Let the policy labels decide instead of guessing.
 
 ## Action Rules
 
@@ -99,14 +102,14 @@ Rules are evaluated top to bottom; the first match wins.
 
 | Condition | Action |
 |-----------|--------|
-| Missing `ok-to-test` | Report as a CI blocker, no action — Prow will not run CI, so `tide` never reports, not even for a `reviewed` or `auto-approved` PR |
-| Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, or `unknown` | Human review — do not rebase either |
+| Missing `ok-to-test` **and** CI has not passed | Report as a CI blocker, no action — without the label Prow may never start the tests, so `tide` never reports. If CI already passed, the label is not blocking anything: report the missing label without calling it a blocker |
+| Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, `0.x`, or `unknown` | Human review — do not rebase either |
 | Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm`; if it is also conflicting, say the rebase is needed and leave both to the reviewer |
 | Conflicting | Mark rebase checkbox, then re-apply the lgtm once the rebase lands (see below) |
 | Policy is `reviewed` (`manual-review-required` with `lgtm` and `approved`) | Skip — a human reviewed it, only Tide is left |
 | Policy is `auto-approved` (`lgtm` and `approved`) | Skip — the preset approved it; Tide merges when CI is green |
 | Policy is `lgtm-only` | Report — `lgtm` is present but `approved` is still missing; this skill cannot approve |
-| Policy is `approved` (`approved` without `lgtm`) | Report — the lgtm was dropped on the last commit and must be re-applied before Tide merges. This skill does not re-apply it: `approved` alone cannot tell a preset approval from a human one, and re-lgtm'ing would sign off on content nobody read |
+| Policy is `approved` (`approved` without `lgtm`) | Report — the lgtm was dropped on the last commit and must be re-applied before Tide merges. This skill does not re-apply it: `approved` alone cannot tell a preset approval from a human one, and re-lgtm'ing would sign off on content nobody read. When the PR also carries `manual-review-required`, say so: the new commit needs a fresh human review before the lgtm goes back, not just the label |
 | CI failed, CI pending, or CI unknown | Report, no action |
 | Mergeable unknown | Report, no action (GitHub still computing) |
 | Policy is `unlabeled`, bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
@@ -202,6 +205,16 @@ If the user declines, stop.
 
 For each PR with a proposed action, execute in order: rebases first, then lgtms. Never act on a PR whose policy is `manual`: list it as "Requires human review" instead.
 
+#### Revalidate before every write
+
+The report comes from a snapshot, and a bot can push or a human can label the PR between the confirmation and the write. Immediately before each `/lgtm` or rebase, re-read the PR and abort that PR if anything moved:
+
+```bash
+gh pr view <number> --repo <full_repo> --json headRefOid,labels,mergeable,statusCheckRollup
+```
+
+Abort when `headRefOid` differs from the `head_sha` of the collected data, a policy label appeared or disappeared, `mergeable` is not `MERGEABLE`, or CI is no longer green. Report the PR as changed and let the user run the skill again: never post an action computed from a stale snapshot.
+
 #### LGTM action
 
 ```bash
@@ -240,6 +253,7 @@ After executing, show a summary:
 - Y PRs with lgtm but no approved
 - R PRs reviewed by a human, awaiting Tide
 - A PRs approved but missing lgtm after a new commit
+- Q PRs with a 0.x target need human review
 - P PRs rebased, whose lgtm must be re-applied once the rebase lands
 - W major bump PRs need human review
 - V security PRs need human review

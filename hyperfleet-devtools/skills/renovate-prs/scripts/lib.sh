@@ -71,6 +71,11 @@ classify_bump() {
     echo "digest"
   elif [[ "$branch" == *"docker-image"* ]] || echo "$title" | grep -qiE "docker (image|tag)"; then
     echo "docker"
+  elif echo "$title" | grep -qiE 'to v?0\.[0-9]'; then
+    # The preset sends every 0.x Go update to a human, whatever the update
+    # type. Keep those out of the classes the fallback may auto-lgtm, in case
+    # the preset label never arrived.
+    echo "0.x"
   elif [[ "$branch" == *"minorpatch"* ]] \
     || [[ "$branch" == *"minor-patch"* ]] \
     || [[ "$branch" == *"non-major"* ]] \
