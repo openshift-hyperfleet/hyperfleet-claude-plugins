@@ -13,6 +13,8 @@ REPOS=(
   "openshift-hyperfleet/hyperfleet-sentinel"
   "openshift-hyperfleet/hyperfleet-adapter"
   "openshift-hyperfleet/hyperfleet-api"
+  "openshift-hyperfleet/hyperfleet-applier"
+  "openshift-hyperfleet/hyperfleet-operator"
   "openshift-hyperfleet/hyperfleet-broker"
   "openshift-hyperfleet/hyperfleet-e2e"
   "openshift-hyperfleet/hyperfleet-hooks"

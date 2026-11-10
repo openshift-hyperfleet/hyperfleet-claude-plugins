@@ -219,7 +219,7 @@ Manages open Renovate/MintMaker dependency update PRs across HyperFleet repos.
 **Prerequisites**: `gh` CLI authenticated, and `jq`.
 
 **What It Does**:
-- Lists all open Renovate PRs across sentinel, adapter, api, broker, e2e, hooks, logger, and credential-provider
+- Lists all open Renovate PRs across sentinel, adapter, api, applier, operator, broker, e2e, hooks, logger, and credential-provider
 - Covers both automation platforms: MintMaker (`app/red-hat-konflux-*`, repositories with a Konflux Component) and the hosted Renovate app (`app/renovate`, the rest)
 - Resolves the effective schedule from the repo's `renovate.json` or, when it only extends the shared preset, from `openshift-hyperfleet/renovate-config`
 - Honors the preset review labels: `manual-review-required` is never auto-lgtm'd, `lgtm`+`approved` means the update is already approved, and a manual PR that a human already approved is reported as `reviewed` instead of pending

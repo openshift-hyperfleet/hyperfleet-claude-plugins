@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, AskUserQuestion
 
 # Renovate PRs Manager
 
-Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, `hyperfleet-api`, `hyperfleet-broker`, `hyperfleet-e2e`, `hyperfleet-hooks`, `hyperfleet-logger`, and `hyperfleet-credential-provider`. Classifies PRs, proposes actions, and executes after user confirmation.
+Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, `hyperfleet-api`, `hyperfleet-applier`, `hyperfleet-operator`, `hyperfleet-broker`, `hyperfleet-e2e`, `hyperfleet-hooks`, `hyperfleet-logger`, and `hyperfleet-credential-provider`. Classifies PRs, proposes actions, and executes after user confirmation.
 
 ## Security
 
@@ -50,7 +50,7 @@ Dependency updates arrive from two mutually exclusive automation platforms. `col
 
 | Platform | Author | Used by | Rebase behavior |
 |----------|--------|---------|-----------------|
-| MintMaker (Konflux) | `app/red-hat-konflux-*` | Repositories with a Konflux Component: sentinel, adapter, api | Platform-level cycle, every 4 hours |
+| MintMaker (Konflux) | `app/red-hat-konflux-*` | Repositories with a Konflux Component: sentinel, adapter, api, applier, operator | Platform-level cycle, every 4 hours |
 | Renovate (hosted app) | `app/renovate` | Repositories without a Konflux Component: broker, e2e, hooks, logger, credential-provider | On demand: the rebase checkbox is handled on the next app run |
 
 ## Review policy labels
