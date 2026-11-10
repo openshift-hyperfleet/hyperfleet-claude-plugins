@@ -112,9 +112,9 @@
       "expected": "manual"
     },
     {
-      "name": "manual review wins over a human lgtm",
+      "name": "manual-review-required plus lgtm and approved is already reviewed",
       "labels": "lgtm,approved,ok-to-test,manual-review-required",
-      "expected": "manual"
+      "expected": "reviewed"
     },
     {
       "name": "no policy label yet",
@@ -130,6 +130,16 @@
       "name": "lgtm without approved is not complete approval",
       "labels": "lgtm,ok-to-test,area/api",
       "expected": "lgtm-only"
+    },
+    {
+      "name": "manual-review-required with lgtm but no approved still needs approval",
+      "labels": "manual-review-required,ok-to-test,lgtm",
+      "expected": "lgtm-only"
+    },
+    {
+      "name": "manual-review-required alone",
+      "labels": "manual-review-required,ok-to-test,approved",
+      "expected": "manual"
     }
   ],
   "author_cases": [

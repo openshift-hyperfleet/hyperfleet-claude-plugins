@@ -222,7 +222,7 @@ Manages open Renovate/MintMaker dependency update PRs across HyperFleet repos.
 - Lists all open Renovate PRs across sentinel, adapter, api, broker, e2e, hooks, logger, and credential-provider
 - Covers both automation platforms: MintMaker (`app/red-hat-konflux-*`, repositories with a Konflux Component) and the hosted Renovate app (`app/renovate`, the rest)
 - Resolves the effective schedule from the repo's `renovate.json` or, when it only extends the shared preset, from `openshift-hyperfleet/renovate-config`
-- Honors the preset review labels: `manual-review-required` is never auto-lgtm'd, `lgtm`+`approved` means the update is already approved
+- Honors the preset review labels: `manual-review-required` is never auto-lgtm'd, `lgtm`+`approved` means the update is already approved, and a manual PR that a human already approved is reported as `reviewed` instead of pending
 - Classifies bump type (major/minor-patch/digest/docker/references/security)
 - Auto-applies `/lgtm` only for unlabeled safe bumps (minor/patch/digest/docker/references) when CI is green and the PR has `ok-to-test`
 - Flags major and security bumps for human review
@@ -297,7 +297,7 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ### v0.9.0 - Current Release
 - ✅ **Renovate PR Manager**: Cover broker, e2e, hooks, logger, and credential-provider, which use the hosted Renovate app instead of MintMaker
-- ✅ **Renovate PR Manager**: Drive the review decision from the shared preset labels (`manual-review-required`, `lgtm`/`approved`) instead of guessing from branch names
+- ✅ **Renovate PR Manager**: Drive the review decision from the shared preset labels (`manual-review-required`, `lgtm`/`approved`) instead of guessing from branch names, including the `reviewed` state a manual PR reaches after a human approves it
 - ✅ **Renovate PR Manager**: Resolve the effective schedule from the shared preset for repos that only extend it, add the `security` bump type, and cover both bots' branch conventions
 - ✅ **Renovate PR Manager**: Add offline tests for the classification, policy, and schedule helpers
 

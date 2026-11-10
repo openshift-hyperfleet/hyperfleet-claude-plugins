@@ -60,11 +60,14 @@ The shared preset (`openshift-hyperfleet/renovate-config`) labels every bot PR i
 | Labels | Policy | Meaning |
 |--------|--------|---------|
 | `lgtm` + `approved` + `ok-to-test` | auto-approved | The preset approved the update; Tide merges once CI is green |
+| `lgtm` + `approved` + `manual-review-required` | reviewed | A human reviewed it; only Tide is left |
 | `manual-review-required` + `ok-to-test` | manual | A human must review it first |
 | `lgtm` without `approved` | lgtm-only | Tide needs both labels, so approval is still outstanding |
 | `ok-to-test` only | unlabeled | The preset has no rule for this update (for example a `[SECURITY]` bump); fall back to the bump type |
 
 `ok-to-test` is Prow's gate for running CI on a bot PR. A bot PR without it will not get a `tide` result.
+
+`manual-review-required` is not removed when a human approves, so it can sit next to `lgtm` and `approved`. That combination means the review already happened: report it as `reviewed`, never as pending work, and never act on it.
 
 ## Bump Type Classification
 
@@ -91,15 +94,16 @@ Rules are evaluated top to bottom; the first match wins.
 
 | Condition | Action |
 |-----------|--------|
+| Policy is `reviewed` (`manual-review-required` with `lgtm` and `approved`) | Skip — a human reviewed it, only Tide is left |
 | Policy is `auto-approved` (`lgtm` and `approved`) | Skip — the preset approved it; Tide merges when CI is green |
-| Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm` |
 | Policy is `lgtm-only` | Report — `lgtm` is present but `approved` is still missing; this skill cannot approve |
+| Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm` |
 | Missing `ok-to-test` | Report, no action (Prow will not run CI, so `tide` will never report) |
+| Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, or `unknown` | Human review — do not rebase either |
 | Conflicting | Mark rebase checkbox |
 | CI failed, CI pending, or CI unknown | Report, no action |
 | Mergeable unknown | Report, no action (GitHub still computing) |
 | Policy is `unlabeled`, bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
-| Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, or `unknown` | Human review |
 
 ## Instructions
 
@@ -158,7 +162,7 @@ Use colored circle emoji in status columns for visual scanning:
 
 | Column | Values |
 |--------|--------|
-| Policy | 🟢 auto-approved, 🔍 manual, 🟡 lgtm-only, ❔ unlabeled |
+| Policy | 🟢 auto-approved, ✅ reviewed, 🔍 manual, 🟡 lgtm-only, ❔ unlabeled |
 | CI | 🟢 green, 🔴 failed, 🟡 pending, ⚪ none, 🟡 unknown |
 | Mergeable | 🟢 mergeable, 🔴 conflicting, 🟡 unknown |
 | LGTM | 🟢 yes, ⚪ no |
@@ -209,6 +213,7 @@ After executing, show a summary:
 ### Requires Attention
 - Z PRs flagged manual-review-required by the preset
 - Y PRs with lgtm but no approved
+- R PRs reviewed by a human, awaiting Tide
 - W major bump PRs need human review
 - V security PRs need human review
 - U PRs with CI failures
