@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, AskUserQuestion
 
 # Renovate PRs Manager
 
-Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, and `hyperfleet-api`. Classifies PRs by bump type, proposes actions, and executes after user confirmation.
+Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, `hyperfleet-api`, `hyperfleet-broker`, `hyperfleet-e2e`, `hyperfleet-hooks`, `hyperfleet-logger`, and `hyperfleet-credential-provider`. Classifies PRs, proposes actions, and executes after user confirmation.
 
 ## Security
 
@@ -40,40 +40,62 @@ This skill performs write operations on GitHub PRs. Only these commands are appr
 
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `collect-data.sh` | Fetch open bot PRs from 3 repos, classify bump type, collect CI/merge status | JSON array |
+| `collect-data.sh` | Fetch open bot PRs, classify bump type and review policy, collect CI/merge status, resolve the effective schedule | JSON array |
+| `lib.sh` | Pure helpers sourced by `collect-data.sh` and the test suite | functions |
+| `tests/run-tests.sh` | Offline tests for the helpers (no network) | pass/fail |
+
+## Bots and platforms
+
+Dependency updates arrive from two mutually exclusive automation platforms. `collect-data.sh` derives the platform from the PR author, so a repository only needs to be listed once.
+
+| Platform | Author | Used by | Rebase behavior |
+|----------|--------|---------|-----------------|
+| MintMaker (Konflux) | `app/red-hat-konflux-*` | Repositories with a Konflux Component: sentinel, adapter, api | Platform-level cycle, every 4 hours |
+| Renovate (hosted app) | `app/renovate` | Repositories without a Konflux Component: broker, e2e, hooks, logger, credential-provider | On demand: the rebase checkbox is handled on the next app run |
+
+## Review policy labels
+
+The shared preset (`openshift-hyperfleet/renovate-config`) labels every bot PR it opens. Those labels are authoritative — they encode the policy the team agreed on, so this skill must never upgrade a `manual-review-required` PR to an automatic `/lgtm`.
+
+| Labels | Policy | Meaning |
+|--------|--------|---------|
+| `lgtm` + `approved` + `ok-to-test` | auto-approved | The preset approved the update; Tide merges once CI is green |
+| `manual-review-required` + `ok-to-test` | manual | A human must review it first |
+| `ok-to-test` only | unlabeled | The preset has no rule for this update (for example a `[SECURITY]` bump); fall back to the bump type |
+
+`ok-to-test` is Prow's gate for running CI on a bot PR. A bot PR without it will not get a `tide` result.
 
 ## Bump Type Classification
 
-Classification is derived from branch name and PR title:
+Classification is derived from branch name and PR title. It is used for display and as a fallback when the preset left the PR unlabeled; the policy labels decide the action.
 
 | Pattern | Bump Type |
 |---------|-----------|
-| Branch contains `major-` or title matches `to vN` (major version) | `major` |
-| Branch contains `minorpatch` or title contains `minor/patch` | `minor/patch` |
-| Branch contains `-digest` or title contains `digest` | `digest` |
-| Branch contains `docker-image` or title contains `docker image` | `docker` |
+| Branch contains `-vulnerability` or title contains `[SECURITY]` | `security` |
 | Branch contains `references/` or title contains `konflux references` | `references` |
+| Branch contains `major-` or title matches `to vN` | `major` |
+| Branch contains `-digest` or title contains `digest` | `digest` |
+| Branch contains `docker-image` or title contains `docker image`/`Docker tag` | `docker` |
+| Branch or title contains `minorpatch`, `minor-patch`, `non-major`, or `monorepo`, or title contains `minor/patch` | `minor/patch` |
 | None of the above | `unknown` |
+
+`unknown` is expected for series branches such as `renovate/golang.org-x-oauth2-0.x`: the target series names the new major version, not the update type. Let the policy labels decide instead of guessing.
 
 ## Action Rules
 
-| Bump Type | Condition | Action |
-|-----------|-----------|--------|
-| `minor/patch` | CI green + mergeable + no LGTM | `/lgtm` |
-| `minor/patch` | CI green + already has LGTM | Skip (already in progress) |
-| `digest` | CI green + mergeable + no LGTM | `/lgtm` |
-| `digest` | CI green + already has LGTM | Skip (already in progress) |
-| `docker` | CI green + mergeable + no LGTM | `/lgtm` |
-| `docker` | CI green + already has LGTM | Skip (already in progress) |
-| `references` | CI green + mergeable + no LGTM | `/lgtm` |
-| `references` | CI green + already has LGTM | Skip (already in progress) |
-| `major` | Any | Mark for human review (never auto-lgtm) |
-| `unknown` | Any | Mark for human review (classification failed) |
-| Any | Conflicting | Mark rebase checkbox |
-| Any | CI failed | Report, no action |
-| Any | CI pending | Report, no action |
-| Any | CI unknown | Report, no action |
-| Any | Mergeable unknown | Report, no action (GitHub still computing) |
+Rules are evaluated top to bottom; the first match wins.
+
+| Condition | Action |
+|-----------|--------|
+| Already has `lgtm` | Skip (already approved) |
+| Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm` |
+| Policy is `auto-approved` | Skip (the preset approved it; Tide merges when CI is green) |
+| Conflicting | Mark rebase checkbox |
+| Policy is `unlabeled` and bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
+| Policy is `unlabeled` and bump is `major`, `security`, or `unknown` | Human review |
+| CI failed, CI pending, or CI unknown | Report, no action |
+| Mergeable unknown | Report, no action (GitHub still computing) |
+| Missing `ok-to-test` | Report, no action (Prow will not run CI) |
 
 ## Instructions
 
@@ -87,37 +109,50 @@ Check dynamic context. If `gh` is not available or not authenticated, stop and i
 bash ${CLAUDE_SKILL_DIR}/scripts/collect-data.sh
 ```
 
+The script resolves the effective `schedule` per repository: its own `renovate.json` first, then the shared preset when the repository only extends it (every HyperFleet repository currently does). It also reports `schedule_timezone`.
+
 If no PRs are found, inform the user and stop.
 
 ### Step 3 — Present summary
 
-There are two distinct schedules to display per repo:
+There are three pieces of timing information to display per repo:
 
-1. **Next rebase cycle** — MintMaker processes rebase requests (checkbox) every **4 hours** (platform-level, fixed). To estimate the next cycle: find the most recent `last_bot_commit` timestamp across all PRs in the repo and add 4 hours. If that time is in the past (MintMaker may have run but produced no new commits), add another 4h until the result is in the future. Convert from UTC to local time using the timezone offset from dynamic context and display as `HH:MM <timezone>`.
-2. **New PR creation** — Renovate creates/updates PRs on the schedule defined in the repo's `renovate.json` (the `schedule` field in the collected data). Common values:
+1. **New PR creation** — the `schedule` field in the collected data, interpreted in `schedule_timezone`. Most values are cron:
 
-| Schedule string | Next run calculation |
-|-----------------|---------------------|
-| `on monday` | Next Monday (if today is Monday, show today; otherwise next Monday) |
-| `on <weekday>` | Next occurrence of that weekday |
-| `before 5am on monday` | Next Monday before 5am |
-| `every weekend` | Next Saturday |
+   | Schedule string | Next run calculation |
+   |-----------------|---------------------|
+   | `* 0-3 * * 1` | Next Monday, 00:00–03:59 |
+   | `at any time` | Created on demand, no window |
+   | `on monday` | Next Monday (if today is Monday, show today) |
+   | `on <weekday>` | Next occurrence of that weekday |
+   | `before 5am on monday` | Next Monday before 5am |
+   | `every weekend` | Next Saturday |
 
-Display both schedules as a header per repo group, then a table with all PRs:
+   Convert from the reported timezone to local time using the timezone offset from dynamic context and display as `HH:MM <timezone>`.
 
-```
+2. **Next rebase cycle** — depends on the platform:
+   - `mintmaker`: MintMaker processes rebase requests every **4 hours** (platform-level, fixed). Find the most recent `last_bot_commit` across all PRs in the repo and add 4 hours. If that time is in the past, add another 4h until the result is in the future.
+   - `renovate`: there is no fixed cycle. The checkbox rebases the PR on the next Renovate app run, so display `on demand (next Renovate run)`.
+
+3. **Security updates** — Renovate ignores the schedule for vulnerability PRs, so a `security` bump can appear outside the window.
+
+Display a header per repo group, then a table with all PRs:
+
+```text
 ### <repo>
-> Next rebase cycle: ~HH:MM <timezone> | New PRs: <schedule> (next: <weekday>, <YYYY-MM-DD>)
-
-| PR | Title | Bump | CI | Mergeable | LGTM | Action |
+> Bot: <platform> | New PRs: <schedule> (<timezone>, next: <weekday>, <YYYY-MM-DD>) | Rebase: <cycle>
 ```
 
-The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. Where **Action** is the proposed action based on the rules above. If `schedule` is `unknown`, omit the new PRs part. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
+| PR | Title | Bump | Policy | CI | Mergeable | LGTM | Action |
+|----|-------|------|--------|----|-----------|------|--------|
+
+The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. **Action** is the proposed action from the rules above. If `schedule` is `unknown`, omit the new PRs part. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
 
 Use colored circle emoji in status columns for visual scanning:
 
 | Column | Values |
 |--------|--------|
+| Policy | 🟢 auto-approved, 🔍 manual, ❔ unlabeled |
 | CI | 🟢 green, 🔴 failed, 🟡 pending, ⚪ none, 🟡 unknown |
 | Mergeable | 🟢 mergeable, 🔴 conflicting, 🟡 unknown |
 | LGTM | 🟢 yes, ⚪ no |
@@ -132,7 +167,7 @@ If the user declines, stop.
 
 ### Step 5 — Execute actions
 
-For each PR with a proposed action, execute in order:
+For each PR with a proposed action, execute in order. Never act on a PR whose policy is `manual`: list it as "Requires human review" instead.
 
 #### LGTM action
 
@@ -150,7 +185,7 @@ gh pr view <number> --repo <full_repo> --json body \
   | gh pr edit <number> --repo <full_repo> --body-file -
 ```
 
-#### Major PRs
+#### Major and security PRs
 
 Do NOT take any action. Just list them in the summary as "Requires human review".
 
@@ -158,17 +193,19 @@ Do NOT take any action. Just list them in the summary as "Requires human review"
 
 After executing, show a summary:
 
-```
+```text
 ## Renovate PRs Summary
 
 ### Actions Taken
-- X PRs received /lgtm (minor/patch/digest/docker/references)
+- X PRs received /lgtm (unlabeled minor/patch/digest/docker/references with green CI)
 - Y PRs rebased (conflicts)
 
 ### Requires Attention
-- Z major bump PRs need human review
-- W PRs with CI failures
-- V PRs with pending CI
+- Z PRs flagged manual-review-required by the preset
+- W major bump PRs need human review
+- V security PRs need human review
+- U PRs with CI failures
+- T PRs with pending CI
 
 ### Details
 [table with PR as markdown link, repo, action taken, result]

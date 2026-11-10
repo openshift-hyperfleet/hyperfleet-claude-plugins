@@ -216,11 +216,16 @@ See [skills/next-ticket/SKILL.md](./skills/next-ticket/SKILL.md) for detailed do
 
 Manages open Renovate/MintMaker dependency update PRs across HyperFleet repos.
 
+**Prerequisites**: `gh` CLI authenticated, and `jq`.
+
 **What It Does**:
-- Lists all open Renovate PRs across sentinel, adapter, and api repos
-- Classifies bump type (major/minor/patch/digest/docker)
-- Auto-applies `/lgtm` for safe bumps (minor/patch/digest/docker) when CI is green
-- Flags major bumps for human review (never auto-lgtm)
+- Lists all open Renovate PRs across sentinel, adapter, api, broker, e2e, hooks, logger, and credential-provider
+- Covers both automation platforms: MintMaker (`app/red-hat-konflux-*`, repositories with a Konflux Component) and the hosted Renovate app (`app/renovate`, the rest)
+- Resolves the effective schedule from the repo's `renovate.json` or, when it only extends the shared preset, from `openshift-hyperfleet/renovate-config`
+- Honors the preset review labels: `manual-review-required` is never auto-lgtm'd, `lgtm`+`approved` means the update is already approved
+- Classifies bump type (major/minor-patch/digest/docker/references/security)
+- Auto-applies `/lgtm` only for unlabeled safe bumps (minor/patch/digest/docker) when CI is green
+- Flags major and security bumps for human review
 - Marks rebase checkbox on PRs with merge conflicts
 - Shows summary of all actions taken
 
@@ -290,7 +295,13 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.8.3 - Current Release
+### v0.9.0 - Current Release
+- ✅ **Renovate PR Manager**: Cover broker, e2e, hooks, logger, and credential-provider, which use the hosted Renovate app instead of MintMaker
+- ✅ **Renovate PR Manager**: Drive the review decision from the shared preset labels (`manual-review-required`, `lgtm`/`approved`) instead of guessing from branch names
+- ✅ **Renovate PR Manager**: Resolve the effective schedule from the shared preset for repos that only extend it, add the `security` bump type, and cover both bots' branch conventions
+- ✅ **Renovate PR Manager**: Add offline tests for the classification, policy, and schedule helpers
+
+### v0.8.3
 - ✅ **Remote Transport Alignment**: Replace Maestro-era references with the current remote delivery stack (cl-desire, Redis desire store, applier) across e2e-debug, e2e-test-design, and e2e-test-automation
 - ✅ **E2E CI Failure Debugger**: Fix setup-artifact guidance — component log filename patterns now match real Prow artifacts, with `ci-quick-reference.md` as the single source of truth
 

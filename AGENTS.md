@@ -34,7 +34,7 @@ Before making any changes:
 | `hyperfleet-architecture` | 1 | - | - | - | 0.2.0 |
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
 | `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
-| `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.8.3 |
+| `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.9.0 |
 | `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.4.1 |
 | `hyperfleet-hooks` | - | - | - | 1 | 0.2.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |
@@ -73,6 +73,9 @@ Primarily Markdown and JSON, but also includes:
   - `hyperfleet-code-review/scripts/fetch-checks.sh`
   - `hyperfleet-work-triage/skills/open-prs/scripts/collect-data.sh`
   - `hyperfleet-work-triage/skills/open-prs/scripts/tests/run-tests.sh`
+  - `hyperfleet-devtools/skills/renovate-prs/scripts/collect-data.sh`
+  - `hyperfleet-devtools/skills/renovate-prs/scripts/lib.sh`
+  - `hyperfleet-devtools/skills/renovate-prs/scripts/tests/run-tests.sh`
 - **jq scripts:** `hyperfleet-work-triage/skills/open-prs/scripts/score.jq`, `hyperfleet-work-triage/skills/open-prs/scripts/format-output.jq`
 - **CI build system:** `hyperfleet-code-review/ci/` (Dockerfile + Makefile for `quay.io/openshift-hyperfleet/ci-review` container image, built with `podman`)
 - **CSV data:** `hyperfleet-work-triage/skills/bugs-triage/references/owners.csv`
