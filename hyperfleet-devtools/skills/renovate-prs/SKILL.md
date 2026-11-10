@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, AskUserQuestion
 
 # Renovate PRs Manager
 
-Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, and `hyperfleet-api`. Classifies PRs by bump type, proposes actions, and executes after user confirmation.
+Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, `hyperfleet-api`, `hyperfleet-applier`, `hyperfleet-operator`, `hyperfleet-broker`, `hyperfleet-e2e`, `hyperfleet-hooks`, `hyperfleet-logger`, and `hyperfleet-credential-provider`. Classifies PRs, proposes actions, and executes after user confirmation.
 
 ## Security
 
@@ -40,40 +40,94 @@ This skill performs write operations on GitHub PRs. Only these commands are appr
 
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `collect-data.sh` | Fetch open bot PRs from 3 repos, classify bump type, collect CI/merge status | JSON array |
+| `collect-data.sh` | Fetch open bot PRs, classify bump type and review policy, collect CI/merge status, resolve the effective schedule | JSON array |
+| `lib.sh` | Pure helpers sourced by `collect-data.sh` and the test suite | functions |
+| `tests/run-tests.sh` | Offline tests for the helpers (no network) | pass/fail |
+
+## Bots and platforms
+
+Dependency updates arrive from two mutually exclusive automation platforms. `collect-data.sh` derives the platform from the PR author, so a repository only needs to be listed once.
+
+| Platform | Author | Used by | Rebase behavior |
+|----------|--------|---------|-----------------|
+| MintMaker (Konflux) | `app/red-hat-konflux-*` | Repositories with a Konflux Component: sentinel, adapter, api, applier, operator | Platform-level cycle, every 4 hours |
+| Renovate (hosted app) | `app/renovate` | Repositories without a Konflux Component: broker, e2e, hooks, logger, credential-provider | On demand: the rebase checkbox is handled on the next app run |
+
+## Review policy labels
+
+The shared preset (`openshift-hyperfleet/renovate-config`) labels every bot PR it opens. Those labels are authoritative — they encode the policy the team agreed on, so this skill must never upgrade a `manual-review-required` PR to an automatic `/lgtm`.
+
+Evaluated top to bottom; the first row that matches wins.
+
+| Labels | Policy | Meaning |
+|--------|--------|---------|
+| `lgtm` + `approved` + `manual-review-required` | reviewed | A human reviewed it; only Tide is left |
+| `lgtm` + `approved` | auto-approved | The preset approved the update; Tide merges once CI is green |
+| `approved` without `lgtm` | approved | The lgtm plugin drops lgtm on every new commit; approval survives, the lgtm does not |
+| `lgtm` without `approved` | lgtm-only | Review already happened; approval is the only thing missing |
+| `manual-review-required` | manual | A human must review it first |
+| `ok-to-test` only | unlabeled | The preset has no rule for this update (for example a `[SECURITY]` bump); fall back to the bump type |
+
+A PR carrying `manual-review-required` and `lgtm` but not `approved` reports as `lgtm-only`, not `manual`: the review the label asks for already happened, and what is missing is approval, which this skill never grants. `approved` covers the same window after a push dropped the lgtm.
+
+`ok-to-test` is Prow's gate for running CI on a bot PR. A bot PR without it may never start the tests, and without a test result `tide` does not report. That only blocks a PR whose CI has not passed: once the tests ran, the missing label is worth reporting but it is not what is holding the merge.
+
+`manual-review-required` is not removed when a human approves, so it can sit next to `lgtm` and `approved`. That combination means the review already happened: report it as `reviewed`, never as pending work, and never act on it.
 
 ## Bump Type Classification
 
-Classification is derived from branch name and PR title:
+Classification is derived from branch name and PR title. It is used for display and as a fallback when the preset left the PR unlabeled; the policy labels decide the action.
 
 | Pattern | Bump Type |
 |---------|-----------|
-| Branch contains `major-` or title matches `to vN` (major version) | `major` |
-| Branch contains `minorpatch` or title contains `minor/patch` | `minor/patch` |
-| Branch contains `-digest` or title contains `digest` | `digest` |
-| Branch contains `docker-image` or title contains `docker image` | `docker` |
+| Branch contains `-vulnerability` or title contains `[SECURITY]` | `security` |
+| Title contains `pre-commit` | `pre-commit` |
+| Title contains `konflux references 0.x` | `unknown` |
+| Title contains `konflux references major` | `major` |
 | Branch contains `references/` or title contains `konflux references` | `references` |
+| Branch contains `major-` or title matches `to vN` | `major` |
+| Title targets a 0.x version (`to v0.x`) | `0.x` |
+| Branch contains `-digest` or title contains `digest` | `digest` |
+| Branch contains `docker-image` or title contains `docker image`/`Docker tag` | `docker` |
+| Branch contains `minorpatch`, `minor-patch`, `non-major`, or `monorepo`; title contains `minor/patch`, `non-major`, or `monorepo` | `minor/patch` |
 | None of the above | `unknown` |
+
+`0.x` marks an update inside a 0.x series, such as `Update module google.golang.org/api to v0.311.0`, `Update kubernetes monorepo to v0.37.2`, or a trusted Docker image moving from `v0.3.1` to `v0.4.0`. The shared preset requires human review for every 0.x update — the gomod rules and the trusted Docker image rules both — so this class is checked before `digest` and `docker` and never reaches the auto-lgtm fallback, even when the preset label never arrived.
+
+`unknown` is expected for series branches whose title carries no target version, for example a grouped branch that Renovate names after the target series. Let the policy labels decide instead of guessing.
 
 ## Action Rules
 
-| Bump Type | Condition | Action |
-|-----------|-----------|--------|
-| `minor/patch` | CI green + mergeable + no LGTM | `/lgtm` |
-| `minor/patch` | CI green + already has LGTM | Skip (already in progress) |
-| `digest` | CI green + mergeable + no LGTM | `/lgtm` |
-| `digest` | CI green + already has LGTM | Skip (already in progress) |
-| `docker` | CI green + mergeable + no LGTM | `/lgtm` |
-| `docker` | CI green + already has LGTM | Skip (already in progress) |
-| `references` | CI green + mergeable + no LGTM | `/lgtm` |
-| `references` | CI green + already has LGTM | Skip (already in progress) |
-| `major` | Any | Mark for human review (never auto-lgtm) |
-| `unknown` | Any | Mark for human review (classification failed) |
-| Any | Conflicting | Mark rebase checkbox |
-| Any | CI failed | Report, no action |
-| Any | CI pending | Report, no action |
-| Any | CI unknown | Report, no action |
-| Any | Mergeable unknown | Report, no action (GitHub still computing) |
+Rules are evaluated top to bottom; the first match wins.
+
+| Condition | Action |
+|-----------|--------|
+| Missing `ok-to-test` **and** CI has not passed | Report as a CI blocker, no action — without the label Prow may never start the tests, so `tide` never reports. If CI already passed, the label is not blocking anything: report the missing label without calling it a blocker |
+| Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, `0.x`, or `unknown` | Human review — do not rebase either |
+| Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm`; if it is also conflicting, say the rebase is needed and leave both to the reviewer |
+| Conflicting | Mark rebase checkbox, then re-apply the lgtm once the rebase lands (see below) |
+| Policy is `reviewed` (`manual-review-required` with `lgtm` and `approved`) | Skip — a human reviewed it, only Tide is left |
+| Policy is `auto-approved` (`lgtm` and `approved`) | Skip — the preset approved it; Tide merges when CI is green |
+| Policy is `lgtm-only` | Report — `lgtm` is present but `approved` is still missing; this skill cannot approve |
+| Policy is `approved` (`approved` without `lgtm`) | Report — the lgtm was dropped on the last commit and must be re-applied before Tide merges. This skill does not re-apply it: `approved` alone cannot tell a preset approval from a human one, and re-lgtm'ing would sign off on content nobody read. When the PR also carries `manual-review-required`, say so: the new commit needs a fresh human review before the lgtm goes back, not just the label |
+| CI failed, CI pending, or CI unknown | Report, no action |
+| Mergeable unknown | Report, no action (GitHub still computing) |
+| Policy is `unlabeled`, bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
+
+### Conflicts and approval are independent
+
+`Conflicting` is evaluated above the approval policies on purpose. Every PR the preset labels carries one of `reviewed`, `auto-approved`, `lgtm-only`, `approved`, or `manual`, so a policy row placed first would swallow a conflicting PR and leave its `<!-- rebase-check -->` box unmarked — while re-applying the lgtm it recommends changes nothing, because a conflicting PR cannot merge.
+
+Three cases stay above `Conflicting` and never get a rebase from this skill: an unlabeled `major`, `security`, `pre-commit`, `0.x`, or `unknown` bump, and any `manual` PR. Those are the PRs a human owns; the report names the conflict, and the reviewer decides whether to rebase.
+
+Order the work **rebase first, lgtm second**. Marking the checkbox pushes a commit to the PR branch, and the lgtm plugin drops `lgtm` on every new commit while `approved` survives. So:
+
+```text
+reviewed      (lgtm + approved + manual-review-required)  --rebase-->  approved
+auto-approved (lgtm + approved)                           --rebase-->  approved
+```
+
+A `reviewed` PR that conflicts therefore loses its lgtm as soon as the rebase happens. Report both steps in the Action column (`rebase, then re-apply lgtm`): the rebase is what this skill can do, and the lgtm after it is what a human has to do.
 
 ## Instructions
 
@@ -87,37 +141,54 @@ Check dynamic context. If `gh` is not available or not authenticated, stop and i
 bash ${CLAUDE_SKILL_DIR}/scripts/collect-data.sh
 ```
 
+The script resolves the effective `schedule` per repository: its own `renovate.json` first, then the shared preset when the repository only extends it (every HyperFleet repository currently does). It also reports `schedule_timezone`.
+
+If a repository reports `schedule: preset-unreadable`, the script could not fetch the shared preset, so the window is genuinely unknown — say that explicitly in the report instead of silently omitting the schedule line. Retry after the preset is reachable; the rest of the data is still valid.
+
 If no PRs are found, inform the user and stop.
 
 ### Step 3 — Present summary
 
-There are two distinct schedules to display per repo:
+There are three pieces of timing information to display per repo:
 
-1. **Next rebase cycle** — MintMaker processes rebase requests (checkbox) every **4 hours** (platform-level, fixed). To estimate the next cycle: find the most recent `last_bot_commit` timestamp across all PRs in the repo and add 4 hours. If that time is in the past (MintMaker may have run but produced no new commits), add another 4h until the result is in the future. Convert from UTC to local time using the timezone offset from dynamic context and display as `HH:MM <timezone>`.
-2. **New PR creation** — Renovate creates/updates PRs on the schedule defined in the repo's `renovate.json` (the `schedule` field in the collected data). Common values:
+1. **New PR creation** — the `schedule` field in the collected data, interpreted in `schedule_timezone`. Most values are cron:
 
-| Schedule string | Next run calculation |
-|-----------------|---------------------|
-| `on monday` | Next Monday (if today is Monday, show today; otherwise next Monday) |
-| `on <weekday>` | Next occurrence of that weekday |
-| `before 5am on monday` | Next Monday before 5am |
-| `every weekend` | Next Saturday |
+   | Schedule string | Next run calculation |
+   |-----------------|---------------------|
+   | `* 0-3 * * 1` | Next Monday, 00:00–03:59 |
+   | `at any time` | Created on demand, no window |
+   | `on monday` | Next Monday (if today is Monday, show today) |
+   | `on <weekday>` | Next occurrence of that weekday |
+   | `before 5am on monday` | Next Monday before 5am |
+   | `every weekend` | Next Saturday |
 
-Display both schedules as a header per repo group, then a table with all PRs:
+   Convert from the reported timezone to local time using the timezone offset from dynamic context and display as `HH:MM <timezone>`.
 
-```
+2. **Next rebase cycle** — depends on the platform:
+   - `mintmaker`: MintMaker processes rebase requests every **4 hours** (platform-level, fixed). Find the most recent `last_bot_commit` across all PRs in the repo and add 4 hours. If that time is in the past, add another 4h until the result is in the future.
+   - `renovate`: there is no fixed cycle. The checkbox rebases the PR on the next Renovate app run, so display `on demand (next Renovate run)`.
+
+3. **Security updates** — Renovate ignores the schedule for vulnerability PRs, so a `security` bump can appear outside the window.
+
+Display a header per repo group, then a table with all PRs:
+
+```text
 ### <repo>
-> Next rebase cycle: ~HH:MM <timezone> | New PRs: <schedule> (next: <weekday>, <YYYY-MM-DD>)
-
-| PR | Title | Bump | CI | Mergeable | LGTM | Action |
+> Bot: <platform> | New PRs: <schedule> (<timezone>, next: <weekday>, <YYYY-MM-DD>) | Rebase: <cycle>
 ```
 
-The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. Where **Action** is the proposed action based on the rules above. If `schedule` is `unknown`, omit the new PRs part. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
+| PR | Title | Bump | Policy | CI | Mergeable | LGTM | Action |
+|----|-------|------|--------|----|-----------|------|--------|
+
+The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. **Action** is the proposed action from the rules above. If `schedule` is `unknown`, omit the new PRs part; if it is `preset-unreadable`, show `New PRs: schedule unavailable (shared preset could not be read)` so the gap is visible. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
+
+When `has_ok_to_test` is `false` **and** `ci_state` is not `green`, the Action must lead with the CI blocker (`Prow will not run CI — ok-to-test missing`), even for a `reviewed` or `auto-approved` PR: without the label Prow may never run the tests, so Tide never reports. If `ci_state` is `green`, report the missing label on its own and do not call it a blocker — the tests already ran.
 
 Use colored circle emoji in status columns for visual scanning:
 
 | Column | Values |
 |--------|--------|
+| Policy | 🟢 auto-approved, ✅ reviewed, 🔵 approved, 🔍 manual, 🟡 lgtm-only, ❔ unlabeled |
 | CI | 🟢 green, 🔴 failed, 🟡 pending, ⚪ none, 🟡 unknown |
 | Mergeable | 🟢 mergeable, 🔴 conflicting, 🟡 unknown |
 | LGTM | 🟢 yes, ⚪ no |
@@ -132,7 +203,32 @@ If the user declines, stop.
 
 ### Step 5 — Execute actions
 
-For each PR with a proposed action, execute in order:
+For each PR with a proposed action, execute in order: rebases first, then lgtms. Never act on a PR whose policy is `manual`: list it as "Requires human review" instead.
+
+#### Revalidate before every write
+
+The report comes from a snapshot, and a bot can push or a human can label the PR between the confirmation and the write. Re-read the PR immediately before each write and apply the check for that write type:
+
+```bash
+gh pr view <number> --repo <full_repo> --json headRefOid,labels,mergeable,statusCheckRollup
+```
+
+**Before `/lgtm`** — abort the PR when any of these changed since collection:
+
+- `headRefOid` differs from the `head_sha` of the collected data
+- a label appeared or disappeared, in particular `manual-review-required`
+- `mergeable` is not `MERGEABLE`
+- CI is no longer green
+
+A stale `/lgtm` asserts a review of content nobody read, so every mismatch is fatal.
+
+**Before a rebase** — abort only when `headRefOid` differs from `head_sha` or the labels changed. Then:
+
+- `mergeable` is now `MERGEABLE`: skip, do not abort. Something already cleared the conflict, so the action is no longer needed.
+- CI is red or pending: proceed. A conflicting PR is usually stale, and the rebase is what fixes it; requiring green CI first inverts the causality.
+- `mergeable` is `CONFLICTING`: proceed. That is the condition the action exists for, not a reason to stop.
+
+Distinguish the two outcomes in the summary: an abort means the PR changed under the user and the skill should be re-run, a skip means the action became unnecessary.
 
 #### LGTM action
 
@@ -142,33 +238,61 @@ gh pr comment <number> --repo <full_repo> --body "/lgtm"
 
 #### Rebase action (for conflicting PRs)
 
-Fetch the current PR body, replace the rebase checkbox, and pipe via stdin to avoid shell injection from untrusted PR body content:
+A rebase pushes a commit, and the lgtm plugin drops `lgtm` on every new commit. Always rebase **before** any lgtm: a `reviewed` or `auto-approved` PR becomes `approved` after the rebase, so its lgtm has to be re-applied afterwards (by a human — this skill does not re-lgtm a labeled PR).
+
+Fetch the current PR body, verify the read and the substitution, and only then edit. Keep the body out of the shell command line: it is untrusted content.
 
 ```bash
-gh pr view <number> --repo <full_repo> --json body \
-  --jq '.body as $b | ($b | sub("- \\[ \\] <!-- rebase-check -->"; "- [x] <!-- rebase-check -->")) as $u | if $u == $b then error("rebase-check marker not found") else $u end' \
-  | gh pr edit <number> --repo <full_repo> --body-file -
+# A failed read must never reach gh pr edit: an empty --body-file would replace
+# the PR body with nothing. The pipeline used to hide that, because the exit
+# status came from gh pr edit, not from gh pr view.
+body=$(gh pr view <number> --repo <full_repo> --json body --jq '.body') || {
+  echo "ERROR: could not read the body of #<number>; nothing changed" >&2
+  exit 1
+}
+
+updated=$(jq -rn --arg body "$body" '$body as $b
+  | ($b | sub("- \\[ \\] <!-- rebase-check -->"; "- [x] <!-- rebase-check -->")) as $u
+  | if $u == $b then error("rebase-check marker not found") else $u end') || {
+  echo "ERROR: rebase-check marker not found in #<number>; nothing changed" >&2
+  exit 1
+}
+
+gh pr edit <number> --repo <full_repo> --body-file - <<<"$updated"
 ```
 
-#### Major PRs
+The snippet stops on the first error so a bad body is never written. Inside a per-PR loop, use `continue` instead of `exit 1` to skip that PR and keep going.
 
-Do NOT take any action. Just list them in the summary as "Requires human review".
+#### Unlabeled major, security, 0.x, and pre-commit PRs
+
+Do NOT take any action on a PR in one of these classes that has no policy label. Just list it in the summary as "Requires human review". A labeled PR is governed by its policy row: a `reviewed` or `approved` major PR that conflicts is rebased like any other, because the human review the label asks for already happened.
 
 ### Step 6 — Summary report
 
 After executing, show a summary:
 
-```
+```text
 ## Renovate PRs Summary
 
 ### Actions Taken
-- X PRs received /lgtm (minor/patch/digest/docker/references)
+- X PRs received /lgtm (unlabeled minor/patch/digest/docker/references with green CI, ok-to-test and mergeable)
 - Y PRs rebased (conflicts)
 
+### Skipped or Rejected
+- N PRs where the planned action became unnecessary before it ran (already mergeable)
+- M PRs whose state changed after confirmation, listed for a re-run
+
 ### Requires Attention
-- Z major bump PRs need human review
-- W PRs with CI failures
-- V PRs with pending CI
+- Z PRs flagged manual-review-required by the preset
+- B PRs with lgtm but no approved
+- R PRs reviewed by a human, awaiting Tide
+- A PRs approved but missing lgtm after a new commit
+- Q PRs with a 0.x target need human review
+- P PRs rebased, whose lgtm must be re-applied once the rebase lands
+- W major bump PRs need human review
+- V security PRs need human review
+- U PRs with CI failures
+- T PRs with pending CI
 
 ### Details
 [table with PR as markdown link, repo, action taken, result]

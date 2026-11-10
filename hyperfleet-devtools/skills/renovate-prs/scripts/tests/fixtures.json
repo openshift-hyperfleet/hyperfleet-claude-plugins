@@ -1,0 +1,223 @@
+{
+  "preset": {
+    "extends": [
+      "github>openshift-hyperfleet/renovate-config"
+    ],
+    "timezone": "UTC",
+    "schedule": [
+      "* 0-3 * * 1"
+    ]
+  },
+  "bump_cases": [
+    {
+      "name": "vulnerability branch",
+      "branch": "renovate/go-github.com-go-git-go-git-v5-vulnerability",
+      "title": "Update module github.com/go-git/go-git/v5 to v5.19.2 [SECURITY]",
+      "expected": "security"
+    },
+    {
+      "name": "security marker in title",
+      "branch": "renovate/go-go.opentelemetry.io-otel-sdk-vulnerability",
+      "title": "Update module go.opentelemetry.io/otel/sdk to v1.45.0 [SECURITY]",
+      "expected": "security"
+    },
+    {
+      "name": "pre-commit hook update",
+      "branch": "renovate/openshift-hyperfleet-hyperfleet-hooks-0.x",
+      "title": "Update pre-commit hook openshift-hyperfleet/hyperfleet-hooks to v0.3.1",
+      "expected": "pre-commit"
+    },
+    {
+      "name": "pre-commit digest title does not fall into the digest class",
+      "branch": "renovate/leaktk-leaktk-digest",
+      "title": "Update pre-commit hook leaktk/leaktk digest to 5f2ab31",
+      "expected": "pre-commit"
+    },
+    {
+      "name": "0.x Konflux references stay out of the auto-lgtm references class",
+      "branch": "konflux/references/main",
+      "title": "Update Konflux references 0.x",
+      "expected": "unknown"
+    },
+    {
+      "name": "MintMaker references branch wins over digest",
+      "branch": "konflux/references/main",
+      "title": "Update Konflux references digest",
+      "expected": "references"
+    },
+    {
+      "name": "major Konflux references group is not auto-approved",
+      "branch": "konflux/references/main",
+      "title": "Update Konflux references major",
+      "expected": "major"
+    },
+    {
+      "name": "major bump announced in the title",
+      "branch": "renovate/github.com-azure-azure-sdk-for-go-sdk-resourcemanager-containerservice-armcontainerservice-v4-9.x",
+      "title": "Update module github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4 to v9",
+      "expected": "major"
+    },
+    {
+      "name": "major bump announced in the branch",
+      "branch": "renovate/major-github.com-foo-bar",
+      "title": "Update module github.com/foo/bar to v3.0.0",
+      "expected": "major"
+    },
+    {
+      "name": "digest branch",
+      "branch": "renovate/quay.io-konflux-ci-application-service-digest",
+      "title": "Update quay.io/konflux-ci/application-service docker digest to 1a2b3c4",
+      "expected": "digest"
+    },
+    {
+      "name": "Renovate docker tag branch",
+      "branch": "renovate/third-party-docker-image-updates",
+      "title": "Update golang Docker tag to v1.27.3",
+      "expected": "docker"
+    },
+    {
+      "name": "MintMaker grouped non-major",
+      "branch": "konflux/mintmaker/main/gomod-non-major",
+      "title": "Update gomod non-major",
+      "expected": "minor/patch"
+    },
+    {
+      "name": "Renovate grouped non-major",
+      "branch": "renovate/gomod-non-major",
+      "title": "Update gomod non-major",
+      "expected": "minor/patch"
+    },
+    {
+      "name": "MintMaker kubernetes monorepo group",
+      "branch": "konflux/mintmaker/main/kubernetes-monorepo",
+      "title": "Update kubernetes monorepo to v0.37.2",
+      "expected": "0.x"
+    },
+    {
+      "name": "series branch without update type",
+      "branch": "renovate/golang.org-x-oauth2-0.x",
+      "title": "Update module golang.org/x/oauth2 to v0.38.0",
+      "expected": "0.x"
+    },
+    {
+      "name": "trusted docker image at 0.x needs human review",
+      "branch": "renovate/leaktk-leaktk-docker-image-0.x",
+      "title": "Update docker image leaktk/leaktk to v0.4.1",
+      "expected": "0.x"
+    },
+    {
+      "name": "0.x gomod minor update is not a safe bump",
+      "branch": "renovate/google-golang-org-api-0.x",
+      "title": "Update module google.golang.org/api to v0.311.0",
+      "expected": "0.x"
+    },
+    {
+      "name": "docker image at 1.x stays docker",
+      "branch": "renovate/leaktk-leaktk-docker-image-1.x",
+      "title": "Update docker image leaktk/leaktk to v1.2.0",
+      "expected": "docker"
+    }
+  ],
+  "policy_cases": [
+    {
+      "name": "preset auto-approved",
+      "labels": "lgtm,approved,ok-to-test,risk/low",
+      "expected": "auto-approved"
+    },
+    {
+      "name": "preset manual review",
+      "labels": "area/platform,ok-to-test,manual-review-required",
+      "expected": "manual"
+    },
+    {
+      "name": "manual-review-required plus lgtm and approved is already reviewed",
+      "labels": "lgtm,approved,ok-to-test,manual-review-required",
+      "expected": "reviewed"
+    },
+    {
+      "name": "no policy label yet",
+      "labels": "ok-to-test,area/api",
+      "expected": "unlabeled"
+    },
+    {
+      "name": "empty labels",
+      "labels": "",
+      "expected": "unlabeled"
+    },
+    {
+      "name": "lgtm without approved is not complete approval",
+      "labels": "lgtm,ok-to-test,area/api",
+      "expected": "lgtm-only"
+    },
+    {
+      "name": "manual-review-required with lgtm but no approved still needs approval",
+      "labels": "manual-review-required,ok-to-test,lgtm",
+      "expected": "lgtm-only"
+    },
+    {
+      "name": "approved manual PR whose lgtm was dropped by a push",
+      "labels": "manual-review-required,ok-to-test,approved",
+      "expected": "approved"
+    },
+    {
+      "name": "approved auto PR whose lgtm was dropped by a push",
+      "labels": "approved,ok-to-test,area/api",
+      "expected": "approved"
+    },
+    {
+      "name": "manual-review-required alone",
+      "labels": "manual-review-required,ok-to-test",
+      "expected": "manual"
+    }
+  ],
+  "author_cases": [
+    {
+      "login": "app/renovate",
+      "is_bot": true,
+      "platform": "renovate"
+    },
+    {
+      "login": "app/red-hat-konflux-kflux-prd-rh02",
+      "is_bot": true,
+      "platform": "mintmaker"
+    },
+    {
+      "login": "rafabene",
+      "is_bot": false,
+      "platform": "mintmaker"
+    }
+  ],
+  "schedule_cases": [
+    {
+      "name": "extends-only repository inherits the preset schedule",
+      "config": "{\"extends\":[\"github>openshift-hyperfleet/renovate-config\"]}",
+      "schedule": "* 0-3 * * 1",
+      "timezone": "UTC"
+    },
+    {
+      "name": "repository schedule override keeps the inherited timezone",
+      "config": "{\"extends\":[\"github>openshift-hyperfleet/renovate-config\"],\"schedule\":[\"at any time\"]}",
+      "schedule": "at any time",
+      "timezone": "UTC"
+    },
+    {
+      "name": "standalone config without schedule",
+      "config": "{\"automerge\":false}",
+      "schedule": "unknown",
+      "timezone": "unknown"
+    },
+    {
+      "name": "unreadable config",
+      "config": "",
+      "schedule": "unknown",
+      "timezone": "unknown"
+    },
+    {
+      "name": "extends-only repository with an unreadable preset",
+      "config": "{\"extends\":[\"github>openshift-hyperfleet/renovate-config\"]}",
+      "preset": "",
+      "schedule": "preset-unreadable",
+      "timezone": "unknown"
+    }
+  ]
+}

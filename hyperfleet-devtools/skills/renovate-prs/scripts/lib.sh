@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+# Shared helpers for collect-data.sh.
+#
+# Kept free of network calls and of $CLAUDE_* variables so the test suite can
+# source this file directly.
+
+# Bot accounts that open dependency update PRs in the HyperFleet repositories.
+#
+#   MintMaker (Konflux)  app/red-hat-konflux-kflux-prd-rh02
+#   Renovate (hosted)    app/renovate
+#
+# MintMaker only scans repositories that have a Konflux Component, so the
+# repositories without one are onboarded to the hosted Renovate app instead.
+# The two are mutually exclusive per repository; see the architecture ADR.
+RENOVATE_AUTHOR_PREFIX="app/renovate"
+BOT_AUTHOR_REGEX='^app/(red-hat-konflux|renovate)'
+
+# The shared preset holds the review policy, the schedule and the timezone.
+PRESET_NAME="github>openshift-hyperfleet/renovate-config"
+# shellcheck disable=SC2034  # consumed by collect-data.sh
+PRESET_REPO="openshift-hyperfleet/renovate-config"
+# shellcheck disable=SC2034  # consumed by collect-data.sh
+PRESET_FILE="default.json"
+
+# True when the login belongs to a dependency bot, so the collector ignores
+# human-authored dependency work.
+is_bot_author() {
+  local login="$1"
+  [[ "$login" =~ $BOT_AUTHOR_REGEX ]]
+}
+
+# Which automation platform opened the PR, derived from the bot identity.
+platform_for_author() {
+  local login="$1"
+  if [[ "$login" == "$RENOVATE_AUTHOR_PREFIX"* ]]; then
+    echo "renovate"
+  else
+    echo "mintmaker"
+  fi
+}
+
+# Best-effort bump type for display and for the unlabeled fallback. The review
+# policy labels stay authoritative whenever they are present.
+classify_bump() {
+  local branch="$1" title="$2"
+
+  # Order matters. Security wins over every other class because a vulnerability
+  # fix needs a human to confirm the advisory before it merges, whatever the
+  # version transition looks like.
+  if [[ "$branch" == *"-vulnerability"* ]] || echo "$title" | grep -qi '\[security\]'; then
+    echo "security"
+  elif echo "$title" | grep -qi "pre-commit"; then
+    # The preset sends every pre-commit update to a human. Catch it here too:
+    # a digest title would otherwise fall into the digest class and could be
+    # auto-lgtm'd when the preset label is missing.
+    echo "pre-commit"
+  elif echo "$title" | grep -qiE "konflux references 0\.x"; then
+    # 0.x Tekton references are manual-review-required by the preset; leave
+    # them unclassified so the fallback does not auto-lgtm them.
+    echo "unknown"
+  elif echo "$title" | grep -qi "konflux references major"; then
+    # The preset groups major Tekton reference bumps as "Konflux references
+    # major"; it must not fall into the auto-lgtm references class.
+    echo "major"
+  elif [[ "$branch" == *"references/"* ]] || echo "$title" | grep -qi "konflux references"; then
+    echo "references"
+  elif [[ "$branch" == *"major-"* ]] || echo "$title" | grep -qiE 'to v[0-9]+$'; then
+    echo "major"
+  elif echo "$title" | grep -qiE 'to v?0\.[0-9]'; then
+    # The preset sends every 0.x update to a human, whatever the update type
+    # and whatever the ecosystem: gomod, and the trusted Docker images too.
+    # Keep those out of the classes the fallback may auto-lgtm, in case the
+    # preset label never arrived.
+    echo "0.x"
+  elif [[ "$branch" == *"-digest"* ]] || echo "$title" | grep -qi "digest"; then
+    echo "digest"
+  elif [[ "$branch" == *"docker-image"* ]] || echo "$title" | grep -qiE "docker (image|tag)"; then
+    echo "docker"
+  elif [[ "$branch" == *"minorpatch"* ]] \
+    || [[ "$branch" == *"minor-patch"* ]] \
+    || [[ "$branch" == *"non-major"* ]] \
+    || [[ "$branch" == *"monorepo"* ]] \
+    || echo "$title" | grep -qiE "minor/patch|non-major|monorepo"; then
+    echo "minor/patch"
+  else
+    # Renovate names grouped branches after the target series and the title
+    # carries no target version, so nothing above can classify the update.
+    # The policy labels, not this value, decide the action for those PRs.
+    echo "unknown"
+  fi
+}
+
+# The shared preset labels every bot PR it opens:
+#
+#   lgtm + approved          auto-approved update, merge once CI is green
+#   manual-review-required   a human must review it first
+#   ok-to-test               Prow is allowed to run CI on the PR
+#
+# The labels are authoritative: a classification guess must never turn a
+# manual-review-required PR into an auto-lgtm one.
+#
+# manual-review-required is not removed when a human approves. A PR can carry
+# it together with lgtm and approved, which means the human review already
+# happened and only Tide is left. That is "reviewed", not "manual": reporting
+# it as pending work sends the reader looking for something to do.
+#
+# The lgtm plugin drops lgtm whenever a new commit lands, while approved stays.
+# A PR in that window is "approved", not "manual" and not "lgtm-only": someone
+# already approved it and only the lgtm needs re-applying.
+review_policy() {
+  local labels="$1"
+  local has_lgtm="false" has_approved="false" has_manual="false"
+  [[ ",$labels," == *",lgtm,"* ]] && has_lgtm="true"
+  [[ ",$labels," == *",approved,"* ]] && has_approved="true"
+  [[ ",$labels," == *",manual-review-required,"* ]] && has_manual="true"
+
+  if [ "$has_lgtm" = "true" ] && [ "$has_approved" = "true" ]; then
+    if [ "$has_manual" = "true" ]; then
+      echo "reviewed"
+    else
+      echo "auto-approved"
+    fi
+  elif [ "$has_lgtm" = "true" ]; then
+    # Tide needs both labels, so an lgtm without approved is not done yet.
+    echo "lgtm-only"
+  elif [ "$has_approved" = "true" ]; then
+    echo "approved"
+  elif [ "$has_manual" = "true" ]; then
+    echo "manual"
+  else
+    echo "unlabeled"
+  fi
+}
+
+# Read the schedule of a Renovate config, which may be a string or an array.
+json_schedule() {
+  local config="$1"
+  [ -n "$config" ] || return 0
+  jq -r 'if (.schedule // null) == null then ""
+         elif (.schedule | type) == "array" then (.schedule | join(", "))
+         else (.schedule | tostring) end' <<<"$config" 2>/dev/null || true
+}
+
+# True when the config inherits the shared HyperFleet preset.
+extends_preset() {
+  local config="$1"
+  [ -n "$config" ] || return 1
+  jq -r --arg preset "$PRESET_NAME" \
+    '[(.extends // [])] | flatten | any(. == $preset)' <<<"$config" 2>/dev/null | grep -qx true
+}
+
+# Resolve the effective schedule for a repository: its own renovate.json first,
+# then the shared preset when the repository only extends it. Prints
+# "<schedule>\t<timezone>".
+schedule_of() {
+  local config="$1" preset="$2" schedule="" timezone=""
+
+  if [ -n "$config" ]; then
+    schedule=$(json_schedule "$config")
+    timezone=$(jq -r '.timezone // ""' <<<"$config" 2>/dev/null || true)
+  fi
+
+  if extends_preset "$config"; then
+    if [ -n "$preset" ]; then
+      if [ -z "$schedule" ]; then
+        schedule=$(json_schedule "$preset")
+      fi
+      # The preset is inherited wholesale, so its timezone applies even when
+      # the repository overrides the schedule.
+      if [ -z "$timezone" ]; then
+        timezone=$(jq -r '.timezone // ""' <<<"$preset" 2>/dev/null || true)
+      fi
+    elif [ -z "$schedule" ]; then
+      # Without the preset there is no way to know the window. Report the cause
+      # instead of a generic "unknown" so the report can explain the gap.
+      schedule="preset-unreadable"
+    fi
+  fi
+
+  [ -n "$schedule" ] || schedule="unknown"
+  [ -n "$timezone" ] || timezone="unknown"
+  printf '%s\t%s\n' "$schedule" "$timezone"
+}
