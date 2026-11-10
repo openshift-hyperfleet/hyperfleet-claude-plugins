@@ -207,13 +207,28 @@ For each PR with a proposed action, execute in order: rebases first, then lgtms.
 
 #### Revalidate before every write
 
-The report comes from a snapshot, and a bot can push or a human can label the PR between the confirmation and the write. Immediately before each `/lgtm` or rebase, re-read the PR and abort that PR if anything moved:
+The report comes from a snapshot, and a bot can push or a human can label the PR between the confirmation and the write. Re-read the PR immediately before each write and apply the check for that write type:
 
 ```bash
 gh pr view <number> --repo <full_repo> --json headRefOid,labels,mergeable,statusCheckRollup
 ```
 
-Abort when `headRefOid` differs from the `head_sha` of the collected data, a policy label appeared or disappeared, `mergeable` is not `MERGEABLE`, or CI is no longer green. Report the PR as changed and let the user run the skill again: never post an action computed from a stale snapshot.
+**Before `/lgtm`** — abort the PR when any of these changed since collection:
+
+- `headRefOid` differs from the `head_sha` of the collected data
+- a label appeared or disappeared, in particular `manual-review-required`
+- `mergeable` is not `MERGEABLE`
+- CI is no longer green
+
+A stale `/lgtm` asserts a review of content nobody read, so every mismatch is fatal.
+
+**Before a rebase** — abort only when `headRefOid` differs from `head_sha` or the labels changed. Then:
+
+- `mergeable` is now `MERGEABLE`: skip, do not abort. Something already cleared the conflict, so the action is no longer needed.
+- CI is red or pending: proceed. A conflicting PR is usually stale, and the rebase is what fixes it; requiring green CI first inverts the causality.
+- `mergeable` is `CONFLICTING`: proceed. That is the condition the action exists for, not a reason to stop.
+
+Distinguish the two outcomes in the summary: an abort means the PR changed under the user and the skill should be re-run, a skip means the action became unnecessary.
 
 #### LGTM action
 
@@ -247,6 +262,10 @@ After executing, show a summary:
 ### Actions Taken
 - X PRs received /lgtm (unlabeled minor/patch/digest/docker/references with green CI, ok-to-test and mergeable)
 - Y PRs rebased (conflicts)
+
+### Skipped or Rejected
+- N PRs where the planned action became unnecessary before it ran (already mergeable)
+- M PRs whose state changed after confirmation, listed for a re-run
 
 ### Requires Attention
 - Z PRs flagged manual-review-required by the preset
