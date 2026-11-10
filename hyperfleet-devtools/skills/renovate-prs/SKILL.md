@@ -106,7 +106,7 @@ Rules are evaluated top to bottom; the first match wins.
 | Policy is `reviewed` (`manual-review-required` with `lgtm` and `approved`) | Skip — a human reviewed it, only Tide is left |
 | Policy is `auto-approved` (`lgtm` and `approved`) | Skip — the preset approved it; Tide merges when CI is green |
 | Policy is `lgtm-only` | Report — `lgtm` is present but `approved` is still missing; this skill cannot approve |
-| Policy is `approved` (`approved` without `lgtm`) | Report — the lgtm was dropped on the last commit; it must be re-applied before Tide merges, and this skill does not re-apply it |
+| Policy is `approved` (`approved` without `lgtm`) | Report — the lgtm was dropped on the last commit and must be re-applied before Tide merges. This skill does not re-apply it: `approved` alone cannot tell a preset approval from a human one, and re-lgtm'ing would sign off on content nobody read |
 | CI failed, CI pending, or CI unknown | Report, no action |
 | Mergeable unknown | Report, no action (GitHub still computing) |
 | Policy is `unlabeled`, bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
