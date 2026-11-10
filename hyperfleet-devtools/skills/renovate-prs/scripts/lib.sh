@@ -50,6 +50,15 @@ classify_bump() {
   # version transition looks like.
   if [[ "$branch" == *"-vulnerability"* ]] || echo "$title" | grep -qi '\[security\]'; then
     echo "security"
+  elif echo "$title" | grep -qi "pre-commit"; then
+    # The preset sends every pre-commit update to a human. Catch it here too:
+    # a digest title would otherwise fall into the digest class and could be
+    # auto-lgtm'd when the preset label is missing.
+    echo "pre-commit"
+  elif echo "$title" | grep -qiE "konflux references 0\.x"; then
+    # 0.x Tekton references are manual-review-required by the preset; leave
+    # them unclassified so the fallback does not auto-lgtm them.
+    echo "unknown"
   elif echo "$title" | grep -qi "konflux references major"; then
     # The preset groups major Tekton reference bumps as "Konflux references
     # major"; it must not fall into the auto-lgtm references class.
@@ -89,8 +98,11 @@ review_policy() {
   local labels="$1"
   if [[ ",$labels," == *",manual-review-required,"* ]]; then
     echo "manual"
-  elif [[ ",$labels," == *",lgtm,"* ]]; then
+  elif [[ ",$labels," == *",lgtm,"* && ",$labels," == *",approved,"* ]]; then
     echo "auto-approved"
+  elif [[ ",$labels," == *",lgtm,"* ]]; then
+    # Tide needs both labels, so an lgtm without approved is not done yet.
+    echo "lgtm-only"
   else
     echo "unlabeled"
   fi

@@ -22,6 +22,24 @@
       "expected": "security"
     },
     {
+      "name": "pre-commit hook update",
+      "branch": "renovate/openshift-hyperfleet-hyperfleet-hooks-0.x",
+      "title": "Update pre-commit hook openshift-hyperfleet/hyperfleet-hooks to v0.3.1",
+      "expected": "pre-commit"
+    },
+    {
+      "name": "pre-commit digest title does not fall into the digest class",
+      "branch": "renovate/leaktk-leaktk-digest",
+      "title": "Update pre-commit hook leaktk/leaktk digest to 5f2ab31",
+      "expected": "pre-commit"
+    },
+    {
+      "name": "0.x Konflux references stay out of the auto-lgtm references class",
+      "branch": "konflux/references/main",
+      "title": "Update Konflux references 0.x",
+      "expected": "unknown"
+    },
+    {
       "name": "MintMaker references branch wins over digest",
       "branch": "konflux/references/main",
       "title": "Update Konflux references digest",
@@ -76,12 +94,6 @@
       "expected": "minor/patch"
     },
     {
-      "name": "pre-commit hook update (series branch, no update type)",
-      "branch": "renovate/openshift-hyperfleet-hyperfleet-hooks-0.x",
-      "title": "Update pre-commit hook openshift-hyperfleet/hyperfleet-hooks to v0.3.1",
-      "expected": "unknown"
-    },
-    {
       "name": "series branch without update type",
       "branch": "renovate/golang.org-x-oauth2-0.x",
       "title": "Update module golang.org/x/oauth2 to v0.38.0",
@@ -113,6 +125,11 @@
       "name": "empty labels",
       "labels": "",
       "expected": "unlabeled"
+    },
+    {
+      "name": "lgtm without approved is not complete approval",
+      "labels": "lgtm,ok-to-test,area/api",
+      "expected": "lgtm-only"
     }
   ],
   "author_cases": [
