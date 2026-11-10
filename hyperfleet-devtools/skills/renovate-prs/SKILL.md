@@ -87,15 +87,15 @@ Rules are evaluated top to bottom; the first match wins.
 
 | Condition | Action |
 |-----------|--------|
-| Already has `lgtm` | Skip (already approved) |
+| Already has `lgtm` | Skip — no further approval needed; Tide merges when CI is green |
 | Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm` |
-| Policy is `auto-approved` | Skip (the preset approved it; Tide merges when CI is green) |
+| Policy is `auto-approved` | Skip — the preset approved it; Tide merges when CI is green |
+| Missing `ok-to-test` | Report, no action (Prow will not run CI, so `tide` will never report) |
 | Conflicting | Mark rebase checkbox |
-| Policy is `unlabeled` and bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
-| Policy is `unlabeled` and bump is `major`, `security`, or `unknown` | Human review |
 | CI failed, CI pending, or CI unknown | Report, no action |
 | Mergeable unknown | Report, no action (GitHub still computing) |
-| Missing `ok-to-test` | Report, no action (Prow will not run CI) |
+| Policy is `unlabeled`, bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
+| Policy is `unlabeled` and bump is `major`, `security`, or `unknown` | Human review |
 
 ## Instructions
 
@@ -110,6 +110,8 @@ bash ${CLAUDE_SKILL_DIR}/scripts/collect-data.sh
 ```
 
 The script resolves the effective `schedule` per repository: its own `renovate.json` first, then the shared preset when the repository only extends it (every HyperFleet repository currently does). It also reports `schedule_timezone`.
+
+If a repository reports `schedule: preset-unreadable`, the script could not fetch the shared preset, so the window is genuinely unknown — say that explicitly in the report instead of silently omitting the schedule line. Retry after the preset is reachable; the rest of the data is still valid.
 
 If no PRs are found, inform the user and stop.
 
@@ -146,7 +148,7 @@ Display a header per repo group, then a table with all PRs:
 | PR | Title | Bump | Policy | CI | Mergeable | LGTM | Action |
 |----|-------|------|--------|----|-----------|------|--------|
 
-The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. **Action** is the proposed action from the rules above. If `schedule` is `unknown`, omit the new PRs part. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
+The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. **Action** is the proposed action from the rules above. If `schedule` is `unknown`, omit the new PRs part; if it is `preset-unreadable`, show `New PRs: schedule unavailable (shared preset could not be read)` so the gap is visible. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
 
 Use colored circle emoji in status columns for visual scanning:
 

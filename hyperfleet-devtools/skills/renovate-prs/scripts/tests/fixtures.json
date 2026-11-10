@@ -1,8 +1,12 @@
 {
   "preset": {
-    "extends": ["github>openshift-hyperfleet/renovate-config"],
+    "extends": [
+      "github>openshift-hyperfleet/renovate-config"
+    ],
     "timezone": "UTC",
-    "schedule": ["* 0-3 * * 1"]
+    "schedule": [
+      "* 0-3 * * 1"
+    ]
   },
   "bump_cases": [
     {
@@ -22,6 +26,12 @@
       "branch": "konflux/references/main",
       "title": "Update Konflux references digest",
       "expected": "references"
+    },
+    {
+      "name": "major Konflux references group is not auto-approved",
+      "branch": "konflux/references/main",
+      "title": "Update Konflux references major",
+      "expected": "major"
     },
     {
       "name": "major bump announced in the title",
@@ -145,6 +155,13 @@
       "name": "unreadable config",
       "config": "",
       "schedule": "unknown",
+      "timezone": "unknown"
+    },
+    {
+      "name": "extends-only repository with an unreadable preset",
+      "config": "{\"extends\":[\"github>openshift-hyperfleet/renovate-config\"]}",
+      "preset": "",
+      "schedule": "preset-unreadable",
       "timezone": "unknown"
     }
   ]

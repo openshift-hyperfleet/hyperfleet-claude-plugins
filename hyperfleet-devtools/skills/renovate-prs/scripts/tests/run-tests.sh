@@ -12,6 +12,7 @@ source "$SCRIPTS_DIR/lib.sh"
 PASS=0
 FAIL=0
 
+# Compare two strings and record the result.
 assert_eq() {
   local label="$1" expected="$2" actual="$3"
   if [ "$expected" = "$actual" ]; then
@@ -60,9 +61,14 @@ PRESET_JSON=$(jq -c '.preset' "$FIXTURES")
 while IFS= read -r case_json; do
   name=$(echo "$case_json" | jq -r '.name')
   config=$(echo "$case_json" | jq -r '.config')
+  if echo "$case_json" | jq -e 'has("preset")' >/dev/null; then
+    preset_to_use=$(echo "$case_json" | jq -r '.preset')
+  else
+    preset_to_use="$PRESET_JSON"
+  fi
   expected_schedule=$(echo "$case_json" | jq -r '.schedule')
   expected_timezone=$(echo "$case_json" | jq -r '.timezone')
-  IFS=$'\t' read -r schedule timezone <<<"$(schedule_of "$config" "$PRESET_JSON")"
+  IFS=$'\t' read -r schedule timezone <<<"$(schedule_of "$config" "$preset_to_use")"
   assert_eq "$name: schedule" "$expected_schedule" "$schedule"
   assert_eq "$name: timezone" "$expected_timezone" "$timezone"
 done < <(jq -c '.schedule_cases[]' "$FIXTURES")

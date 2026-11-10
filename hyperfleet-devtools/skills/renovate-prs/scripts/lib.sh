@@ -23,11 +23,14 @@ PRESET_NAME="github>openshift-hyperfleet/renovate-config"
 PRESET_REPO="openshift-hyperfleet/renovate-config"
 PRESET_FILE="default.json"
 
+# True when the login belongs to a dependency bot, so the collector ignores
+# human-authored dependency work.
 is_bot_author() {
   local login="$1"
   [[ "$login" =~ $BOT_AUTHOR_REGEX ]]
 }
 
+# Which automation platform opened the PR, derived from the bot identity.
 platform_for_author() {
   local login="$1"
   if [[ "$login" == "$RENOVATE_AUTHOR_PREFIX"* ]]; then
@@ -37,6 +40,8 @@ platform_for_author() {
   fi
 }
 
+# Best-effort bump type for display and for the unlabeled fallback. The review
+# policy labels stay authoritative whenever they are present.
 classify_bump() {
   local branch="$1" title="$2"
 
@@ -45,6 +50,10 @@ classify_bump() {
   # version transition looks like.
   if [[ "$branch" == *"-vulnerability"* ]] || echo "$title" | grep -qi '\[security\]'; then
     echo "security"
+  elif echo "$title" | grep -qi "konflux references major"; then
+    # The preset groups major Tekton reference bumps as "Konflux references
+    # major"; it must not fall into the auto-lgtm references class.
+    echo "major"
   elif [[ "$branch" == *"references/"* ]] || echo "$title" | grep -qi "konflux references"; then
     echo "references"
   elif [[ "$branch" == *"major-"* ]] || echo "$title" | grep -qiE 'to v[0-9]+$'; then
@@ -87,6 +96,7 @@ review_policy() {
   fi
 }
 
+# Read the schedule of a Renovate config, which may be a string or an array.
 json_schedule() {
   local config="$1"
   [ -n "$config" ] || return 0
@@ -95,6 +105,7 @@ json_schedule() {
          else (.schedule | tostring) end' <<<"$config" 2>/dev/null || true
 }
 
+# True when the config inherits the shared HyperFleet preset.
 extends_preset() {
   local config="$1"
   [ -n "$config" ] || return 1
@@ -113,14 +124,20 @@ schedule_of() {
     timezone=$(jq -r '.timezone // ""' <<<"$config" 2>/dev/null || true)
   fi
 
-  if extends_preset "$config" && [ -n "$preset" ]; then
-    if [ -z "$schedule" ]; then
-      schedule=$(json_schedule "$preset")
-    fi
-    # The preset is inherited wholesale, so its timezone applies even when the
-    # repository overrides the schedule.
-    if [ -z "$timezone" ]; then
-      timezone=$(jq -r '.timezone // ""' <<<"$preset" 2>/dev/null || true)
+  if extends_preset "$config"; then
+    if [ -n "$preset" ]; then
+      if [ -z "$schedule" ]; then
+        schedule=$(json_schedule "$preset")
+      fi
+      # The preset is inherited wholesale, so its timezone applies even when
+      # the repository overrides the schedule.
+      if [ -z "$timezone" ]; then
+        timezone=$(jq -r '.timezone // ""' <<<"$preset" 2>/dev/null || true)
+      fi
+    elif [ -z "$schedule" ]; then
+      # Without the preset there is no way to know the window. Report the cause
+      # instead of a generic "unknown" so the report can explain the gap.
+      schedule="preset-unreadable"
     fi
   fi
 

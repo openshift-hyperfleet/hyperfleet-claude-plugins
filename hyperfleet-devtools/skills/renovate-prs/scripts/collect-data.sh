@@ -20,16 +20,19 @@ REPOS=(
   "openshift-hyperfleet/hyperfleet-credential-provider"
 )
 
+# Read the shared preset once per run. A failure is not fatal: repositories that
+# override the schedule still work, and the others report preset-unreadable.
 fetch_preset() {
   local preset
   if ! preset=$(gh api "repos/$PRESET_REPO/contents/$PRESET_FILE" --jq '.content' 2>/dev/null \
     | base64 -d); then
-    echo "WARN: could not read the shared preset at $PRESET_REPO/$PRESET_FILE" >&2
+    echo "WARN: could not read the shared preset at $PRESET_REPO/$PRESET_FILE; affected repos will report schedule=preset-unreadable" >&2
     return 0
   fi
   printf '%s' "$preset"
 }
 
+# Emit one JSON object per open bot PR in a repository.
 collect_repo() {
   local repo="$1" preset="$2"
   local short_name
