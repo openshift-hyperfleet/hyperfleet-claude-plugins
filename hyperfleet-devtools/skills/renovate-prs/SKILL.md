@@ -100,16 +100,31 @@ Rules are evaluated top to bottom; the first match wins.
 | Condition | Action |
 |-----------|--------|
 | Missing `ok-to-test` | Report as a CI blocker, no action — Prow will not run CI, so `tide` never reports, not even for a `reviewed` or `auto-approved` PR |
+| Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, or `unknown` | Human review — do not rebase either |
+| Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm`; if it is also conflicting, say the rebase is needed and leave both to the reviewer |
+| Conflicting | Mark rebase checkbox, then re-apply the lgtm once the rebase lands (see below) |
 | Policy is `reviewed` (`manual-review-required` with `lgtm` and `approved`) | Skip — a human reviewed it, only Tide is left |
 | Policy is `auto-approved` (`lgtm` and `approved`) | Skip — the preset approved it; Tide merges when CI is green |
 | Policy is `lgtm-only` | Report — `lgtm` is present but `approved` is still missing; this skill cannot approve |
 | Policy is `approved` (`approved` without `lgtm`) | Report — the lgtm was dropped on the last commit; it must be re-applied before Tide merges, and this skill does not re-apply it |
-| Policy is `manual` (`manual-review-required`) | Human review — never `/lgtm` |
-| Policy is `unlabeled` and bump is `major`, `security`, `pre-commit`, or `unknown` | Human review — do not rebase either |
-| Conflicting | Mark rebase checkbox |
 | CI failed, CI pending, or CI unknown | Report, no action |
 | Mergeable unknown | Report, no action (GitHub still computing) |
 | Policy is `unlabeled`, bump is `minor/patch`, `digest`, `docker`, or `references`, CI green and mergeable | `/lgtm` |
+
+### Conflicts and approval are independent
+
+`Conflicting` is evaluated above the approval policies on purpose. Every PR the preset labels carries one of `reviewed`, `auto-approved`, `lgtm-only`, `approved`, or `manual`, so a policy row placed first would swallow a conflicting PR and leave its `<!-- rebase-check -->` box unmarked — while re-applying the lgtm it recommends changes nothing, because a conflicting PR cannot merge.
+
+Two cases stay above `Conflicting` and never get a rebase from this skill: an unlabeled `major`, `security`, `pre-commit`, or `unknown` bump, and any `manual` PR. Those are the PRs a human owns; the report names the conflict, and the reviewer decides whether to rebase.
+
+Order the work **rebase first, lgtm second**. Marking the checkbox pushes a commit to the PR branch, and the lgtm plugin drops `lgtm` on every new commit while `approved` survives. So:
+
+```text
+reviewed      (lgtm + approved + manual-review-required)  --rebase-->  approved
+auto-approved (lgtm + approved)                           --rebase-->  approved
+```
+
+A `reviewed` PR that conflicts therefore loses its lgtm as soon as the rebase happens. Report both steps in the Action column (`rebase, then re-apply lgtm`): the rebase is what this skill can do, and the lgtm after it is what a human has to do.
 
 ## Instructions
 
@@ -185,7 +200,7 @@ If the user declines, stop.
 
 ### Step 5 — Execute actions
 
-For each PR with a proposed action, execute in order. Never act on a PR whose policy is `manual`: list it as "Requires human review" instead.
+For each PR with a proposed action, execute in order: rebases first, then lgtms. Never act on a PR whose policy is `manual`: list it as "Requires human review" instead.
 
 #### LGTM action
 
@@ -194,6 +209,8 @@ gh pr comment <number> --repo <full_repo> --body "/lgtm"
 ```
 
 #### Rebase action (for conflicting PRs)
+
+A rebase pushes a commit, and the lgtm plugin drops `lgtm` on every new commit. Always rebase **before** any lgtm: a `reviewed` or `auto-approved` PR becomes `approved` after the rebase, so its lgtm has to be re-applied afterwards (by a human — this skill does not re-lgtm a labeled PR).
 
 Fetch the current PR body, replace the rebase checkbox, and pipe via stdin to avoid shell injection from untrusted PR body content:
 
@@ -223,6 +240,7 @@ After executing, show a summary:
 - Y PRs with lgtm but no approved
 - R PRs reviewed by a human, awaiting Tide
 - A PRs approved but missing lgtm after a new commit
+- P PRs rebased, whose lgtm must be re-applied once the rebase lands
 - W major bump PRs need human review
 - V security PRs need human review
 - U PRs with CI failures
