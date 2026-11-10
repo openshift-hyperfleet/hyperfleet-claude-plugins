@@ -70,7 +70,7 @@ Evaluated top to bottom; the first row that matches wins.
 
 A PR carrying `manual-review-required` and `lgtm` but not `approved` reports as `lgtm-only`, not `manual`: the review the label asks for already happened, and what is missing is approval, which this skill never grants. `approved` covers the same window after a push dropped the lgtm.
 
-`ok-to-test` is Prow's gate for running CI on a bot PR. A bot PR without it will not get a `tide` result, so a `reviewed` or `auto-approved` PR that is missing it will never merge on its own.
+`ok-to-test` is Prow's gate for running CI on a bot PR. A bot PR without it may never start the tests, and without a test result `tide` does not report. That only blocks a PR whose CI has not passed: once the tests ran, the missing label is worth reporting but it is not what is holding the merge.
 
 `manual-review-required` is not removed when a human approves, so it can sit next to `lgtm` and `approved`. That combination means the review already happened: report it as `reviewed`, never as pending work, and never act on it.
 
@@ -182,7 +182,7 @@ Display a header per repo group, then a table with all PRs:
 
 The **PR** column must always be a markdown link: `[#number](url)` using the `url` field from the collected data. **Action** is the proposed action from the rules above. If `schedule` is `unknown`, omit the new PRs part; if it is `preset-unreadable`, show `New PRs: schedule unavailable (shared preset could not be read)` so the gap is visible. If no `last_bot_commit` is available, show `Next rebase cycle: every 4h (unknown last run)`.
 
-When `has_ok_to_test` is `false`, the Action must lead with the CI blocker (`Prow will not run CI — ok-to-test missing`), even for a `reviewed` or `auto-approved` PR: without the label Prow never runs the tests, so Tide never reports and the PR cannot merge on its own.
+When `has_ok_to_test` is `false` **and** `ci_state` is not `green`, the Action must lead with the CI blocker (`Prow will not run CI — ok-to-test missing`), even for a `reviewed` or `auto-approved` PR: without the label Prow may never run the tests, so Tide never reports. If `ci_state` is `green`, report the missing label on its own and do not call it a blocker — the tests already ran.
 
 Use colored circle emoji in status columns for visual scanning:
 
@@ -269,7 +269,7 @@ After executing, show a summary:
 
 ### Requires Attention
 - Z PRs flagged manual-review-required by the preset
-- Y PRs with lgtm but no approved
+- B PRs with lgtm but no approved
 - R PRs reviewed by a human, awaiting Tide
 - A PRs approved but missing lgtm after a new commit
 - Q PRs with a 0.x target need human review
