@@ -296,7 +296,7 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 ## Roadmap
 
 ### v0.10.0 - Current Release
-- ✅ **Renovate PR Manager**: Cover `hyperfleet-infra`, which receives MintMaker PRs without extending the shared preset, so its report shows an unknown schedule instead of a window it cannot know
+- ✅ **Renovate PR Manager**: Cover `hyperfleet-infra`, which receives MintMaker PRs and inherits the shared preset, so its report shows the Monday 00:00–03:59 window like the other repositories
 
 ### v0.9.0
 - ✅ **Renovate PR Manager**: Cover broker, e2e, hooks, logger, and credential-provider, which use the hosted Renovate app instead of MintMaker
