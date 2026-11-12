@@ -20,6 +20,7 @@ REPOS=(
   "openshift-hyperfleet/hyperfleet-hooks"
   "openshift-hyperfleet/hyperfleet-logger"
   "openshift-hyperfleet/hyperfleet-credential-provider"
+  "openshift-hyperfleet/hyperfleet-infra"
 )
 
 # Read the shared preset once per run. A failure is not fatal: repositories that

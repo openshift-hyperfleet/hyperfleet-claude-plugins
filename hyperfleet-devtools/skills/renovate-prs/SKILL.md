@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, AskUserQuestion
 
 # Renovate PRs Manager
 
-Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, `hyperfleet-api`, `hyperfleet-applier`, `hyperfleet-operator`, `hyperfleet-broker`, `hyperfleet-e2e`, `hyperfleet-hooks`, `hyperfleet-logger`, and `hyperfleet-credential-provider`. Classifies PRs, proposes actions, and executes after user confirmation.
+Manage open Renovate/MintMaker dependency update PRs across `hyperfleet-sentinel`, `hyperfleet-adapter`, `hyperfleet-api`, `hyperfleet-applier`, `hyperfleet-operator`, `hyperfleet-broker`, `hyperfleet-e2e`, `hyperfleet-hooks`, `hyperfleet-logger`, `hyperfleet-credential-provider`, and `hyperfleet-infra`. Classifies PRs, proposes actions, and executes after user confirmation.
 
 ## Security
 
