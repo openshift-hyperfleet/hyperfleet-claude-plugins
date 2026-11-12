@@ -31,10 +31,10 @@ Before making any changes:
 |--------|:------:|:--------:|:------:|:-----:|---------|
 | `hyperfleet-code-review` | 2 (`review-pr`, `review-local`) | - | - | - | 0.8.1 |
 | `hyperfleet-jira` | 4 | 7 | - | - | 0.8.1 |
-| `hyperfleet-architecture` | 1 | - | - | - | 0.2.0 |
+| `hyperfleet-architecture` | 1 | - | - | - | 0.3.0 |
 | `hyperfleet-standards` | 1 | - | - | - | 1.1.0 |
-| `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.0 |
-| `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.9.0 |
+| `hyperfleet-operational-readiness` | 1 | - | - | - | 0.2.1 |
+| `hyperfleet-devtools` | 6 (`architecture-impact`, `e2e-test-automation`, `e2e-test-design`, `e2e-debug`, `renovate-prs`, `next-ticket`) | 1 | 1 | - | 0.10.0 |
 | `hyperfleet-work-triage` | 2 (`bugs-triage`, `open-prs`) | - | - | - | 0.4.1 |
 | `hyperfleet-hooks` | - | - | - | 1 | 0.2.0 |
 | `hyperfleet-adapter-authoring` | 1 | - | - | - | N/A |

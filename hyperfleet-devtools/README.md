@@ -219,7 +219,7 @@ Manages open Renovate/MintMaker dependency update PRs across HyperFleet repos.
 **Prerequisites**: `gh` CLI authenticated, and `jq`.
 
 **What It Does**:
-- Lists all open Renovate PRs across sentinel, adapter, api, applier, operator, broker, e2e, hooks, logger, and credential-provider
+- Lists all open Renovate PRs across sentinel, adapter, api, applier, operator, broker, e2e, hooks, logger, credential-provider, and infra
 - Covers both automation platforms: MintMaker (`app/red-hat-konflux-*`, repositories with a Konflux Component) and the hosted Renovate app (`app/renovate`, the rest)
 - Resolves the effective schedule from the repo's `renovate.json` or, when it only extends the shared preset, from `openshift-hyperfleet/renovate-config`
 - Honors the preset review labels: `manual-review-required` is never auto-lgtm'd, `lgtm`+`approved` means the update is already approved, and a manual PR that a human already approved is reported as `reviewed` instead of pending
@@ -295,7 +295,10 @@ This plugin is part of the HyperFleet Claude Plugins marketplace and is automati
 
 ## Roadmap
 
-### v0.9.0 - Current Release
+### v0.10.0 - Current Release
+- ✅ **Renovate PR Manager**: Cover `hyperfleet-infra`, which receives MintMaker PRs and inherits the shared preset, so its report shows the Monday 00:00–03:59 window like the other repositories
+
+### v0.9.0
 - ✅ **Renovate PR Manager**: Cover broker, e2e, hooks, logger, and credential-provider, which use the hosted Renovate app instead of MintMaker
 - ✅ **Renovate PR Manager**: Drive the review decision from the shared preset labels (`manual-review-required`, `lgtm`/`approved`) instead of guessing from branch names, including the `reviewed` state a manual PR reaches after a human approves it
 - ✅ **Renovate PR Manager**: Resolve the effective schedule from the shared preset for repos that only extend it, add the `security` bump type, and cover both bots' branch conventions
